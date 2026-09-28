@@ -1,0 +1,54 @@
+// Admin dashboard: a private cockpit over cross-border work, health and the
+// automations (the Quest Engine, the Make syncs, healthchecks.io).
+//
+//   GET  /         the dashboard (signed in), otherwise the login page
+//   GET  /login    the login page; POST /login with the password
+//   POST /logout   signs out
+//   GET  /data     everything the page shows, as JSON (signed in)
+//
+// It only reads: Notion (Work Location Log, Workouts, Body Metrics), the
+// Quest Engine's GET /status and GET /ledger, and healthchecks.io.
+import { isSignedIn, sessionCookie, clearCookie, sameText } from './auth.js';
+import { loadDashboard } from './load.js';
+import { dashboardHtml, loginHtml } from './page.js';
+import { summaryDue, writeSummary } from './summary.js';
+export { Store } from './store.js';
+
+const PAGE_HEADERS = {
+  'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff', 'X-Robots-Tag': 'noindex'
+};
+const redirect = (to, cookie) => new Response(null, { status: 303, headers: { Location: to, ...(cookie ? { 'Set-Cookie': cookie } : {}) } });
+const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+
+export default {
+  async fetch(request, env, ctx) {
+    const { pathname, searchParams } = new URL(request.url);
+    const password = env.DASHBOARD_PASSWORD;
+    try {
+      if (pathname === '/login') {
+        if (request.method === 'POST') {
+          const form = await request.formData();
+          if (password && sameText(String(form.get('password') || '').trim(), password)) return redirect('/', await sessionCookie(password));
+          await new Promise(r => setTimeout(r, 800));
+          return new Response(loginHtml('That password is not right.'), { status: 401, headers: PAGE_HEADERS });
+        }
+        if (await isSignedIn(request, password)) return redirect('/');
+        return new Response(loginHtml(password ? '' : 'DASHBOARD_PASSWORD is not set on the Worker.'), { headers: PAGE_HEADERS });
+      }
+      if (pathname === '/logout' && request.method === 'POST') return redirect('/login', clearCookie());
+      const signedIn = await isSignedIn(request, password);
+      if (pathname === '/data') {
+        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+        const data = await loadDashboard(env, { fresh: searchParams.get('fresh') === '1' });
+        if (summaryDue(env, data)) ctx.waitUntil(writeSummary(env, data).catch(e => console.error('summary', e && e.stack || e)));
+        return json(data);
+      }
+      if (pathname === '/') return signedIn ? new Response(dashboardHtml(), { headers: PAGE_HEADERS }) : redirect('/login');
+      return new Response('Not found', { status: 404 });
+    } catch (e) {
+      console.error(pathname, e && e.stack || e);
+      return pathname === '/data' ? json({ ok: 0, code: 'server_error', message: String(e.message || e) }, 500) : new Response('Something went wrong.', { status: 500 });
+    }
+  }
+};

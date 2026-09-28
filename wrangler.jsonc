@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "admin-dashboard",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-20",
+  "observability": { "enabled": true },
+  // Today's AI summary and the dashboard's own OpenAI usage (src/store.js).
+  "durable_objects": { "bindings": [{ "name": "STORE", "class_name": "Store" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Store"] }],
+  "vars": {
+    // The Quest Engine, monitored through GET /status and GET /ledger.
+    "QUEST_ENGINE_URL": "https://quest-engine.quest-engine.workers.dev",
+    // The daily AI summary: one short OpenAI chat call a day. "1" = on.
+    "ADMIN_AI": "0",
+    "CHAT_MODEL": "gpt-6-astra"
+  }
+  // Secrets (set with `npx wrangler secret put <NAME>`, never committed):
+  //   DASHBOARD_PASSWORD     the login password
+  //   NOTION_TOKEN           a read-only Notion connection with access to Quest log
+  //   QUEST_ENGINE_TOKEN     the Quest Engine's ADMIN_TOKEN, for GET /ledger
+  //   HEALTHCHECKS_API_KEY   the healthchecks.io project's read-only API key
+  //   OPENAI_API_KEY         only needed when ADMIN_AI is "1"
+}
