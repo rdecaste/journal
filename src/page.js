@@ -275,7 +275,7 @@ async function load(fresh) {
 }
 addEventListener('hashchange', show);
 $('#reload').addEventListener('click', () => load(true));
-show(); load(false);
+show(); load(true);
 `;
 
 const linkCards = LINKS.map(g => `<div class="card"><h3>${g.group}</h3><ul>${g.items.map(i => `<li><a href="${i.url}" target="_blank" rel="noopener">${i.name} ↗</a></li>`).join('')}</ul></div>`).join('');
