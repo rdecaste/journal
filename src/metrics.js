@@ -147,9 +147,37 @@ export function crossBorder(rows, today, cfg = CROSS_BORDER) {
 // ============================== Health ==============================
 
 // workouts: Workouts pages; metrics: Body Metrics pages; today: 'YYYY-MM-DD'.
+// The boss-battle form, as the Quest Engine scores a workout attack
+// (quest-engine src/rules/attack.js): Fitness is a 44-day and Fatigue a 7-day
+// moving average of each workout's Effort Score, written by the Strava sync.
+// Form = fatigue / fitness; decayed to today the same way the Engine does for
+// an attack that is not a workout.
+export function formState(fitness, fatigue) {
+  const form = fitness > 0 ? fatigue / fitness : 0;
+  return fitness < 5 || form < 0.8 ? 'Rusty' : form <= 1.5 ? 'Steady' : form <= 2 ? 'Building' : 'Overreaching';
+}
+const FORM_BONUS = { Steady: 1.10, Building: 1.15 };
+
+export function battleForm(sessions, today) {
+  const scored = sessions.filter(s => s.fitness !== null && s.fitness !== undefined);
+  const last = scored[scored.length - 1];
+  if (!last) return null;
+  const days = Math.max(0, daysBetween(last.date, today));
+  const fitness = last.fitness * Math.pow(1 - 1 / 44, days);
+  const fatigue = (last.fatigue || 0) * Math.pow(1 - 1 / 7, days);
+  const state = formState(fitness, fatigue);
+  const since = addDays(today, -7 * 13);
+  return {
+    state, ratio: round(fitness > 0 ? fatigue / fitness : 0, 2), fitness: round(fitness), fatigue: round(fatigue),
+    bonus: FORM_BONUS[state] || 1, last_workout: last.date, days_since: days,
+    series: scored.filter(s => s.date >= since).map(s => ({ date: s.date, ratio: s.ratio !== null ? s.ratio : round(s.fitness > 0 ? (s.fatigue || 0) / s.fitness : 0, 2), fitness: s.fitness, fatigue: s.fatigue, state: s.form })),
+    recent: scored.slice(-6).reverse().map(s => ({ date: s.date, name: s.name, type: s.type, effort: s.effort, level: s.level, mult: s.mult, special: s.special, url: s.url }))
+  };
+}
+
 export function health(workouts, metrics, today, cfg = TRAINING) {
   const sessions = workouts
-    .map(w => ({ date: dateOf(w, 'start_date_local').slice(0, 10), sport: SPORTS[sel(w, 'sport_type_mapped')] || null, hours: (num(w, 'moving_time') || 0) / 3600, fitness: num(w, 'Fitness'), fatigue: num(w, 'Fatigue'), form: sel(w, 'Form State'), name: (prop(w, 'name').title || []).map(t => t.plain_text).join(''), url: (prop(w, 'strava_url').url) || w.url || '' }))
+    .map(w => ({ date: dateOf(w, 'start_date_local').slice(0, 10), sport: SPORTS[sel(w, 'sport_type_mapped')] || null, hours: (num(w, 'moving_time') || 0) / 3600, fitness: num(w, 'Fitness'), fatigue: num(w, 'Fatigue'), form: sel(w, 'Form State'), ratio: num(w, 'Form'), effort: num(w, 'Effort Score'), level: sel(w, 'Effort Level'), mult: num(w, 'Effort Multiplier'), special: (prop(w, 'Special Move').rich_text || []).map(t => t.plain_text).join(''), type: sel(w, 'sport_type_mapped'), name: (prop(w, 'name').title || []).map(t => t.plain_text).join(''), url: (prop(w, 'strava_url').url) || w.url || '' }))
     .filter(s => s.date && s.date <= today)
     .sort((a, b) => (a.date < b.date ? -1 : 1));
   const training = sessions.filter(s => s.sport);
@@ -195,7 +223,7 @@ export function health(workouts, metrics, today, cfg = TRAINING) {
   const weight = { latest: latest('weight'), change_30d: change30('weight'), series: body.filter(x => x.weight !== null).slice(-30).map(x => ({ date: x.date, value: round(x.weight, 1) })) };
   const bodyFat = { latest: latest('fat'), change_30d: change30('fat'), target: cfg.bodyFatTarget, series: body.filter(x => x.fat !== null).slice(-30).map(x => ({ date: x.date, value: round(x.fat, 1) })) };
   const lastWorkout = sessions[sessions.length - 1] || null;
-  const load = lastWorkout && lastWorkout.fitness !== null ? { fitness: lastWorkout.fitness, fatigue: lastWorkout.fatigue, form: lastWorkout.form, date: lastWorkout.date } : null;
+  const load = battleForm(sessions, today);
 
   const flags = [];
   const recentSessions = avg(recent, 'sessions'), baseSessions = avg(baseline, 'sessions');

@@ -185,3 +185,22 @@ test('AI summary: off by default, once a day after 07:30, facts without raw data
   assert.equal(summaryDue({ ADMIN_AI: '1', OPENAI_API_KEY: 'k' }, { ...data, summary: { day: '2026-09-28' } }, NOW), false);
   assert.deepEqual(summaryFacts(data).drift, ['[Health, watch] Runs below 2 a week: 1.5 a week']);
 });
+
+test('battle form decays fitness and fatigue to today like the Quest Engine', async () => {
+  const { battleForm, formState } = await import('../src/metrics.js');
+  assert.equal(formState(33.3, 30.4), 'Steady');
+  assert.equal(formState(30, 20), 'Rusty');
+  assert.equal(formState(30, 50), 'Building');
+  const sessions = [
+    { date: '2026-09-20', fitness: 35, fatigue: 33.6, ratio: 0.81, form: 'Steady', effort: 69, level: 'Big', mult: 1.33, name: 'Run' },
+    { date: '2026-09-28', fitness: 33.3, fatigue: 30.4, ratio: 0.82, form: 'Steady', effort: 51, level: 'Normal', mult: 0.82, name: 'Gym' }
+  ];
+  const same = battleForm(sessions, '2026-09-28');
+  assert.equal(same.state, 'Steady');
+  assert.equal(same.bonus, 1.1);
+  assert.equal(same.recent[0].name, 'Gym');
+  const later = battleForm(sessions, '2026-10-05');
+  assert.equal(later.days_since, 7);
+  assert.equal(later.state, 'Rusty'); // fatigue fades faster than fitness
+  assert.equal(battleForm([], '2026-09-28'), null);
+});
