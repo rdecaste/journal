@@ -11,7 +11,7 @@
     // The Quest Engine, monitored through GET /status and GET /ledger.
     "QUEST_ENGINE_URL": "https://quest-engine.quest-engine.workers.dev",
     // The daily AI summary: one short OpenAI chat call a day. "1" = on.
-    "ADMIN_AI": "0",
+    "ADMIN_AI": "1",
     "CHAT_MODEL": "gpt-6-astra"
   }
   // Secrets (set with `npx wrangler secret put <NAME>`, never committed):
