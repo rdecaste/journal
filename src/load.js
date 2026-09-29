@@ -12,7 +12,9 @@ const CACHE_SECONDS = 300;
 const CACHE_KEY = 'https://admin-dashboard.internal/data';
 const DAY = 86400000;
 
-const newest = rows => (rows && rows[0] ? { created: rows[0].created_time, url: rows[0].url } : null);
+// The sync's newest reading, by its own date (Withings rows can be created long
+// before their measurement is filled in, so created_time says nothing).
+const newest = (rows, name) => { const d = rows && rows[0] && rows[0].properties[name] && rows[0].properties[name].date; return d ? { created: d.start, url: rows[0].url } : null; };
 
 export async function loadDashboard(env, { now = Date.now(), fresh = false } = {}) {
   const cache = globalThis.caches && caches.default;
@@ -31,8 +33,8 @@ export async function loadDashboard(env, { now = Date.now(), fresh = false } = {
     safe(n.queryAll(DS.workLocation, { filter: { and: [{ property: 'Date', date: { on_or_after: CROSS_BORDER.start } }, { property: 'Date', date: { on_or_before: today.slice(0, 4) + '-12-31' } }] }, sorts: [{ property: 'Date', direction: 'ascending' }] }), 'Work Location Log'),
     safe(n.queryAll(DS.workouts, { filter: { property: 'start_date_local', date: { on_or_after: since(7 * 13 + 7) } }, sorts: [{ property: 'start_date_local', direction: 'ascending' }] }), 'Workouts'),
     safe(n.queryAll(DS.bodyMetrics, { filter: { property: 'Date', date: { on_or_after: since(120) } }, sorts: [{ property: 'Date', direction: 'ascending' }] }), 'Body Metrics'),
-    safe(n.query(DS.workouts, { sorts: [{ timestamp: 'created_time', direction: 'descending' }], page_size: 1 }).then(r => r.results), 'Workouts (newest)'),
-    safe(n.query(DS.bodyMetrics, { sorts: [{ timestamp: 'created_time', direction: 'descending' }], page_size: 1 }).then(r => r.results), 'Body Metrics (newest)'),
+    safe(n.query(DS.workouts, { filter: { property: 'start_date_local', date: { on_or_before: today } }, sorts: [{ property: 'start_date_local', direction: 'descending' }], page_size: 1 }).then(r => r.results), 'Workouts (newest)'),
+    safe(n.query(DS.bodyMetrics, { filter: { property: 'Date', date: { on_or_before: today } }, sorts: [{ property: 'Date', direction: 'descending' }], page_size: 1 }).then(r => r.results), 'Body Metrics (newest)'),
     safe(questEngineStatus(env), 'Quest Engine status'),
     safe(questEngineLedger(env), 'Quest Engine ledger'),
     healthChecks(env).catch(() => null),
@@ -43,7 +45,7 @@ export async function loadDashboard(env, { now = Date.now(), fresh = false } = {
   const cross = locations ? crossBorder(locations, today) : null;
   const h = workouts && metrics ? health(workouts, metrics, today) : null;
   const usage = mergeUsage(ledger && ledger.usage, ownUsage);
-  const sys = system({ status, checks, ledger: ledger ? { ...ledger, usage } : null, latest: { workout: newest(latestWorkout), metric: newest(latestMetric) } }, now);
+  const sys = system({ status, checks, ledger: ledger ? { ...ledger, usage } : null, latest: { workout: newest(latestWorkout, 'start_date_local'), metric: newest(latestMetric, 'Date') } }, now);
   const data = {
     built_at: new Date(now).toISOString(), today,
     overview: overview({ cross, health: h, system: sys }),

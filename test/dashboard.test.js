@@ -204,3 +204,13 @@ test('battle form decays fitness and fatigue to today like the Quest Engine', as
   assert.equal(later.state, 'Rusty'); // fatigue fades faster than fitness
   assert.equal(battleForm([], '2026-09-28'), null);
 });
+
+test('an unreachable Quest Engine does not also mark card publishing as failing', async () => {
+  const { system } = await import('../src/metrics.js');
+  const now = Date.parse('2026-09-29T05:00:00Z');
+  const s = system({ status: null, checks: null, ledger: null, latest: { workout: { created: '2026-09-28T09:34:00.000Z' }, metric: { created: '2026-09-28T05:39:00.000Z' } } }, now);
+  const by = k => s.processes.find(p => p.key === k);
+  assert.equal(by('engine').level, 'attention');
+  assert.equal(by('publish').level, 'unknown');
+  assert.equal(by('withings').level, 'ok');
+});

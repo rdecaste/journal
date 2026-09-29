@@ -7,6 +7,10 @@
   // Today's AI summary and the dashboard's own OpenAI usage (src/store.js).
   "durable_objects": { "bindings": [{ "name": "STORE", "class_name": "Store" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Store"] }],
+  // Workers on the same account cannot fetch each other's workers.dev URL
+  // (Cloudflare answers 404, error 1042), so the Quest Engine is reached
+  // through a service binding. Only routing: /ledger still needs the token.
+  "services": [{ "binding": "QUEST_ENGINE", "service": "quest-engine" }],
   "vars": {
     // The Quest Engine, monitored through GET /status and GET /ledger.
     "QUEST_ENGINE_URL": "https://quest-engine.quest-engine.workers.dev",

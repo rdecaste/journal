@@ -325,7 +325,8 @@ export function system({ status, checks, ledger, latest }, now = Date.now()) {
   // Dashboard publishing: the cards the Worker serves.
   const vaultPub = hoursSince(s.vault_published && s.vault_published.at, now);
   add({ key: 'publish', name: 'Dashboard publishing', detail: 'Boss, Main Quest, Questboard and Vault cards served by the Quest Engine', last_ok: s.built_at || null,
-    level: built > 1 ? 'attention' : 'ok', problem: built > 1 ? 'The cards are not being rebuilt.' : '',
+    // Unknown, not failing, when the Quest Engine itself did not answer.
+    level: !status ? 'unknown' : built > 1 ? 'attention' : 'ok', problem: !status ? 'Unknown while the Quest Engine does not answer.' : built > 1 ? 'The cards are not being rebuilt.' : '',
     note: s.vault_published ? `Vault card last published ${Math.round(vaultPub)} h ago` : '' });
 
   // Syncs still in Make, judged by their newest Notion row.
