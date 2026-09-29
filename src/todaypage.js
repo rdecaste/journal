@@ -1,6 +1,8 @@
 // GET / (and /questlog): the landing page, the Quest log as one clean page, made for the iPad mini
 // (744 wide upright, 1133 sideways) and the phone. Drawn on the server from
-// loadToday()'s data; no script, no dashboard chrome.
+// loadToday()'s data; no script, no dashboard chrome. Since 29 Sep it also
+// holds what the dashboard's Overview used to: what needs Roy, the AI summary,
+// today's work location and whether the automations run.
 
 import { PHASES } from './today.js';
 
@@ -85,6 +87,24 @@ h2{font-family:var(--display);font-weight:600;font-size:21px;margin:0;letter-spa
 .bar i{display:block;height:100%;border-radius:4px;background:var(--hp)}
 .hero .note{color:var(--hero-muted);font-size:14.5px}
 .hero .more{font-size:14px;color:var(--hero-muted);text-underline-offset:3px;margin-top:auto}
+.brief{display:grid;grid-template-columns:1fr 1.08fr;gap:16px;align-items:start}
+.brief>*{min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.card .eyebrow{display:flex;justify-content:space-between;gap:8px}
+.flags{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.flags li{display:grid;grid-template-columns:10px 1fr auto;gap:4px 10px;align-items:baseline}
+.flags .dot{width:10px;height:10px;border-radius:50%;background:var(--gold);align-self:center}
+.flags .attention .dot{background:var(--warn)}
+.flags .t{font-weight:600;font-size:15px}
+.flags .area{font-size:13px;color:var(--muted);white-space:nowrap;text-decoration:none}
+.flags .w{grid-column:2/4;font-size:13.5px;color:var(--muted)}
+.calm{margin:0;color:var(--muted);font-size:15px}
+.points{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:15px;line-height:1.5}
+.by{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.by form{margin:0}
+.by button{font:inherit;font-size:12.5px;color:var(--muted);background:none;border:1px solid var(--line);border-radius:999px;padding:3px 10px;min-height:28px;cursor:pointer}
+.systems{font-size:13.5px;color:var(--muted);margin:0;padding-top:8px;border-top:1px solid var(--line)}
+.systems.bad{color:var(--warn)}
 .glance{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 .gauge{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;display:flex;flex-direction:column;gap:8px;min-width:0}
 .gauge .label{font-size:14px;font-weight:600;text-decoration:none;display:flex;justify-content:space-between}
@@ -122,7 +142,7 @@ h2{font-family:var(--display);font-weight:600;font-size:21px;margin:0;letter-spa
 .errors{font-size:13px;color:var(--warn);margin:0}
 @media (min-width:1000px){.deck{grid-template-columns:repeat(4,1fr)} h1{font-size:46px}}
 @media (max-width:700px){.glance{grid-template-columns:1fr}}
-@media (max-width:640px){.today{grid-template-columns:1fr} .deck{grid-template-columns:1fr} h1{font-size:34px}}
+@media (max-width:640px){.today,.brief{grid-template-columns:1fr} .deck{grid-template-columns:1fr} h1{font-size:34px}}
 @media (max-width:420px){.hero{grid-template-columns:1fr} .hero img{max-height:340px}}
 `;
 
@@ -160,7 +180,8 @@ function crossHtml(c, text) {
       <i style="width:${Math.max(0, Math.min(100, c.be_share))}%;background:${c.be_share > c.minimum ? 'var(--ok)' : 'var(--warn)'}"></i><span class="line" style="left:${c.minimum}%"></span>
     </div>
     <div class="sub${c.buffer_days < 0 ? ' warn' : ''}">${c.buffer_days >= 0 ? `${fmt(c.buffer_days)} NL days spare` : `${fmt(c.be_days_needed)} BE days short`}</div>
-    ${c.missing ? `<div class="sub warn">${c.missing} work day${c.missing === 1 ? '' : 's'} to fill in</div>` : ''}` : '<div class="sub">Not available just now.</div>';
+    ${c.missing ? `<div class="sub warn">${c.missing} work day${c.missing === 1 ? '' : 's'} to fill in</div>` : ''}
+    ${workDayHtml(c.today)}` : '<div class="sub">Not available just now.</div>';
   return `<article class="gauge"><a class="label" href="/admin#cross">Cross-border <span>›</span></a>${body}${note(text)}</article>`;
 }
 
@@ -177,6 +198,47 @@ function todoHtml(t, text, today) {
     <div class="num">${esc(t.open)}<small>open</small></div>
     ${t.oldest_days !== null ? `<div class="sub">Oldest waiting ${t.oldest_days} days, since ${shortDate(today, t.oldest_days)}</div>` : ''}` : '<div class="sub">Not available just now.</div>';
   return `<article class="gauge"><a class="label" href="${TODOS}" ${ext}>To-dos <span>›</span></a>${body}${note(text)}</article>`;
+}
+
+// Where Roy works today, from the Work Location Log.
+function workDayHtml(t) {
+  if (!t) return '';
+  const text = t.place ? `Today: ${esc(t.place)}${t.commute ? ` · ${esc(t.commute)}` : ''}` : 'Today is not filled in yet';
+  return `<div class="sub${t.place ? '' : ' warn'}">${t.url ? `<a href="${esc(t.url)}" ${ext}>${text}</a>` : text}</div>`;
+}
+
+// "- " lines become bullets; an older one-paragraph summary stays a paragraph.
+function summaryPoints(text) {
+  const lines = String(text).split('\n').map(l => l.trim()).filter(Boolean);
+  const items = lines.filter(l => /^[-•*] /.test(l));
+  return items.length ? `<ul class="points">${items.map(l => `<li>${esc(l.replace(/^[-•*] /, ''))}</li>`).join('')}</ul>` : `<p class="calm">${esc(text)}</p>`;
+}
+
+function flagsHtml(b, explained) {
+  if (!b.flags.length) return '<p class="calm">Nothing needs you right now.</p>';
+  return `<ul class="flags">${b.flags.map(f => `<li class="${esc(f.level)}"><span class="dot" aria-label="${f.level === 'attention' ? 'Needs attention' : 'Keep an eye on'}"></span><span class="t">${esc(f.title)}</span><a class="area" href="/admin#${esc(f.area)}">${esc(f.area_name)} ›</a>${explained ? '' : `<span class="w">${esc(f.why)}</span>`}</li>`).join('')}</ul>`;
+}
+
+// Skipped when a System health flag above already says what is wrong.
+function systemsHtml(sys, flagged) {
+  if (sys && sys.problems.length && flagged) return '';
+  if (!sys) return '<p class="systems bad">The automations could not be checked just now.</p>';
+  if (!sys.problems.length) return `<p class="systems">Automations: all ${sys.checked} running.</p>`;
+  return `<p class="systems bad">Automations: ${esc(sys.problems.join(', '))} not running right. One to hand to Claude.</p>`;
+}
+
+function briefingHtml(b, today) {
+  if (!b) return '';
+  const s = b.summary && b.summary.day === today ? b.summary : null;
+  const written = s && s.at ? new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Amsterdam', hour: '2-digit', minute: '2-digit' }).format(new Date(s.at)) : '';
+  const rewrite = b.ai_enabled ? '<form method="post" action="/summary?back=1"><button type="submit">Rewrite</button></form>' : '';
+  const summary = s ? `${summaryPoints(s.text)}<div class="by"><span>AI summary · written ${esc(written)}</span>${rewrite}</div>`
+    : `<p class="calm">${b.ai_enabled ? 'Today’s summary is written the first time you open this page after 07:30.' : 'The AI summary is switched off.'}</p>`;
+  const n = b.flags.length;
+  return `<section class="brief" aria-label="Briefing">
+    <article class="card"><div class="eyebrow"><span>Needs you</span>${n ? `<span>${n} item${n === 1 ? '' : 's'}</span>` : ''}</div>${flagsHtml(b, !!s)}${systemsHtml(b.systems, b.flags.some(f => f.area === 'system'))}</article>
+    <article class="card"><div class="eyebrow">Summary</div>${summary}</article>
+  </section>`;
 }
 
 function questHtml(q) {
@@ -222,6 +284,8 @@ export function todayHtml(d) {
     </div>
     ${heroHtml(d.hero, d.notes && d.notes.main_quest, d.main_quest)}
   </section>
+
+  ${briefingHtml(d.briefing, d.today)}
 
   <section class="sec" aria-labelledby="glance-h">
     <h2 id="glance-h">Today at a glance</h2>

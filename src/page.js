@@ -1,6 +1,7 @@
-// The dashboard's HTML: one page, five areas (Overview, Cross Border, Health,
-// System Health, Quick Links). The page fetches /data and draws everything in
-// the browser; nothing here holds personal data.
+// The dashboard's HTML (/admin): four areas (Cross Border, Health, System
+// Health, Quick Links); the daily overview lives on the Quest log page (/).
+// The page fetches /data and draws everything in the browser; nothing here
+// holds personal data.
 
 import { LINKS, NOTION } from './config.js';
 
@@ -35,21 +36,11 @@ h2:first-child{margin-top:4px}
 .dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
 .ok .dot{background:var(--good)}.watch .dot{background:var(--warnfill)}.attention .dot{background:var(--crit)}.unknown .dot{background:var(--muted)}
 .tag.watch{background:var(--wash-warn)}.tag.attention{background:var(--wash-crit)}
-.area{display:flex;flex-direction:column;gap:8px;text-decoration:none}
-.area .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.area.attention{border-color:color-mix(in srgb,var(--crit) 45%,transparent)}
-.area.watch{border-color:color-mix(in srgb,var(--warnfill) 55%,transparent)}
 .flags{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
 .flag{display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;align-items:start;background:var(--surface);border:1px solid var(--ring);border-left-width:3px;border-radius:8px;padding:10px 12px}
 .flag.attention{border-left-color:var(--crit)}.flag.watch{border-left-color:var(--warnfill)}
 .flag .t{font-weight:600}.flag .w{grid-column:2/4;color:var(--ink2);font-size:13px}
-.flag .area-name{color:var(--muted);font-size:12px;white-space:nowrap}
 .calm{color:var(--ink2);background:var(--surface);border:1px dashed var(--ring);border-radius:8px;padding:12px}
-.summary{background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:14px 16px;font-size:15px}
-.summary .points{margin:0;padding-left:18px}
-.summary .points li{margin:3px 0}
-.summary .by{color:var(--muted);font-size:12px;margin-top:6px}
-.rewrite{font:inherit;font-size:12px;color:var(--ink2);background:none;border:1px solid var(--ring);border-radius:6px;padding:1px 7px;cursor:pointer}
 .kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:14px}
 .kv dt{color:var(--ink2)}.kv dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
 table{width:100%;border-collapse:collapse;font-size:13px}
@@ -91,7 +82,6 @@ const tag = l => '<span class="tag ' + l + '"><span class="dot"></span>' + LABEL
 const fmt = (n, d = 1) => n === null || n === undefined || Number.isNaN(n) ? '–' : Number(n).toLocaleString('en-GB', { maximumFractionDigits: d, minimumFractionDigits: 0 });
 const ago = iso => { if (!iso) return 'never'; const m = (Date.now() - Date.parse(iso)) / 60000; if (m < 2) return 'just now'; if (m < 90) return Math.round(m) + ' min ago'; const h = m / 60; if (h < 36) return Math.round(h) + ' h ago'; return Math.round(h / 24) + ' days ago'; };
 const day = s => s ? new Date(s.slice(0, 10) + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '–';
-const LOC = { '🇧🇪 Beerse': 'Belgium (Beerse)', '🇧🇪 Ghent': 'Belgium (Ghent)', '🇳🇱 Home': 'Netherlands (home)', '✈️ Travel': 'Travel', '🏖️ Holiday': 'Holiday', '🎉 Public holiday': 'Public holiday' };
 const NOTION = ${JSON.stringify(NOTION)};
 
 // ---- charts (single series, thin marks, hover tooltips) ----
@@ -151,44 +141,9 @@ document.addEventListener('pointermove', e => {
   tip.style.left = x + 'px'; tip.style.top = (e.clientY - 34) + 'px';
 });
 
-const flagList = (flags, withArea) => flags.length
-  ? '<ul class="flags">' + flags.map(f => '<li class="flag ' + f.level + '"><span class="dot" style="margin-top:7px;background:var(--' + (f.level === 'attention' ? 'crit' : 'warnfill') + ')"></span><span class="t">' + esc(f.title) + '</span>' + (withArea ? '<a class="area-name" href="#' + f.area + '">' + esc(f.area_name) + ' →</a>' : f.link ? '<a class="src" href="' + esc(f.link) + '" target="_blank" rel="noopener">Open ↗</a>' : '<span></span>') + '<span class="w">' + esc(f.why) + '</span></li>').join('') + '</ul>'
+const flagList = flags => flags.length
+  ? '<ul class="flags">' + flags.map(f => '<li class="flag ' + f.level + '"><span class="dot" style="margin-top:7px;background:var(--' + (f.level === 'attention' ? 'crit' : 'warnfill') + ')"></span><span class="t">' + esc(f.title) + '</span>' + (f.link ? '<a class="src" href="' + esc(f.link) + '" target="_blank" rel="noopener">Open ↗</a>' : '<span></span>') + '<span class="w">' + esc(f.why) + '</span></li>').join('') + '</ul>'
   : '<p class="calm">Nothing drifting here.</p>';
-
-// ---- Overview ----
-function renderOverview(d) {
-  const o = d.overview, c = d.cross, h = d.health, s = d.system;
-  const n = o.drifting.length;
-  let html = '<h2>Areas</h2><div class="grid">' + o.areas.map(a => '<a class="card area ' + a.status + '" href="#' + a.key + '"><div class="row"><h3 style="margin:0">' + esc(a.name) + '</h3>' + tag(a.status) + '</div><div class="sub">' + (a.flags.length ? esc(a.flags.map(f => f.title).join(' · ')) : areaLine(a.key, d)) + '</div></a>').join('') + '</div>';
-  html += '<h2>Summary</h2>' + summaryBlock(d) + '<h2>What deserves attention</h2>';
-  html += n ? '<p class="sub" style="margin:0 0 10px">Drift detected: ' + n + ' item' + (n === 1 ? '' : 's') + ' across ' + o.areas.filter(a => a.flags.length).length + ' area' + (o.areas.filter(a => a.flags.length).length === 1 ? '' : 's') + '.</p>' + flagList(o.drifting, true) : '<p class="calm">Nothing needs you right now. All three areas are healthy.</p>';
-  html += '<h2>Today</h2><div class="grid">';
-  const t = c && c.today;
-  html += '<div class="card"><h3>Work location</h3><div class="big" style="font-size:18px">' + (t ? (t.weekend && !t.am ? 'Weekend' : t.am || t.pm ? esc(LOC[t.am] || t.am || '–') + (t.pm && t.pm !== t.am ? ' / ' + esc(LOC[t.pm] || t.pm) : '') : 'Not set') : 'No row for today') + '</div><div class="sub">' + (t && t.commute ? esc(t.commute) : '') + '</div>' + (t && t.url ? '<a class="src" href="' + esc(t.url) + '" target="_blank" rel="noopener">Open day ↗</a>' : '') + '</div>';
-  if (h) html += '<div class="card"><h3>Training this week</h3><div class="big">' + fmt(h.this_week.hours) + ' <span class="sub">of ' + h.targets.weekly_hours + ' h</span></div><div class="sub">' + h.this_week.sessions + ' session' + (h.this_week.sessions === 1 ? '' : 's') + ', ' + h.this_week.runs + ' run' + (h.this_week.runs === 1 ? '' : 's') + ' · ' + h.this_week.days_left + ' day' + (h.this_week.days_left === 1 ? '' : 's') + ' left</div></div>';
-  if (s) { const bad = s.processes.filter(p => p.level !== 'ok'); html += '<div class="card"><h3>Systems</h3><div class="big" style="font-size:18px">' + (bad.length ? bad.length + ' issue' + (bad.length === 1 ? '' : 's') : 'All running') + '</div><div class="sub">' + (bad.length ? esc(bad.map(p => p.name).join(', ')) : s.processes.length + ' processes checked') + '</div></div>'; }
-  return html + '</div>';
-}
-function areaLine(key, d) {
-  if (key === 'cross' && d.cross) return 'Belgium ' + fmt(d.cross.ytd.be_share) + '% year to date · ' + fmt(d.cross.buffer_days) + ' NL days of buffer';
-  if (key === 'health' && d.health) return fmt(d.health.recent.hours) + ' h a week over 4 weeks · target ' + d.health.targets.weekly_hours + ' h';
-  if (key === 'system' && d.system) return d.system.processes.length + ' processes running · ' + d.system.failures.last_24h + ' failure' + (d.system.failures.last_24h === 1 ? '' : 's') + ' in 24 h';
-  return 'No data';
-}
-// Lines starting with "- " become a list; older summaries are one paragraph.
-function summaryText(t) {
-  const lines = String(t).split('\\n').map(l => l.trim()).filter(Boolean);
-  const items = lines.filter(l => /^[-•*] /.test(l));
-  if (!items.length) return esc(t);
-  return '<ul class="points">' + items.map(l => '<li>' + esc(l.replace(/^[-•*] /, '')) + '</li>').join('') + '</ul>';
-}
-function summaryBlock(d) {
-  const rewrite = d.ai_enabled ? ' · <button type="button" class="rewrite">Rewrite</button>' : '';
-  if (d.summary && d.summary.text) return '<div class="summary">' + summaryText(d.summary.text) + '<div class="by">AI summary · ' + (d.summary.stale ? 'from ' + day(d.summary.day) : 'written ' + ago(d.summary.at)) + rewrite + '</div></div>';
-  if (d.ai_enabled) return '<p class="calm">No summary yet today' + rewrite + '</p>';
-  if (!d.ai_enabled) return '<p class="calm">The AI summary is switched off (ADMIN_AI). The flags above are computed without it.</p>';
-  return '<p class="calm">Today\\'s summary is written the first time the dashboard opens after 07:30.</p>';
-}
 
 // ---- Cross border ----
 function renderCross(c) {
@@ -258,10 +213,10 @@ function renderSystem(s) {
 }
 
 // ---- shell ----
-const TABS = ['overview', 'cross', 'health', 'system', 'links'];
+const TABS = ['cross', 'health', 'system', 'links'];
 let data = null;
 function show() {
-  const tab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
+  const tab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'cross';
   for (const t of TABS) {
     $('#' + t).hidden = t !== tab;
     const a = $('nav a[href="#' + t + '"]');
@@ -273,7 +228,7 @@ function show() {
 function render() {
   const d = data;
   charts = [];
-  $('#overview').innerHTML = (d.errors.length ? '<div class="err">Some sources could not be read: ' + esc(d.errors.join('; ')) + '</div>' : '') + renderOverview(d);
+  $('#notice').innerHTML = d.errors.length ? '<div class="err">Some sources could not be read: ' + esc(d.errors.join('; ')) + '</div>' : '';
   $('#cross').innerHTML = renderCross(d.cross);
   $('#health').innerHTML = renderHealth(d.health);
   $('#system').innerHTML = renderSystem(d.system);
@@ -290,17 +245,11 @@ async function load(fresh) {
     data = await r.json();
     render();
   } catch (e) {
-    $('#overview').innerHTML = '<div class="err">Could not load the dashboard: ' + esc(e.message) + '</div>';
+    $('#notice').innerHTML = '<div class="err">Could not load the dashboard: ' + esc(e.message) + '</div>';
   } finally { $('#reload').disabled = false; }
 }
 addEventListener('hashchange', show);
 $('#reload').addEventListener('click', () => load(true));
-document.addEventListener('click', async e => {
-  const b = e.target.closest('.rewrite'); if (!b) return;
-  b.disabled = true; b.textContent = 'Writing…';
-  try { const r = await fetch('/summary', { method: 'POST', credentials: 'same-origin' }); if (!r.ok) throw new Error('HTTP ' + r.status); await load(true); }
-  catch (err) { b.disabled = false; b.textContent = 'Rewrite failed, try again'; }
-});
 show(); load(true);
 `;
 
@@ -312,8 +261,8 @@ export const dashboardHtml = () => `<!doctype html>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%232a78d6'/%3E%3C/svg%3E">
 <style>${STYLE}</style></head><body>
 <header><div class="bar"><a class="home" href="/">‹ Quest log</a><h1>Admin cockpit</h1><div class="meta"><span id="stamp">Loading…</span><button id="reload" type="button">Refresh</button><form method="post" action="/logout" style="margin:0"><button type="submit">Sign out</button></form></div></div>
-<nav><a href="#overview">Overview</a><a href="#cross"><span class="unknown"><span class="dot"></span></span>Cross Border</a><a href="#health"><span class="unknown"><span class="dot"></span></span>Health</a><a href="#system"><span class="unknown"><span class="dot"></span></span>System Health</a><a href="#links">Quick Links</a></nav></header>
-<main><section id="overview"><p class="empty">Loading…</p></section><section id="cross" hidden></section><section id="health" hidden></section><section id="system" hidden></section>
+<nav><a href="#cross"><span class="unknown"><span class="dot"></span></span>Cross Border</a><a href="#health"><span class="unknown"><span class="dot"></span></span>Health</a><a href="#system"><span class="unknown"><span class="dot"></span></span>System Health</a><a href="#links">Quick Links</a></nav></header>
+<main><div id="notice"></div><section id="cross"><p class="empty">Loading…</p></section><section id="health" hidden></section><section id="system" hidden></section>
 <section id="links" hidden><h2>Quick links</h2><div class="links">${linkCards}</div></section></main>
 <div id="tip" role="tooltip"></div>
 <script>${SCRIPT}</script></body></html>`;

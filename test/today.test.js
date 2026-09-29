@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readQuestLog, heroView, questsView, crossView } from '../src/today.js';
+import { readQuestLog, heroView, questsView, crossView, briefingView, workDay } from '../src/today.js';
 import { todayHtml } from '../src/todaypage.js';
 import { loginHtml } from '../src/page.js';
 
@@ -59,7 +59,7 @@ test('questlog page: hero, quests and cross-border views', () => {
   assert.equal(qs[0].days_left, 52);
   assert.equal(qs[0].phase, 1);
   assert.equal(qs[2].done, true);
-  assert.deepEqual(crossView({ ytd: { be_share: 61.8 }, minimum: 50, buffer_days: 12.5, be_days_needed: 0, missing: [] }), { be_share: 61.8, minimum: 50, buffer_days: 12.5, be_days_needed: 0, missing: 0 });
+  assert.deepEqual(crossView({ ytd: { be_share: 61.8 }, minimum: 50, buffer_days: 12.5, be_days_needed: 0, missing: [] }), { be_share: 61.8, minimum: 50, buffer_days: 12.5, be_days_needed: 0, missing: 0, today: null });
   assert.equal(crossView(null), null);
 });
 
@@ -79,6 +79,50 @@ test('questlog page: renders full and empty data, escapes text', () => {
   const empty = todayHtml({ built_at: '2026-09-29T05:00:00Z', today: '2026-09-29', spark: '', journal: null, main_quest: null, notes: {}, training: null, todo: null, hero: null, quests: [], cross: null, errors: ['Hero: down'] });
   assert.match(empty, /Some parts could not load: Hero: down/);
   assert.match(empty, /No active quests/);
+});
+
+test('questlog page: work location in words', () => {
+  assert.deepEqual(workDay({ am: '🇧🇪 Beerse', pm: '🇧🇪 Beerse', commute: 'E-bike', url: 'u' }), { place: 'Belgium (Beerse)', commute: 'E-bike', url: 'u' });
+  assert.equal(workDay({ am: '🇧🇪 Beerse', pm: '🇳🇱 Home' }).place, 'Belgium (Beerse) / Netherlands (home)');
+  assert.equal(workDay({ weekend: true }).place, 'Weekend');
+  assert.equal(workDay({}).place, null);
+});
+
+const dash = (over = {}) => ({
+  ai_enabled: true,
+  summary: { day: '2026-09-29', at: '2026-09-29T05:40:00Z', text: '- Belgium share is safe.\n- Today: plan a run.' },
+  overview: { areas: [{ key: 'cross', name: 'Cross border', status: 'ok' }], drifting: [{ area: 'health', area_name: 'Health', level: 'watch', title: 'Training below routine', why: '2 h vs 5 h' }] },
+  system: { processes: [{ name: 'Journal', level: 'ok' }, { name: 'Nightly', level: 'ok' }] },
+  ...over
+});
+
+test('questlog page: briefing carries the old Overview (flags, summary, systems)', () => {
+  const b = briefingView(dash());
+  assert.equal(b.flags[0].title, 'Training below routine');
+  assert.deepEqual(b.systems, { checked: 2, problems: [] });
+  assert.equal(briefingView(null), null);
+  const base = { built_at: '2026-09-29T05:00:00Z', today: '2026-09-29', spark: '', journal: null, main_quest: null, notes: {}, training: null, todo: null, hero: null, quests: [], errors: [],
+    cross: { be_share: 62, minimum: 50, buffer_days: 13, be_days_needed: 0, missing: 0, today: workDay({ am: '🇧🇪 Beerse', pm: '🇧🇪 Beerse', url: 'https://www.notion.so/day' }) } };
+  const html = todayHtml({ ...base, briefing: b });
+  assert.match(html, /Needs you/);
+  assert.match(html, /Training below routine/);
+  assert.match(html, /href="\/admin#health"/);
+  assert.doesNotMatch(html, /2 h vs 5 h/); // the summary explains it
+  assert.match(html, /<li>Belgium share is safe\.<\/li>/);
+  assert.match(html, /written 07:40/);
+  assert.match(html, /action="\/summary\?back=1"/);
+  assert.match(html, /Automations: all 2 running/);
+  assert.match(html, /Today: Belgium \(Beerse\)/);
+  // No summary yet today: the flags explain themselves; a system flag replaces the systems line.
+  const quiet = todayHtml({ ...base, briefing: briefingView(dash({ summary: { day: '2026-09-28', text: '- old', stale: true },
+    overview: { areas: [], drifting: [{ area: 'system', area_name: 'System health', level: 'attention', title: 'Nightly failed', why: 'twice' }] },
+    system: { processes: [{ name: 'Nightly', level: 'attention' }] } })) });
+  assert.match(quiet, /twice/);
+  assert.doesNotMatch(quiet, /<li>old<\/li>/);
+  assert.match(quiet, /after 07:30/);
+  assert.doesNotMatch(quiet, /Automations:/);
+  const calm = todayHtml({ ...base, briefing: briefingView(dash({ overview: { areas: [], drifting: [] } })) });
+  assert.match(calm, /Nothing needs you right now/);
 });
 
 test('login keeps the page you asked for, and nothing else', () => {

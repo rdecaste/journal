@@ -2,7 +2,9 @@
 // the Notion Quest log's texts (Morning Spark, today's journal, the 💬 notes,
 // the training and to-do boxes, which the Quest Engine's 03:00 run keeps
 // current), the hero and the active quests from the Quest Engine, and the
-// cross-border numbers the dashboard already computes. Read only.
+// cross-border numbers the dashboard already computes. Since 29 Sep it also
+// carries the dashboard's old Overview: the AI summary, what drifts (flags),
+// today's work location and whether the automations run. Read only.
 
 import { Notion } from './notion.js';
 import { QUEST_LOG } from './config.js';
@@ -134,13 +136,39 @@ export function crossView(cross) {
   return {
     be_share: cross.ytd.be_share, minimum: cross.minimum,
     buffer_days: cross.buffer_days, be_days_needed: cross.be_days_needed,
-    missing: (cross.missing || []).length
+    missing: (cross.missing || []).length,
+    today: cross.today ? workDay(cross.today) : null
+  };
+}
+
+export const LOC = { '🇧🇪 Beerse': 'Belgium (Beerse)', '🇧🇪 Ghent': 'Belgium (Ghent)', '🇳🇱 Home': 'Netherlands (home)', '✈️ Travel': 'Travel', '🏖️ Holiday': 'Holiday', '🎉 Public holiday': 'Public holiday' };
+
+// Today's row in the Work Location Log, in words.
+export function workDay(t) {
+  const name = v => LOC[v] || v;
+  const place = t.weekend && !t.am && !t.pm ? 'Weekend'
+    : t.am || t.pm ? (t.am && t.pm && t.am !== t.pm ? `${name(t.am)} / ${name(t.pm)}` : name(t.am || t.pm)) : null;
+  return { place, commute: t.commute || '', url: t.url || null };
+}
+
+// The old Overview's content: the summary, the flags, and a systems line.
+export function briefingView(dash) {
+  if (!dash) return null;
+  const o = dash.overview || { areas: [], drifting: [] };
+  const s = dash.summary;
+  const bad = dash.system ? dash.system.processes.filter(p => p.level !== 'ok') : null;
+  return {
+    summary: s && s.text ? { text: s.text, day: s.day, at: s.at, stale: !!s.stale } : null,
+    ai_enabled: !!dash.ai_enabled,
+    flags: o.drifting.map(f => ({ area: f.area, area_name: f.area_name, level: f.level, title: f.title, why: f.why })),
+    areas: o.areas.map(a => ({ key: a.key, name: a.name, status: a.status })),
+    systems: bad ? { checked: dash.system.processes.length, problems: bad.map(p => p.name) } : null
   };
 }
 
 // ---- Everything the page shows ----
 
-export async function loadToday(env, { now = Date.now(), fresh = false } = {}) {
+export async function loadToday(env, { now = Date.now(), fresh = false, dashboard = null } = {}) {
   const cache = globalThis.caches && caches.default;
   if (cache && !fresh) {
     const hit = await cache.match(CACHE_KEY);
@@ -154,7 +182,7 @@ export async function loadToday(env, { now = Date.now(), fresh = false } = {}) {
     safe(engine(env, '/mainquest'), 'Main quest'),
     safe(engine(env, '/hero'), 'Hero'),
     safe(engine(env, '/questboard'), 'Questboard'),
-    safe(loadDashboard(env, { now }), 'Dashboard')
+    dashboard ? Promise.resolve(dashboard) : safe(loadDashboard(env, { now }), 'Dashboard')
   ]);
   const log = flat ? readQuestLog(flat) : { spark: '', journal: null, main_quest: null, notes: {}, training: null, todo: null };
   const data = {
@@ -163,7 +191,8 @@ export async function loadToday(env, { now = Date.now(), fresh = false } = {}) {
     hero: heroView(state, hero),
     quests: board ? questsView(board, today) : [],
     cross: crossView(dash && dash.cross),
-    errors
+    briefing: briefingView(dash),
+    errors: errors.concat((dash && dash.errors) || [])
   };
   if (cache) await cache.put(CACHE_KEY, new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${CACHE_SECONDS}` } }));
   return data;

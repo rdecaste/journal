@@ -66,11 +66,23 @@ export default {
         if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
         if (env.ADMIN_AI !== '1' || !env.OPENAI_API_KEY) return json({ ok: 0, code: 'ai_off' }, 400);
         const summary = await writeSummary(env, await loadDashboard(env, { fresh: true }), { force: true });
+        if (searchParams.get('back') === '1') return redirect('/?fresh=1'); // the form on the Quest log page
         return json({ ok: 1, summary });
       }
       if (pathname === '/' || pathname === '/questlog') {
         if (!signedIn) return redirect(pathname === '/' ? '/login' : '/login?next=/questlog');
-        return new Response(todayHtml(await loadToday(env, { fresh: searchParams.get('fresh') === '1' })), { headers: PAGE_HEADERS });
+        const fresh = searchParams.get('fresh') === '1';
+        // The daily summary and the Quest log line are triggered here too, now
+        // that this page (not the dashboard) is the one Roy opens. The first
+        // open after 07:30 waits for the summary so the bullets show at once.
+        const dash = await loadDashboard(env, { fresh });
+        let dueNow = false;
+        if (summaryDue(env, dash)) {
+          const summary = await writeSummary(env, dash).catch(e => { console.error('summary', e && e.stack || e); return null; });
+          if (summary) { dash.summary = summary; dueNow = true; }
+        }
+        ctx.waitUntil(store(env).get('questlog_day').then(day => questLogDue(day, dash) ? writeBufferLine(env, dash) : null).catch(e => console.error('questlog', e && e.stack || e)));
+        return new Response(todayHtml(await loadToday(env, { fresh: fresh || dueNow, dashboard: dash })), { headers: PAGE_HEADERS });
       }
       if (pathname === '/admin') return signedIn ? new Response(dashboardHtml(), { headers: PAGE_HEADERS }) : redirect('/login?next=/admin');
       return new Response('Not found', { status: 404 });
