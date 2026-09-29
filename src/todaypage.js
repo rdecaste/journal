@@ -1,4 +1,4 @@
-// GET /questlog: the Quest log as one clean page, made for the iPad mini
+// GET / (and /questlog): the landing page, the Quest log as one clean page, made for the iPad mini
 // (744 wide upright, 1133 sideways) and the phone. Drawn on the server from
 // loadToday()'s data; no script, no dashboard chrome.
 
@@ -18,7 +18,7 @@ const LINKS = [
   ['⚔️ Quest Dashboard', 'https://rdecaste.github.io/Questboard/'],
   ['🐉 Hero card', 'https://rdecaste.github.io/MainQuest/'],
   ['📺 Family Dashboard', 'https://rdecaste.github.io/FamilyDashboard/'],
-  ['🧭 Admin Dashboard', '/'],
+  ['🧭 Admin Dashboard', '/admin'],
   ['🌴 Quest log in Notion', 'https://app.notion.com/p/d835f903d4754c9bbf52100097824752']
 ];
 const WORKOUTS = 'https://app.notion.com/p/ec4d7e3ef61c4269988d68d228207c8b';
@@ -54,6 +54,8 @@ a:focus-visible{outline:2px solid var(--ki);outline-offset:3px;border-radius:6px
 .top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
 .eyebrow{font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
 h1{font-family:var(--display);font-weight:800;font-size:40px;line-height:1;margin:4px 0 0;letter-spacing:-.02em}
+.actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.admin{display:flex;align-items:center;min-height:36px;padding:0 14px;border:1px solid var(--line);background:var(--surface);border-radius:999px;text-decoration:none;font-weight:600;font-size:14px}
 .streak{display:flex;align-items:center;gap:8px;background:var(--gold-soft);color:var(--gold);border-radius:999px;padding:7px 14px;font-family:var(--hud);font-weight:600;font-size:15px}
 h2{font-family:var(--display);font-weight:600;font-size:21px;margin:0;letter-spacing:-.01em}
 .sec{display:flex;flex-direction:column;gap:12px}
@@ -159,7 +161,7 @@ function crossHtml(c, text) {
     </div>
     <div class="sub${c.buffer_days < 0 ? ' warn' : ''}">${c.buffer_days >= 0 ? `${fmt(c.buffer_days)} NL days spare` : `${fmt(c.be_days_needed)} BE days short`}</div>
     ${c.missing ? `<div class="sub warn">${c.missing} work day${c.missing === 1 ? '' : 's'} to fill in</div>` : ''}` : '<div class="sub">Not available just now.</div>';
-  return `<article class="gauge"><a class="label" href="/">Cross-border <span>›</span></a>${body}${note(text)}</article>`;
+  return `<article class="gauge"><a class="label" href="/admin#cross">Cross-border <span>›</span></a>${body}${note(text)}</article>`;
 }
 
 function trainingHtml(t, text) {
@@ -210,7 +212,7 @@ export function todayHtml(d) {
 <body><div class="page">
   <header class="top">
     <div><div class="eyebrow">${esc(longDay(d.today))}</div><h1>Quest log</h1></div>
-    ${run}
+    <div class="actions">${run}<a class="admin" href="/admin">Admin ›</a></div>
   </header>
 
   <section class="today" aria-label="Today">
@@ -242,7 +244,7 @@ export function todayHtml(d) {
   </section>
 
   ${d.errors && d.errors.length ? `<p class="errors">Some parts could not load: ${esc(d.errors.join('; '))}</p>` : ''}
-  <p class="foot"><span>Updated ${esc(updated)}</span><a href="/questlog?fresh=1">Refresh now</a></p>
+  <p class="foot"><span>Updated ${esc(updated)}</span><a href="/?fresh=1">Refresh now</a></p>
 </div></body></html>`;
 }
 

@@ -1,9 +1,11 @@
 // Admin dashboard: a private cockpit over cross-border work, health and the
 // automations (the Quest Engine, the Make syncs, healthchecks.io).
 //
-//   GET  /         the dashboard (signed in), otherwise the login page
-//   GET  /questlog the Quest log as one clean page for the iPad and phone
-//                  (signed in; ?fresh=1 skips the 5-minute cache)
+//   GET  /         the landing page: the Quest log as one clean page for the
+//                  iPad and phone (signed in; ?fresh=1 skips the 5-minute
+//                  cache); /questlog is the same page
+//   GET  /admin    the admin dashboard (signed in)
+//   Signed out, each page sends you to the login and back afterwards.
 //   GET  /login    the login page; POST /login with the password
 //   POST /logout   signs out
 //   GET  /data     everything the page shows, as JSON (signed in)
@@ -30,7 +32,7 @@ const PAGE_HEADERS = {
 };
 const redirect = (to, cookie) => new Response(null, { status: 303, headers: { Location: to, ...(cookie ? { 'Set-Cookie': cookie } : {}) } });
 // Where the login sends you back to: only the dashboard's own pages.
-const NEXT = new Set(['/', '/questlog']);
+const NEXT = new Set(['/', '/questlog', '/admin']);
 const nextPath = p => (NEXT.has(p) ? p : '/');
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 
@@ -66,11 +68,11 @@ export default {
         const summary = await writeSummary(env, await loadDashboard(env, { fresh: true }), { force: true });
         return json({ ok: 1, summary });
       }
-      if (pathname === '/questlog') {
-        if (!signedIn) return redirect('/login?next=/questlog');
+      if (pathname === '/' || pathname === '/questlog') {
+        if (!signedIn) return redirect(pathname === '/' ? '/login' : '/login?next=/questlog');
         return new Response(todayHtml(await loadToday(env, { fresh: searchParams.get('fresh') === '1' })), { headers: PAGE_HEADERS });
       }
-      if (pathname === '/') return signedIn ? new Response(dashboardHtml(), { headers: PAGE_HEADERS }) : redirect('/login');
+      if (pathname === '/admin') return signedIn ? new Response(dashboardHtml(), { headers: PAGE_HEADERS }) : redirect('/login?next=/admin');
       return new Response('Not found', { status: 404 });
     } catch (e) {
       console.error(pathname, e && e.stack || e);

@@ -15,6 +15,7 @@ a{color:inherit}
 header{position:sticky;top:0;z-index:5;background:var(--page);border-bottom:1px solid var(--ring)}
 .bar{max-width:1080px;margin:0 auto;padding:12px 16px 0;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .bar h1{font-size:16px;margin:0;font-weight:650;letter-spacing:-.01em}
+.bar .home{font-size:13px;color:var(--ink2);text-decoration:none;border:1px solid var(--ring);border-radius:6px;padding:3px 8px}
 .bar .meta{margin-left:auto;color:var(--muted);font-size:12px;display:flex;gap:10px;align-items:center}
 .bar button{font:inherit;font-size:12px;color:var(--ink2);background:none;border:1px solid var(--ring);border-radius:6px;padding:3px 8px;cursor:pointer}
 nav{max-width:1080px;margin:0 auto;padding:0 16px;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
@@ -285,7 +286,7 @@ async function load(fresh) {
   $('#reload').disabled = true;
   try {
     const r = await fetch('/data' + (fresh ? '?fresh=1' : ''), { credentials: 'same-origin' });
-    if (r.status === 401) { location.href = '/login'; return; }
+    if (r.status === 401) { location.href = '/login?next=/admin'; return; }
     data = await r.json();
     render();
   } catch (e) {
@@ -310,7 +311,7 @@ export const dashboardHtml = () => `<!doctype html>
 <meta name="robots" content="noindex"><title>Admin cockpit</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%232a78d6'/%3E%3C/svg%3E">
 <style>${STYLE}</style></head><body>
-<header><div class="bar"><h1>Admin cockpit</h1><div class="meta"><span id="stamp">Loading…</span><button id="reload" type="button">Refresh</button><form method="post" action="/logout" style="margin:0"><button type="submit">Sign out</button></form></div></div>
+<header><div class="bar"><a class="home" href="/">‹ Quest log</a><h1>Admin cockpit</h1><div class="meta"><span id="stamp">Loading…</span><button id="reload" type="button">Refresh</button><form method="post" action="/logout" style="margin:0"><button type="submit">Sign out</button></form></div></div>
 <nav><a href="#overview">Overview</a><a href="#cross"><span class="unknown"><span class="dot"></span></span>Cross Border</a><a href="#health"><span class="unknown"><span class="dot"></span></span>Health</a><a href="#system"><span class="unknown"><span class="dot"></span></span>System Health</a><a href="#links">Quick Links</a></nav></header>
 <main><section id="overview"><p class="empty">Loading…</p></section><section id="cross" hidden></section><section id="health" hidden></section><section id="system" hidden></section>
 <section id="links" hidden><h2>Quick links</h2><div class="links">${linkCards}</div></section></main>
@@ -323,6 +324,6 @@ export const loginHtml = (error = '', next = '/') => `<!doctype html>
 form{max-width:340px;margin:18vh auto 0;padding:0 16px;display:flex;flex-direction:column;gap:10px}
 input{font:inherit;padding:10px 12px;border-radius:8px;border:1px solid var(--axis);background:var(--surface);color:var(--ink)}
 button{font:inherit;padding:10px 12px;border-radius:8px;border:0;background:var(--ink);color:var(--page);font-weight:600;cursor:pointer}</style></head>
-<body><form method="post" action="/login"><input type="hidden" name="next" value="${next === '/questlog' ? '/questlog' : '/'}"><h1 style="font-size:18px;margin:0 0 4px">Admin cockpit</h1>
+<body><form method="post" action="/login"><input type="hidden" name="next" value="${['/questlog', '/admin'].includes(next) ? next : '/'}"><h1 style="font-size:18px;margin:0 0 4px">Sign in</h1>
 <label class="sub" for="t">Password</label><input id="t" name="password" type="password" autocomplete="current-password" required autofocus>
 ${error ? `<p class="sub" style="color:var(--crit);margin:0">${error}</p>` : ''}<button type="submit">Sign in</button></form></body></html>`;

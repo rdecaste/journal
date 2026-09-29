@@ -38,7 +38,7 @@ export async function writeBufferLine(env, data) {
   const n = new Notion(env.NOTION_TOKEN);
   const block = findCallout(await pageBlocks(n, QUEST_LOG.page));
   if (!block) throw new Error(`No ${QUEST_LOG.icon} callout on the Quest log page`);
-  await n.updateBlock(block.id, { callout: { rich_text: bufferLine(data.cross, data.today, QUEST_LOG.dashboard) } });
+  await n.updateBlock(block.id, { callout: { rich_text: bufferLine(data.cross, data.today, QUEST_LOG.dashboard + '/admin#cross') } });
   await store(env).put('questlog_day', data.today);
   return block.id;
 }

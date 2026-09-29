@@ -85,3 +85,7 @@ test('login keeps the page you asked for, and nothing else', () => {
   assert.match(loginHtml('', '/questlog'), /name="next" value="\/questlog"/);
   assert.match(loginHtml('', 'https://evil.example'), /name="next" value="\/"/);
 });
+
+test('login can return to the dashboard at /admin', () => {
+  assert.match(loginHtml('', '/admin'), /name="next" value="\/admin"/);
+});
