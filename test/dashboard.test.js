@@ -215,14 +215,15 @@ test('an unreachable Quest Engine does not also mark card publishing as failing'
   assert.equal(by('withings').level, 'ok');
 });
 
-test('Quest log line: buffer, projection and days to fill in, found by its 🌍 callout', async () => {
+test('Quest log line: label, buffer and days to fill in, found by its 🌍 callout', async () => {
   const { bufferLine, findCallout, questLogDue, isQuestLogHour } = await import('../src/questlog.js');
   const cross = { ytd: { be_share: 61.8 }, minimum: 50, buffer_days: 12.5, be_days_needed: 0, projection: { year_end_be_share: 58.4 }, missing: [{ date: '2026-09-28' }] };
   const line = bufferLine(cross, '2026-09-29', 'https://dash.example');
   const text = line.map(t => t.text.content).join('');
-  assert.equal(text, 'Cross-border buffer · Belgium 62% this year (needs to stay above 50%) · 13 NL days of buffer · heading for 58% by year end · 1 work day to fill in · updated Tue 29 Sep · Open dashboard');
+  assert.equal(text, 'Cross-border\n62% Belgium · 13 NL days spare · 1 day to fill in');
   assert.equal(line[0].annotations.bold, true);
-  assert.equal(line.at(-1).text.link.url, 'https://dash.example');
+  assert.equal(line[0].text.link.url, 'https://dash.example');
+  assert.equal(bufferLine({ ...cross, missing: [] }, '2026-09-29', 'x').map(t => t.text.content).join(''), 'Cross-border\n62% Belgium · 13 NL days spare');
   assert.match(bufferLine({ ...cross, buffer_days: -2, be_days_needed: 4, missing: [] }, '2026-09-29', 'x').map(t => t.text.content).join(''), /4 BE days short/);
   const blocks = [{ id: 'a', type: 'callout', callout: { icon: { emoji: '✨' } } }, { id: 'b', type: 'heading_2', heading_2: {} }, { id: 'c', type: 'callout', callout: { icon: { type: 'emoji', emoji: '🌍' } } }];
   assert.equal(findCallout(blocks).id, 'c');

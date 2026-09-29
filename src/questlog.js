@@ -8,24 +8,18 @@ import { QUEST_LOG } from './config.js';
 import { store } from './usage.js';
 
 const fmt = n => (n === null || n === undefined ? '–' : String(Math.round(n)));
-// Spelled out by hand: ICU writes "Sept" in some runtimes and "Sep" in others.
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const shortDay = day => { const d = new Date(day + 'T12:00:00Z'); return `${DAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`; };
 
-// The callout's rich text: a bold label, the numbers, a link to the dashboard.
+// The callout's rich text, in the same shape as the other "Today at a glance"
+// boxes (Roy, 29 Sep): a bold label that links to the dashboard, then one line
+// with the headline numbers. The daily 💬 note underneath adds the context.
 export function bufferLine(cross, today, dashboardUrl) {
   const text = (content, extra = {}) => ({ type: 'text', text: { content, ...(extra.link ? { link: { url: extra.link } } : {}) }, annotations: { bold: !!extra.bold } });
-  if (!cross || cross.ytd.be_share === null) return [text('Cross-border buffer', { bold: true }), text(' · no work days counted yet · '), text('Open dashboard', { link: dashboardUrl })];
-  const parts = [`Belgium ${fmt(cross.ytd.be_share)}% this year (needs to stay above ${cross.minimum}%)`];
-  parts.push(cross.buffer_days >= 0 ? `${fmt(cross.buffer_days)} NL days of buffer` : `${fmt(cross.be_days_needed)} BE days short`);
-  if (cross.projection) parts.push(`heading for ${fmt(cross.projection.year_end_be_share)}% by year end`);
-  if (cross.missing.length) parts.push(`${cross.missing.length} work day${cross.missing.length === 1 ? '' : 's'} to fill in`);
-  return [
-    text('Cross-border buffer', { bold: true }),
-    text(` · ${parts.join(' · ')} · updated ${shortDay(today)} · `),
-    text('Open dashboard', { link: dashboardUrl })
-  ];
+  const label = text('Cross-border', { bold: true, link: dashboardUrl });
+  if (!cross || cross.ytd.be_share === null) return [label, text('\nNo work days counted yet')];
+  const parts = [`${fmt(cross.ytd.be_share)}% Belgium`];
+  parts.push(cross.buffer_days >= 0 ? `${fmt(cross.buffer_days)} NL days spare` : `${fmt(cross.be_days_needed)} BE days short`);
+  if (cross.missing.length) parts.push(`${cross.missing.length} day${cross.missing.length === 1 ? '' : 's'} to fill in`);
+  return [label, text(`\n${parts.join(' · ')}`)];
 }
 
 // The target: the callout with the marker icon, anywhere in the page's columns.
