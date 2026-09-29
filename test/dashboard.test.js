@@ -214,3 +214,25 @@ test('an unreachable Quest Engine does not also mark card publishing as failing'
   assert.equal(by('publish').level, 'unknown');
   assert.equal(by('withings').level, 'ok');
 });
+
+test('Quest log line: buffer, projection and days to fill in, found by its 🌍 callout', async () => {
+  const { bufferLine, findCallout, questLogDue, isQuestLogHour } = await import('../src/questlog.js');
+  const cross = { ytd: { be_share: 61.8 }, minimum: 50, buffer_days: 12.5, be_days_needed: 0, projection: { year_end_be_share: 58.4 }, missing: [{ date: '2026-09-28' }] };
+  const line = bufferLine(cross, '2026-09-29', 'https://dash.example');
+  const text = line.map(t => t.text.content).join('');
+  assert.equal(text, 'Cross-border buffer · Belgium 62% this year (needs to stay above 50%) · 13 NL days of buffer · heading for 58% by year end · 1 work day to fill in · updated Tue 29 Sep · Open dashboard');
+  assert.equal(line[0].annotations.bold, true);
+  assert.equal(line.at(-1).text.link.url, 'https://dash.example');
+  assert.match(bufferLine({ ...cross, buffer_days: -2, be_days_needed: 4, missing: [] }, '2026-09-29', 'x').map(t => t.text.content).join(''), /4 BE days short/);
+  const blocks = [{ id: 'a', type: 'callout', callout: { icon: { emoji: '✨' } } }, { id: 'b', type: 'heading_2', heading_2: {} }, { id: 'c', type: 'callout', callout: { icon: { type: 'emoji', emoji: '🌍' } } }];
+  assert.equal(findCallout(blocks).id, 'c');
+  assert.equal(findCallout(blocks.slice(0, 2)), null);
+  // 07:00 Amsterdam is 05:00 UTC in summer, 06:00 UTC in winter.
+  assert.equal(isQuestLogHour(Date.parse('2026-09-29T05:00:00Z')), true);
+  assert.equal(isQuestLogHour(Date.parse('2026-09-29T06:00:00Z')), false);
+  assert.equal(isQuestLogHour(Date.parse('2026-12-01T06:00:00Z')), true);
+  const data = { today: '2026-09-29', cross };
+  assert.equal(questLogDue('2026-09-28', data, Date.parse('2026-09-29T04:30:00Z')), false);
+  assert.equal(questLogDue('2026-09-28', data, Date.parse('2026-09-29T05:10:00Z')), true);
+  assert.equal(questLogDue('2026-09-29', data, Date.parse('2026-09-29T09:00:00Z')), false);
+});

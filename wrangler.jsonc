@@ -11,6 +11,9 @@
   // (Cloudflare answers 404, error 1042), so the Quest Engine is reached
   // through a service binding. Only routing: /ledger still needs the token.
   "services": [{ "binding": "QUEST_ENGINE", "service": "quest-engine" }],
+  // The morning buffer line in Quest log: 07:00 Amsterdam, which is 05:00 UTC
+  // in summer and 06:00 UTC in winter; the handler skips the other one.
+  "triggers": { "crons": ["0 5,6 * * *"] },
   "vars": {
     // The Quest Engine, monitored through GET /status and GET /ledger.
     "QUEST_ENGINE_URL": "https://quest-engine.quest-engine.workers.dev",
@@ -20,7 +23,8 @@
   }
   // Secrets (set with `npx wrangler secret put <NAME>`, never committed):
   //   DASHBOARD_PASSWORD     the login password
-  //   NOTION_TOKEN           a read-only Notion connection with access to Quest log
+  //   NOTION_TOKEN           a Notion connection with access to Quest log; reads, and
+//                          updates the one 🌍 callout (needs "Update content")
   //   QUEST_ENGINE_TOKEN     the Quest Engine's ADMIN_TOKEN, for GET /ledger
   //   HEALTHCHECKS_API_KEY   the healthchecks.io project's read-only API key
   //   OPENAI_API_KEY         only needed when ADMIN_AI is "1"

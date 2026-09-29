@@ -7,12 +7,17 @@
 //   GET  /data     everything the page shows, as JSON (signed in)
 //   POST /summary  rewrite today's AI summary now (signed in; one OpenAI call)
 //
-// It only reads: Notion (Work Location Log, Workouts, Body Metrics), the
-// Quest Engine's GET /status and GET /ledger, and healthchecks.io.
+// It reads Notion (Work Location Log, Workouts, Body Metrics), the Quest
+// Engine's GET /status and GET /ledger, and healthchecks.io. The one thing it
+// writes is the cross-border buffer line in the 🌍 callout on the Quest log
+// page: each morning at 07:00 Amsterdam time (cron), or the first time the
+// dashboard opens after that if the cron missed it.
 import { isSignedIn, sessionCookie, clearCookie, sameText } from './auth.js';
 import { loadDashboard } from './load.js';
 import { dashboardHtml, loginHtml } from './page.js';
 import { summaryDue, writeSummary } from './summary.js';
+import { writeBufferLine, questLogDue, isQuestLogHour } from './questlog.js';
+import { store } from './usage.js';
 export { Store } from './store.js';
 
 const PAGE_HEADERS = {
@@ -43,6 +48,7 @@ export default {
         if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
         const data = await loadDashboard(env, { fresh: searchParams.get('fresh') === '1' });
         if (summaryDue(env, data)) ctx.waitUntil(writeSummary(env, data).catch(e => console.error('summary', e && e.stack || e)));
+        ctx.waitUntil(store(env).get('questlog_day').then(day => questLogDue(day, data) ? writeBufferLine(env, data) : null).catch(e => console.error('questlog', e && e.stack || e)));
         return json(data);
       }
       if (pathname === '/summary' && request.method === 'POST') {
@@ -57,5 +63,14 @@ export default {
       console.error(pathname, e && e.stack || e);
       return pathname === '/data' ? json({ ok: 0, code: 'server_error', message: String(e.message || e) }, 500) : new Response('Something went wrong.', { status: 500 });
     }
+  },
+
+  // Cron runs at 05:00 and 06:00 UTC; only the one that is 07:00 in Amsterdam
+  // (summer or winter time) writes the Quest log line.
+  async scheduled(event, env, ctx) {
+    if (!isQuestLogHour(event.scheduledTime)) return;
+    const data = await loadDashboard(env, { fresh: true });
+    if (!data.cross) throw new Error('Work Location Log not readable: ' + data.errors.join('; '));
+    await writeBufferLine(env, data);
   }
 };

@@ -118,3 +118,12 @@ export const LINKS = [
     { name: 'GitHub', url: 'https://github.com/rdecaste' }
   ] }
 ];
+
+// The one thing it writes: the buffer line in the 🌍 callout on the Quest log
+// page (src/questlog.js), each morning at this Amsterdam hour.
+export const QUEST_LOG = {
+  page: 'd835f903-d475-4c9b-bf52-100097824752',
+  icon: '🌍',
+  hour: 7,
+  dashboard: 'https://admindashboard.quest-engine.workers.dev'
+};
