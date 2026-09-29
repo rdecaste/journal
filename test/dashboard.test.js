@@ -129,6 +129,19 @@ test('system: healthy state, overdue journal chain and stale Make sync', () => {
   assert.ok(system({ status, checks: null, ledger: { jobs: [] }, latest }, NOW).flags.some(f => /not readable/.test(f.title)));
 });
 
+test('system: the family jobs are not due before their first Quest Engine morning', () => {
+  const at = Date.parse('2026-09-29T11:30:00Z'); // 13:30 Amsterdam
+  const status = { built_at: new Date(at - 60000).toISOString(), journal_chain: { day: '2026-09-29', complete: true }, nightly: { at: '2026-09-29T02:03:00Z' },
+    journal_enabled: true, nightly_enabled: true, vault_enabled: true, family_enabled: true, family_from: '2026-09-30', family_jobs: null };
+  const latest = { workout: { created: '2026-09-28T12:00:00Z' }, metric: { created: '2026-09-28T13:00:00Z' } };
+  const checks = [{ slug: 'heartbeat', status: 'up' }, { slug: 'family-morning', status: 'down' }];
+  const before = system({ status, checks, ledger: { jobs: [] }, latest }, at);
+  assert.ok(!before.flags.some(f => f.title === 'Family Dashboard'), JSON.stringify(before.flags));
+  assert.match(before.processes.find(p => p.key === 'family').detail, /Moves to the Quest Engine on 2026-09-30/);
+  const after = system({ status: { ...status, family_from: '2026-09-29' }, checks, ledger: { jobs: [] }, latest }, at);
+  assert.ok(after.flags.some(f => f.title === 'Family Dashboard'));
+});
+
 test('usage: the Quest Engine ledger and the dashboard\'s own calls add up, and failures surface', () => {
   const at = t => Date.parse(t);
   const ledger = {

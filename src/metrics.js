@@ -313,9 +313,12 @@ export function system({ status, checks, ledger, latest }, now = Date.now()) {
   const family = s.family_jobs || {};
   const familyToday = family.at && amsterdamDay(Date.parse(family.at)) === today;
   const familyErrors = Object.entries((family.report) || {}).filter(([, r]) => r && r.error).map(([k, r]) => `${k}: ${r.error}`);
-  add({ key: 'family', name: 'Family Dashboard', detail: env.FAMILY_ENABLED === '1' ? 'Chores, rollover, metrics, boss and image, 05:30–07:00' : 'Not on the Quest Engine (FAMILY_ENABLED off)', last_ok: family.at || null, enabled: env.FAMILY_ENABLED === '1',
-    level: env.FAMILY_ENABLED !== '1' ? 'ok' : worst(familyErrors.length ? 'watch' : 'ok', minutes >= 8 * 60 && !familyToday ? 'attention' : 'ok', fromCheck(check('family-morning')) || 'ok'),
-    problem: env.FAMILY_ENABLED === '1' ? (familyErrors.join('; ') || (minutes >= 8 * 60 && !familyToday ? "This morning's family jobs have not run." : '')) : '' });
+  // family_from: the first morning the Quest Engine runs them (Make runs them before that).
+  const familyFrom = status && status.family_from;
+  const familyOn = env.FAMILY_ENABLED === '1' && !(familyFrom && today < familyFrom);
+  add({ key: 'family', name: 'Family Dashboard', detail: familyOn ? 'Chores, rollover, metrics, boss and image, 05:30–07:00' : env.FAMILY_ENABLED === '1' ? `Moves to the Quest Engine on ${familyFrom}; Make runs it until then` : 'Not on the Quest Engine (FAMILY_ENABLED off)', last_ok: family.at || null, enabled: familyOn,
+    level: !familyOn ? 'ok' : worst(familyErrors.length ? 'watch' : 'ok', minutes >= 8 * 60 && !familyToday ? 'attention' : 'ok', fromCheck(check('family-morning')) || 'ok'),
+    problem: familyOn ? (familyErrors.join('; ') || (minutes >= 8 * 60 && !familyToday ? "This morning's family jobs have not run." : '')) : '' });
 
   // Image and video Workflows.
   const visuals = check('visuals');
