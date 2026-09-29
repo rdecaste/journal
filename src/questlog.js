@@ -28,12 +28,21 @@ export function bufferLine(cross, today, dashboardUrl) {
   ];
 }
 
-// The target: the page's top-level callout with the marker icon.
+// The target: the callout with the marker icon, anywhere in the page's columns.
 export const findCallout = blocks => blocks.find(b => b.type === 'callout' && b.callout.icon && b.callout.icon.emoji === QUEST_LOG.icon) || null;
+
+async function pageBlocks(n, id, depth = 0) {
+  const out = [];
+  for (const b of await n.children(id)) {
+    out.push(b);
+    if (b.has_children && ['column_list', 'column'].includes(b.type) && depth < 3) out.push(...await pageBlocks(n, b.id, depth + 1));
+  }
+  return out;
+}
 
 export async function writeBufferLine(env, data) {
   const n = new Notion(env.NOTION_TOKEN);
-  const block = findCallout(await n.children(QUEST_LOG.page));
+  const block = findCallout(await pageBlocks(n, QUEST_LOG.page));
   if (!block) throw new Error(`No ${QUEST_LOG.icon} callout on the Quest log page`);
   await n.updateBlock(block.id, { callout: { rich_text: bufferLine(data.cross, data.today, QUEST_LOG.dashboard) } });
   await store(env).put('questlog_day', data.today);
