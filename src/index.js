@@ -2,6 +2,8 @@
 // automations (the Quest Engine, the Make syncs, healthchecks.io).
 //
 //   GET  /         the dashboard (signed in), otherwise the login page
+//   GET  /questlog the Quest log as one clean page for the iPad and phone
+//                  (signed in; ?fresh=1 skips the 5-minute cache)
 //   GET  /login    the login page; POST /login with the password
 //   POST /logout   signs out
 //   GET  /data     everything the page shows, as JSON (signed in)
@@ -15,6 +17,8 @@
 import { isSignedIn, sessionCookie, clearCookie, sameText } from './auth.js';
 import { loadDashboard } from './load.js';
 import { dashboardHtml, loginHtml } from './page.js';
+import { loadToday } from './today.js';
+import { todayHtml } from './todaypage.js';
 import { summaryDue, writeSummary } from './summary.js';
 import { writeBufferLine, questLogDue, isQuestLogHour } from './questlog.js';
 import { store } from './usage.js';
@@ -25,6 +29,9 @@ const PAGE_HEADERS = {
   'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff', 'X-Robots-Tag': 'noindex'
 };
 const redirect = (to, cookie) => new Response(null, { status: 303, headers: { Location: to, ...(cookie ? { 'Set-Cookie': cookie } : {}) } });
+// Where the login sends you back to: only the dashboard's own pages.
+const NEXT = new Set(['/', '/questlog']);
+const nextPath = p => (NEXT.has(p) ? p : '/');
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 
 export default {
@@ -35,12 +42,14 @@ export default {
       if (pathname === '/login') {
         if (request.method === 'POST') {
           const form = await request.formData();
-          if (password && sameText(String(form.get('password') || '').trim(), password)) return redirect('/', await sessionCookie(password));
+          const next = nextPath(String(form.get('next') || '/'));
+          if (password && sameText(String(form.get('password') || '').trim(), password)) return redirect(next, await sessionCookie(password));
           await new Promise(r => setTimeout(r, 800));
-          return new Response(loginHtml('That password is not right.'), { status: 401, headers: PAGE_HEADERS });
+          return new Response(loginHtml('That password is not right.', next), { status: 401, headers: PAGE_HEADERS });
         }
-        if (await isSignedIn(request, password)) return redirect('/');
-        return new Response(loginHtml(password ? '' : 'DASHBOARD_PASSWORD is not set on the Worker.'), { headers: PAGE_HEADERS });
+        const next = nextPath(searchParams.get('next') || '/');
+        if (await isSignedIn(request, password)) return redirect(next);
+        return new Response(loginHtml(password ? '' : 'DASHBOARD_PASSWORD is not set on the Worker.', next), { headers: PAGE_HEADERS });
       }
       if (pathname === '/logout' && request.method === 'POST') return redirect('/login', clearCookie());
       const signedIn = await isSignedIn(request, password);
@@ -56,6 +65,10 @@ export default {
         if (env.ADMIN_AI !== '1' || !env.OPENAI_API_KEY) return json({ ok: 0, code: 'ai_off' }, 400);
         const summary = await writeSummary(env, await loadDashboard(env, { fresh: true }), { force: true });
         return json({ ok: 1, summary });
+      }
+      if (pathname === '/questlog') {
+        if (!signedIn) return redirect('/login?next=/questlog');
+        return new Response(todayHtml(await loadToday(env, { fresh: searchParams.get('fresh') === '1' })), { headers: PAGE_HEADERS });
       }
       if (pathname === '/') return signedIn ? new Response(dashboardHtml(), { headers: PAGE_HEADERS }) : redirect('/login');
       return new Response('Not found', { status: 404 });
