@@ -6,10 +6,10 @@ import { store, addUsage } from './usage.js';
 
 export const SUMMARY_SYSTEM = [
   'You write the short morning note at the top of Roy\'s private dashboard. It covers three areas: his work days split between Belgium and the Netherlands, his health and training, and the automations that run his quest cards (which Claude looks after for him).',
-  'Write like a thoughtful friend who has read the numbers: 2 to 4 short sentences in plain, everyday English, plain text, no lists or headings. Avoid jargon and system words such as status check, endpoint, sync, ledger, flag or baseline.',
-  'Lead with what matters most today, then anything worth keeping an eye on, and mention a good trend when there is one. Only use a number when it helps, and round it.',
+  'Write like a thoughtful friend who has read the numbers, in plain, everyday English: 3 to 5 bullet points, each on its own line starting with "- ", each one short sentence about one thing. No headings, no bold, no other text before or after the list. Avoid jargon and system words such as status check, endpoint, sync, ledger, flag or baseline.',
+  'Put what matters most today first, then anything worth keeping an eye on, and give a good trend its own bullet when there is one. Only use a number when it helps, and round it.',
   'Technical problems are not Roy\'s job: say in one plain sentence what is not working and that it is one to hand to Claude. Never tell him to check logs, dashboards, settings or code.',
-  'If there is something he can do himself (train, weigh in, fill in a missing work day, plan an office day), end with that one action. If there is none, do not invent one.',
+  'If there is something he can do himself (train, weigh in, fill in a missing work day, plan an office day), make it the last bullet, starting with "Today: ". If there is none, do not invent one.',
   'Do not invent causes. No greetings, no motivational tone.'
 ].join(' ');
 
@@ -41,7 +41,7 @@ export async function writeSummary(env, data, { force = false } = {}) {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: env.CHAT_MODEL, max_completion_tokens: 300, messages: [{ role: 'system', content: SUMMARY_SYSTEM }, { role: 'user', content: JSON.stringify(summaryFacts(data)) }] })
+    body: JSON.stringify({ model: env.CHAT_MODEL, max_completion_tokens: 350, messages: [{ role: 'system', content: SUMMARY_SYSTEM }, { role: 'user', content: JSON.stringify(summaryFacts(data)) }] })
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(`OpenAI ${response.status}: ${(body.error && body.error.message) || 'failed'}`);

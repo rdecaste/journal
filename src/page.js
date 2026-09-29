@@ -45,6 +45,8 @@ h2:first-child{margin-top:4px}
 .flag .area-name{color:var(--muted);font-size:12px;white-space:nowrap}
 .calm{color:var(--ink2);background:var(--surface);border:1px dashed var(--ring);border-radius:8px;padding:12px}
 .summary{background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:14px 16px;font-size:15px}
+.summary .points{margin:0;padding-left:18px}
+.summary .points li{margin:3px 0}
 .summary .by{color:var(--muted);font-size:12px;margin-top:6px}
 .rewrite{font:inherit;font-size:12px;color:var(--ink2);background:none;border:1px solid var(--ring);border-radius:6px;padding:1px 7px;cursor:pointer}
 .kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:14px}
@@ -172,9 +174,16 @@ function areaLine(key, d) {
   if (key === 'system' && d.system) return d.system.processes.length + ' processes running · ' + d.system.failures.last_24h + ' failure' + (d.system.failures.last_24h === 1 ? '' : 's') + ' in 24 h';
   return 'No data';
 }
+// Lines starting with "- " become a list; older summaries are one paragraph.
+function summaryText(t) {
+  const lines = String(t).split('\\n').map(l => l.trim()).filter(Boolean);
+  const items = lines.filter(l => /^[-•*] /.test(l));
+  if (!items.length) return esc(t);
+  return '<ul class="points">' + items.map(l => '<li>' + esc(l.replace(/^[-•*] /, '')) + '</li>').join('') + '</ul>';
+}
 function summaryBlock(d) {
   const rewrite = d.ai_enabled ? ' · <button type="button" class="rewrite">Rewrite</button>' : '';
-  if (d.summary && d.summary.text) return '<div class="summary">' + esc(d.summary.text) + '<div class="by">AI summary · ' + (d.summary.stale ? 'from ' + day(d.summary.day) : 'written ' + ago(d.summary.at)) + rewrite + '</div></div>';
+  if (d.summary && d.summary.text) return '<div class="summary">' + summaryText(d.summary.text) + '<div class="by">AI summary · ' + (d.summary.stale ? 'from ' + day(d.summary.day) : 'written ' + ago(d.summary.at)) + rewrite + '</div></div>';
   if (d.ai_enabled) return '<p class="calm">No summary yet today' + rewrite + '</p>';
   if (!d.ai_enabled) return '<p class="calm">The AI summary is switched off (ADMIN_AI). The flags above are computed without it.</p>';
   return '<p class="calm">Today\\'s summary is written the first time the dashboard opens after 07:30.</p>';
