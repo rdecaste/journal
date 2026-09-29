@@ -23,9 +23,14 @@ const amsterdamMinutes = now => { const [h, m] = new Intl.DateTimeFormat('en-GB'
 export const summaryDue = (env, data, now = Date.now()) =>
   env.ADMIN_AI === '1' && !!env.OPENAI_API_KEY && !(data.summary && data.summary.day === data.today) && amsterdamMinutes(now) >= 7 * 60 + 30;
 
-export async function writeSummary(env, data) {
+// force: rewritten on request from the page (Rewrite button), not the daily run.
+export async function writeSummary(env, data, { force = false } = {}) {
   const s = store(env);
-  if (!(await s.claim('summary_day', data.today))) return null;
+  if (force) {
+    const last = await s.get('summary');
+    if (last && Date.now() - Date.parse(last.at) < 60000) return last;
+    await s.claim('summary_day', data.today);
+  } else if (!(await s.claim('summary_day', data.today))) return null;
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },

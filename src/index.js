@@ -5,6 +5,7 @@
 //   GET  /login    the login page; POST /login with the password
 //   POST /logout   signs out
 //   GET  /data     everything the page shows, as JSON (signed in)
+//   POST /summary  rewrite today's AI summary now (signed in; one OpenAI call)
 //
 // It only reads: Notion (Work Location Log, Workouts, Body Metrics), the
 // Quest Engine's GET /status and GET /ledger, and healthchecks.io.
@@ -43,6 +44,12 @@ export default {
         const data = await loadDashboard(env, { fresh: searchParams.get('fresh') === '1' });
         if (summaryDue(env, data)) ctx.waitUntil(writeSummary(env, data).catch(e => console.error('summary', e && e.stack || e)));
         return json(data);
+      }
+      if (pathname === '/summary' && request.method === 'POST') {
+        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+        if (env.ADMIN_AI !== '1' || !env.OPENAI_API_KEY) return json({ ok: 0, code: 'ai_off' }, 400);
+        const summary = await writeSummary(env, await loadDashboard(env, { fresh: true }), { force: true });
+        return json({ ok: 1, summary });
       }
       if (pathname === '/') return signedIn ? new Response(dashboardHtml(), { headers: PAGE_HEADERS }) : redirect('/login');
       return new Response('Not found', { status: 404 });

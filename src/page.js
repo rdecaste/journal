@@ -46,6 +46,7 @@ h2:first-child{margin-top:4px}
 .calm{color:var(--ink2);background:var(--surface);border:1px dashed var(--ring);border-radius:8px;padding:12px}
 .summary{background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:14px 16px;font-size:15px}
 .summary .by{color:var(--muted);font-size:12px;margin-top:6px}
+.rewrite{font:inherit;font-size:12px;color:var(--ink2);background:none;border:1px solid var(--ring);border-radius:6px;padding:1px 7px;cursor:pointer}
 .kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:14px}
 .kv dt{color:var(--ink2)}.kv dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
 table{width:100%;border-collapse:collapse;font-size:13px}
@@ -172,7 +173,9 @@ function areaLine(key, d) {
   return 'No data';
 }
 function summaryBlock(d) {
-  if (d.summary && d.summary.text) return '<div class="summary">' + esc(d.summary.text) + '<div class="by">AI summary · ' + (d.summary.stale ? 'from ' + day(d.summary.day) : 'written ' + ago(d.summary.at)) + '</div></div>';
+  const rewrite = d.ai_enabled ? ' · <button type="button" class="rewrite">Rewrite</button>' : '';
+  if (d.summary && d.summary.text) return '<div class="summary">' + esc(d.summary.text) + '<div class="by">AI summary · ' + (d.summary.stale ? 'from ' + day(d.summary.day) : 'written ' + ago(d.summary.at)) + rewrite + '</div></div>';
+  if (d.ai_enabled) return '<p class="calm">No summary yet today' + rewrite + '</p>';
   if (!d.ai_enabled) return '<p class="calm">The AI summary is switched off (ADMIN_AI). The flags above are computed without it.</p>';
   return '<p class="calm">Today\\'s summary is written the first time the dashboard opens after 07:30.</p>';
 }
@@ -282,6 +285,12 @@ async function load(fresh) {
 }
 addEventListener('hashchange', show);
 $('#reload').addEventListener('click', () => load(true));
+document.addEventListener('click', async e => {
+  const b = e.target.closest('.rewrite'); if (!b) return;
+  b.disabled = true; b.textContent = 'Writing…';
+  try { const r = await fetch('/summary', { method: 'POST', credentials: 'same-origin' }); if (!r.ok) throw new Error('HTTP ' + r.status); await load(true); }
+  catch (err) { b.disabled = false; b.textContent = 'Rewrite failed, try again'; }
+});
 show(); load(true);
 `;
 
