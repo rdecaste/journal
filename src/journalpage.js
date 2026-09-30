@@ -119,6 +119,9 @@ textarea:focus{outline:none}
 .recap{display:flex;flex-direction:column;gap:6px;padding:16px 20px;border-radius:18px;background:var(--ki-soft)}
 .recap p{margin:0;font-family:var(--serif);font-size:17px;line-height:1.45;white-space:pre-wrap}
 .recap b{font-family:var(--body);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ki);font-weight:600;margin-right:6px}
+.recap.night{background:var(--night-soft)}
+.recap.night b{color:var(--night)}
+.recap.night .link{color:var(--night)}
 .link{border:0;background:none;padding:4px 0;color:var(--ki);font-size:14px;cursor:pointer;align-self:flex-start;min-height:32px}
 .later{margin:0;color:var(--muted);font-family:var(--serif);font-style:italic;font-size:18px}
 .end{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding-top:4px}
@@ -234,6 +237,7 @@ export function journalHtml(d) {
 
   <h2>🌙 Evening</h2>
   <p class="later" id="e-later" hidden>Opens here tonight, starting with your “win if”. <button type="button" class="link" id="open-evening">Write now ›</button></p>
+  <div id="e-recap" hidden></div>
   <div id="e-open" class="evening" style="display:flex;flex-direction:column;gap:22px">
     <section class="sheet" aria-label="Looking back">
       <div class="handoff" id="lookback"></div>
@@ -243,7 +247,7 @@ export function journalHtml(d) {
       ${entry('park', { small: true })}
       ${d.sections.tomorrow ? entry('tomorrow', { small: true }) : ''}
     </section>
-    <div class="end close"><button type="button" class="endbtn" id="e-done">Close the day</button><p class="bye" id="bye" hidden>Saved. Sleep well, Roy. Tomorrow starts with what you wrote tonight.</p></div>
+    <div class="end close"><button type="button" class="endbtn" id="e-done">Close the day</button></div>
   </div>
 
   <h2>🔥 Main quest</h2>
@@ -513,6 +517,16 @@ const SCRIPT = String.raw`
       '<button type="button" class="link" id="edit-m">' + (bits.length ? 'Open the morning ›' : 'Write it now ›') + '</button></div>';
     $('edit-m').addEventListener('click', function () { UI.mopen = true; UI.bye = false; saveUI(); layout(); });
   }
+  // The evening folds the same way once the day is closed.
+  function eveningRecap() {
+    var did = (V.winif || '').trim() ? (V.did || '').trim() : '';
+    var bits = [['Win if', did ? V.winif.trim() + ' · ' + did : ''], ['Reflection', V.reflection], ['Park it', V.park], ['For tomorrow', V.tomorrow]]
+      .filter(function (b) { return b[1] && String(b[1]).trim(); });
+    $('e-recap').innerHTML = '<div class="recap night"><p class="bye" style="margin-bottom:6px">Saved. Sleep well, Roy. Tomorrow starts with what you wrote tonight.</p>' +
+      bits.map(function (b) { return '<p><b>' + b[0] + '</b>' + esc(b[1]) + '</p>'; }).join('') +
+      '<button type="button" class="link" id="edit-e">Open the evening ›</button></div>';
+    $('edit-e').addEventListener('click', function () { UI.edone = false; saveUI(); layout(); });
+  }
 
   // ---- Daily theme: layered hills, one palette per weekday; dawn in the morning, dusk at night ----
   var THEMES = [
@@ -546,16 +560,19 @@ const SCRIPT = String.raw`
     $('sub').textContent = (D.sub && (evening ? D.sub.evening : D.sub.morning)) || '';
     var folded = !UI.mopen && (evening || UI.mdone);
     $('m-open').hidden = folded; $('m-recap').hidden = !folded;
-    var eOpen = evening || UI.eopen;
-    $('e-open').hidden = !eOpen; $('e-later').hidden = eOpen;
-    recap(); lookback(); growAll();
+    var eOpen = evening || UI.eopen, eClosed = eOpen && UI.edone;
+    $('e-open').hidden = !eOpen || eClosed; $('e-later').hidden = eOpen; $('e-recap').hidden = !eClosed;
+    recap(); lookback(); if (eClosed) eveningRecap(); growAll();
   }
   $('open-evening').addEventListener('click', function () { UI.eopen = true; saveUI(); layout(); });
   $('m-done').addEventListener('click', function () {
     UI.mdone = true; UI.mopen = false; UI.bye = true; saveUI(); flush(); layout();
     $('m-recap').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   });
-  $('e-done').addEventListener('click', function () { flush(); $('bye').hidden = false; });
+  $('e-done').addEventListener('click', function () {
+    UI.edone = true; saveUI(); flush(); layout();
+    $('e-recap').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
   layout();
 
   // ---- Main quest check-in ----
