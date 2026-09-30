@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { crossBorder, health, system, overview, usageSummary, estimateCost, mergeUsage } from '../src/metrics.js';
 import { addUsage } from '../src/usage.js';
 import { sessionCookie, isSignedIn } from '../src/auth.js';
-import { summaryFacts, summaryDue } from '../src/summary.js';
+import { summaryFacts, summaryDue, isSummaryHour } from '../src/summary.js';
 import { P, page } from './helpers.js';
 
 const CFG = { start: '2026-07-01', beMinimum: 50, bufferAttention: 3, bufferWatch: 8, trendWeeks: 8 };
@@ -190,11 +190,15 @@ test('login cookie: signed, expiring and tied to the token', async () => {
   assert.equal(await isSignedIn(req(''), 'secret-token'), false);
 });
 
-test('AI summary: off by default, once a day after 07:30, facts without raw data', () => {
+test('AI summary: off by default, once a day from 05:00, facts without raw data', () => {
   const data = { today: '2026-09-28', summary: null, overview: { drifting: [{ area_name: 'Health', level: 'watch', title: 'Runs below 2 a week', why: '1.5 a week' }] }, cross: null, health: null, system: null };
   assert.equal(summaryDue({}, data, NOW), false);
   assert.equal(summaryDue({ ADMIN_AI: '1', OPENAI_API_KEY: 'k' }, data, NOW), true);
-  assert.equal(summaryDue({ ADMIN_AI: '1', OPENAI_API_KEY: 'k' }, data, Date.parse('2026-09-28T05:00:00Z')), false);
+  assert.equal(summaryDue({ ADMIN_AI: '1', OPENAI_API_KEY: 'k' }, data, Date.parse('2026-09-28T02:30:00Z')), false); // 04:30 Amsterdam
+  assert.equal(summaryDue({ ADMIN_AI: '1', OPENAI_API_KEY: 'k' }, data, Date.parse('2026-09-28T03:00:00Z')), true); // 05:00
+  assert.equal(isSummaryHour(Date.parse('2026-09-28T03:00:00Z')), true); // summer time
+  assert.equal(isSummaryHour(Date.parse('2026-12-01T04:00:00Z')), true); // winter time
+  assert.equal(isSummaryHour(Date.parse('2026-09-28T05:00:00Z')), false);
   assert.equal(summaryDue({ ADMIN_AI: '1', OPENAI_API_KEY: 'k' }, { ...data, summary: { day: '2026-09-28' } }, NOW), false);
   assert.deepEqual(summaryFacts(data).drift, ['[Health, watch] Runs below 2 a week: 1.5 a week']);
 });

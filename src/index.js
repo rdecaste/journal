@@ -21,7 +21,7 @@ import { loadDashboard } from './load.js';
 import { dashboardHtml, loginHtml } from './page.js';
 import { loadToday } from './today.js';
 import { todayHtml } from './todaypage.js';
-import { summaryDue, writeSummary } from './summary.js';
+import { summaryDue, writeSummary, isSummaryHour } from './summary.js';
 import { writeBufferLine, questLogDue, isQuestLogHour } from './questlog.js';
 import { store } from './usage.js';
 export { Store } from './store.js';
@@ -72,9 +72,9 @@ export default {
       if (pathname === '/' || pathname === '/questlog') {
         if (!signedIn) return redirect(pathname === '/' ? '/login' : '/login?next=/questlog');
         const fresh = searchParams.get('fresh') === '1';
-        // The daily summary and the Quest log line are triggered here too, now
-        // that this page (not the dashboard) is the one Roy opens. The first
-        // open after 07:30 waits for the summary so the bullets show at once.
+        // The daily summary and the Quest log line are triggered here too, in
+        // case their timer missed. An open that finds the summary due waits for
+        // it so the bullets show at once.
         const dash = await loadDashboard(env, { fresh });
         let dueNow = false;
         if (summaryDue(env, dash)) {
@@ -92,9 +92,15 @@ export default {
     }
   },
 
-  // Cron runs at 05:00 and 06:00 UTC; only the one that is 07:00 in Amsterdam
-  // (summer or winter time) writes the Quest log line.
+  // Cron runs at 03:00-06:00 UTC; whichever is 05:00 in Amsterdam (summer or
+  // winter time) writes the AI summary, and whichever is 07:00 writes the
+  // Quest log line.
   async scheduled(event, env, ctx) {
+    if (isSummaryHour(event.scheduledTime)) {
+      const data = await loadDashboard(env, { fresh: true });
+      if (summaryDue(env, data, event.scheduledTime)) await writeSummary(env, data);
+      return;
+    }
     if (!isQuestLogHour(event.scheduledTime)) return;
     const data = await loadDashboard(env, { fresh: true });
     if (!data.cross) throw new Error('Work Location Log not readable: ' + data.errors.join('; '));

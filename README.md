@@ -17,8 +17,9 @@ It only reads. Targets, thresholds, links and the unit prices behind the
 cost estimate are in `src/config.js`. The drift rules are in
 `src/metrics.js`, as pure functions with tests.
 
-The daily AI summary (`src/summary.js`) is one short OpenAI chat call, made
-the first time the page opens after 07:30 Amsterdam time and kept in a small
+The daily AI summary (`src/summary.js`) is one short OpenAI chat call, written
+by the 05:00 Amsterdam timer (or on the first open after 05:00 if the timer
+missed it) and kept in a small
 Durable Object (`src/store.js`). It runs when `ADMIN_AI` in
 `wrangler.jsonc` is `1` (on since 28 Sep 2026) and the `OPENAI_API_KEY` secret is set.
 

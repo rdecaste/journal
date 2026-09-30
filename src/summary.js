@@ -1,6 +1,7 @@
-// The AI summary: one short OpenAI call a day, made the first time the
-// dashboard opens after 07:30 Amsterdam time, and kept in the Store. Off
-// unless ADMIN_AI is "1".
+// The AI summary: one short OpenAI call a day, written by the 05:00 Amsterdam
+// timer (after the Quest Engine's 03:00 journal chain and 04:00 nightly run),
+// or on the first open after 05:00 if the timer missed it, and kept in the
+// Store. Off unless ADMIN_AI is "1".
 
 import { store, addUsage } from './usage.js';
 
@@ -27,8 +28,11 @@ export function summaryFacts(data) {
 
 const amsterdamMinutes = now => { const [h, m] = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Amsterdam', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(now)).split(':').map(Number); return h * 60 + m; };
 
+export const SUMMARY_HOUR = 5;
+export const isSummaryHour = (now = Date.now()) => Math.floor(amsterdamMinutes(now) / 60) === SUMMARY_HOUR;
+
 export const summaryDue = (env, data, now = Date.now()) =>
-  env.ADMIN_AI === '1' && !!env.OPENAI_API_KEY && !(data.summary && data.summary.day === data.today) && amsterdamMinutes(now) >= 7 * 60 + 30;
+  env.ADMIN_AI === '1' && !!env.OPENAI_API_KEY && !(data.summary && data.summary.day === data.today) && amsterdamMinutes(now) >= SUMMARY_HOUR * 60;
 
 // force: rewritten on request from the page (Rewrite button), not the daily run.
 export async function writeSummary(env, data, { force = false } = {}) {

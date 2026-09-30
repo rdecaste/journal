@@ -119,14 +119,9 @@ test('questlog page: briefing carries the old Overview (flags, summary, systems)
     system: { processes: [{ name: 'Nightly', level: 'attention' }] } })) });
   assert.match(quiet, /twice/);
   assert.doesNotMatch(quiet, /<li>old<\/li>/);
-  assert.match(quiet, /after 07:30/);
+  assert.match(quiet, /written at 05:00/);
   assert.doesNotMatch(quiet, /Automations:/);
-  // Tech problems carry a Hand to Claude button that copies the problem first.
-  assert.match(quiet, /class="handoff" href="https:\/\/claude\.ai\/code\/project\/chan_01H4nLsWNAPq67jLrHMTGnSp"[^>]*data-copy="From my Quest log page \(Tuesday 29 September\): Nightly failed\. twice\. Please look into it and fix it\."/);
-  assert.doesNotMatch(html.replace(/<script>[\s\S]*<\/script>/, ''), /Hand to Claude/); // no system problem, no Claude bullet
-  const bullet = todayHtml({ ...base, briefing: briefingView(dash({ summary: { day: '2026-09-29', at: '2026-09-29T05:40:00Z', text: '- The nightly run failed; one to hand to Claude.\n- Today: run.' } })) });
-  assert.match(bullet, /<li>The nightly run failed; one to hand to Claude\.<a class="handoff"[^>]*data-copy="From my Quest log page \(Tuesday 29 September\): The nightly run failed; one to hand to Claude\./);
-  assert.match(bullet, /<li>Today: run\.<\/li>/);
+  assert.doesNotMatch(quiet, /Hand to Claude|<script/); // removed 30 Sep (Roy: not useful)
   const calm = todayHtml({ ...base, briefing: briefingView(dash({ overview: { areas: [], drifting: [] } })) });
   assert.match(calm, /Nothing needs you right now/);
 });
