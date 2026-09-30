@@ -273,7 +273,6 @@ export function journalHtml(d) {
     ${d.quests.map((q, i) => `<div class="entry small" data-entry="quest${i}">
         <div class="label">${esc(q.icon || '⚔️')} ${esc(q.title)}</div>
         <p class="q" id="quest${i}-q">${esc(q.question)}</p>
-        ${q.next ? `<p class="hint">Next move: ${esc(q.next)}</p>` : ''}
         <textarea id="quest${i}" data-quest="${esc(q.id)}" aria-labelledby="quest${i}-q" rows="2"></textarea>
         <p class="stamp" id="quest${i}-at" hidden></p>
       </div>`).join('')}

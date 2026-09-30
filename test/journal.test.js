@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readTree, readJournal, writeText, writeFocus, saveJournal, loadJournal, journalDay, todoSuggestions, subLines, extrasAnchor, JOURNAL } from '../src/journal.js';
+import { readTree, readJournal, writeText, writeFocus, saveJournal, loadJournal, journalDay, todoSuggestions, subLines, extrasAnchor, JOURNAL, QUEST_FALLBACK } from '../src/journal.js';
 import { journalHtml } from '../src/journalpage.js';
 import { Notion } from '../src/notion.js';
 import { FakeNotion, journalFixture, run } from './notionfake.js';
@@ -175,10 +175,14 @@ test('journal page: loads today, yesterday’s hand-off, to-dos and the streak',
   fake.queries[JOURNAL.todos] = body => body.filter.property === 'Status'
     ? [{ id: 'aaaaaaaa-0000-4000-8000-000000000001', properties: { Task: { title: [run('reply sunly')] }, Labels: { multi_select: [{ name: 'Must do' }] }, 'Related Journal': { relation: [{ id: YDAY }] }, Tag: { select: null } } }]
     : [];
-  const engineEnv = { ...env, QUEST_ENGINE_URL: 'https://engine', QUEST_ENGINE: { fetch: async req => {
+  let asked = { day: '2026-09-30', questions: { 'Get back in shape': 'What made Tuesday’s swim feel easy?' } };
+  const engineEnv = { ...env, QUEST_ENGINE_URL: 'https://engine', QUEST_ENGINE_TOKEN: 'tok', QUEST_ENGINE: { fetch: async req => {
     const path = new URL(req.url).pathname;
     if (path === '/hero') return Response.json({ records: { current_run: 21 }, days: [{ date: '2026-09-30', movement: 0 }] });
-    return Response.json([{ questTitle: 'Get Back in Shape', passFailQuestion: 'Did I train 6 h this week?', nextMove: 'Book the pool' }]);
+    assert.equal(path, '/journal/questions');
+    if (req.headers.get('X-Admin-Token') !== 'tok') return Response.json({ ok: 0 }, { status: 401 });
+    if (!asked) return new Response('Not found', { status: 404 });
+    return Response.json({ ok: 1, ...asked });
   } } };
   const d = await fake.use(() => loadJournal(engineEnv, { now: Date.parse('2026-09-30T06:00:00Z') }));
   assert.equal(d.day, '2026-09-30');
@@ -188,10 +192,19 @@ test('journal page: loads today, yesterday’s hand-off, to-dos and the streak',
   assert.deepEqual(d.suggestions, [{ id: 'aaaaaaaa-0000-4000-8000-000000000001', t: 'reply sunly', group: 'must' }]);
   assert.equal(d.run, 21);
   assert.equal(d.run_includes_today, false);
-  assert.equal(d.quests[0].question, 'Did I train 6 h this week?');
-  assert.equal(d.quests[0].next, 'Book the pool');
-  assert.equal(d.quests[1].question, 'Anything moved today?');
+  // Today's question from the 03:00 call, matched by name; the rest get the fallback.
+  assert.equal(d.quests[0].question, 'What made Tuesday’s swim feel easy?');
+  assert.equal(d.quests[1].question, QUEST_FALLBACK);
   assert.deepEqual(d.errors, []);
+
+  // Yesterday's questions, or none yet (the Quest Engine not updated), fall back quietly.
+  asked = { day: '2026-09-29', questions: { 'Get Back in Shape': 'Old?' } };
+  const old = await fake.use(() => loadJournal(engineEnv, { now: Date.parse('2026-09-30T06:00:00Z') }));
+  assert.equal(old.quests[0].question, QUEST_FALLBACK);
+  asked = null;
+  const none = await fake.use(() => loadJournal(engineEnv, { now: Date.parse('2026-09-30T06:00:00Z') }));
+  assert.equal(none.quests[0].question, QUEST_FALLBACK);
+  assert.deepEqual(none.errors, []);
 });
 
 test('journal page: renders, keeps the data safe inside the page, and the script parses', () => {
@@ -199,7 +212,7 @@ test('journal page: renders, keeps the data safe inside the page, and the script
     day: '2026-09-30', page: PAGE, title: '30 September 2026', url: 'https://www.notion.so/x', errors: [], run: 21,
     sections: { headspace: { q: 'Q?', text: '', slot: {} }, forward: null, reflection: { q: 'R?', text: 'a </script><b>', slot: {} }, tomorrow: null },
     focus: { must: { items: [], slot: {} }, can: { items: [], slot: {} }, cool: { items: [], slot: {} } },
-    extras: {}, quests: [{ id: PAGE, title: 'Get Back in Shape', icon: '💪', text: '', question: 'Q', next: 'Swim', slot: {} }],
+    extras: {}, quests: [{ id: PAGE, title: 'Get Back in Shape', icon: '💪', text: '', question: 'Q', slot: {} }],
     main_quest: 'Break the Cycle', last: null, suggestions: [], sub: { morning: 'm', evening: 'e' }
   };
   const html = journalHtml(d);
@@ -209,6 +222,6 @@ test('journal page: renders, keeps the data safe inside the page, and the script
   const script = /<script>([\s\S]*?)<\/script>/.exec(html)[1];
   assert.doesNotThrow(() => new Function(script));
   assert.ok(!html.includes('data-entry="forward"'));
-  assert.ok(html.includes('Next move: Swim'));
+  assert.ok(!html.includes('Next move'));
   assert.ok(journalHtml({ day: '2026-09-30', page: null }).includes('isn’t there yet'));
 });
