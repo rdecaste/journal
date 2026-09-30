@@ -127,7 +127,8 @@ export function questsView(cards, today) {
     next_move: c.nextMove || '',
     days_left: c.completedAt ? null : daysTo(c.targetDate),
     done: !!c.completedAt,
-    image: `${CLOUD}/image/upload/c_fill,g_auto,w_640,h_360,f_auto,q_auto/Quest-Board/${c.id}`
+    image: `${CLOUD}/image/upload/c_fill,g_auto,w_640,h_360,f_auto,q_auto/Quest-Board/${c.id}`,
+    url: c.id ? `https://app.notion.com/p/${String(c.id).replace(/-/g, '')}` : null
   }));
 }
 

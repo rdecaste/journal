@@ -118,7 +118,7 @@ h2{font-family:var(--display);font-weight:600;font-size:21px;margin:0;letter-spa
 .sub.warn{color:var(--warn)}
 .gauge .note{font-size:14px;margin-top:auto;padding-top:4px}
 .deck{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
-.quest{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.quest{text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);display:flex;flex-direction:column;min-width:0;overflow:hidden}
 .quest.focus{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
 .quest img{display:block;width:100%;aspect-ratio:16/9;max-width:100%;object-fit:cover;background:var(--track)}
 .quest .body{padding:14px 16px 16px;display:flex;flex-direction:column;gap:10px}
@@ -248,7 +248,8 @@ function questHtml(q) {
   const phase = q.phase >= 0 ? `<div><div class="phase" aria-label="Phase: ${PHASES[q.phase]}">${PHASES.map((_, i) => `<span${i <= q.phase ? ' class="on"' : ''}></span>`).join('')}</div>
       <div class="phase-labels" aria-hidden="true">${PHASES.map((p, i) => (i === q.phase ? `<b>${p}</b>` : `<span>${p}</span>`)).join('')}</div></div>` : '';
   const days = q.days_left !== null ? `<span class="days">${q.days_left >= 0 ? `${q.days_left} days to go` : `${-q.days_left} days past target`}</span>` : '';
-  return `<article class="quest${['focus', 'spotlight'].includes(cls) ? ' focus' : ''}">
+  const tag = q.url ? `a href="${esc(q.url)}" ${ext}` : 'article';
+  return `<${tag} class="quest${['focus', 'spotlight'].includes(cls) ? ' focus' : ''}">
     <img src="${esc(q.image)}" alt="" loading="lazy" onerror="this.remove()">
     <div class="body">
       <h3>${esc(q.title)}</h3>
@@ -256,7 +257,7 @@ function questHtml(q) {
       ${phase}
       ${q.next_move ? `<p class="next"><b>Next:</b> ${esc(q.next_move)}</p>` : ''}
     </div>
-  </article>`;
+  </${q.url ? 'a' : 'article'}>`;
 }
 
 export function todayHtml(d) {
