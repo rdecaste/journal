@@ -14,6 +14,15 @@ numbers), the hero and active quests from the Quest Engine (through the
 cross-border numbers with today's work location, and one "Today's briefing"
 card: the AI summary bullets, then one state chip per area linking to its tab
 in `/admin`. The dashboard itself is at `/admin` and opens on Cross Border.
+
+The **journal page** at `/journal` (`src/journal.js` data and saving,
+`src/journalpage.js` page) is where Roy writes the day's journal on the iPad
+or phone: Morning above Evening, then the main quest check-in and a note per
+active quest. The Notion Journal stays the record: each answer is saved a
+moment after he stops typing into that day's Journal row, in the template's
+own boxes (so the Quest Engine's 03:00 digest reads it as before), and what
+the template has no box for goes in one ✍️ "More from today" callout. The
+top of `src/journal.js` lists where each piece goes.
 Full description and change log: the Notion page "🧭 Admin Dashboard".
 
 | Area | Reads |
@@ -23,8 +32,10 @@ Full description and change log: the Notion page "🧭 Admin Dashboard".
 | System Health | Quest Engine `GET /status` and `GET /ledger`, healthchecks.io, newest Workouts / Body Metrics rows (the Quest Engine's Strava and Withings syncs) |
 | Quick Links | `src/config.js` |
 
-It reads, with one write: at 07:00 Amsterdam it rewrites the 🌍 callout on the
-Notion Quest log with the buffer line (`src/questlog.js`). Targets, thresholds, links and the unit prices behind the
+It writes two things: at 07:00 Amsterdam it rewrites the 🌍 callout on the
+Notion Quest log with the buffer line (`src/questlog.js`), and the journal page
+writes Roy's words into the day's Journal row (plus Success, and Done / the
+journal link on a To-Dos row he ticks or picks). Targets, thresholds, links and the unit prices behind the
 cost estimate are in `src/config.js`. The drift rules are in
 `src/metrics.js`, as pure functions with tests.
 
@@ -40,7 +51,9 @@ Durable Object (`src/store.js`). It runs when `ADMIN_AI` in
 |---|---|
 | `GET /` (also `/questlog`) | The Quest log page (signed in, cached 5 minutes, `?fresh=1` reloads), otherwise the login |
 | `GET /admin` | The dashboard (signed in), otherwise the login |
-| `GET /login`, `POST /login` | Login with `DASHBOARD_PASSWORD` (`next` = `/`, `/questlog` or `/admin`); a signed cookie lasts 30 days |
+| `GET /journal` | The journal page for today (the day starts at 03:00 Amsterdam; signed in), otherwise the login |
+| `POST /journal/save` | Writes what changed on the journal page into the Notion journal (signed in, JSON) |
+| `GET /login`, `POST /login` | Login with `DASHBOARD_PASSWORD` (`next` = `/`, `/questlog`, `/admin` or `/journal`); a signed cookie lasts 30 days |
 | `POST /logout` | Signs out |
 | `GET /data` | Everything the dashboard shows, as JSON (signed in; cached 5 minutes, `?fresh=1` reloads) |
 | `POST /summary` | Rewrite today's AI summary (signed in, at most once a minute); `?back=1` returns to `/` |
@@ -53,11 +66,11 @@ writes the AI summary, whichever is 07:00 writes the 🌍 buffer line. Opening
 
 Secrets, set with `npx wrangler secret put <NAME>` (never in git):
 `DASHBOARD_PASSWORD`, `NOTION_TOKEN` (a Notion connection with access to
-Quest log; Read content, plus Update content for the buffer line), `QUEST_ENGINE_TOKEN` (the Quest Engine's `ADMIN_TOKEN`),
+Quest log and the Journal and To-Dos databases; Read content, plus Update content for the buffer line and the journal page), `QUEST_ENGINE_TOKEN` (the Quest Engine's `ADMIN_TOKEN`),
 `HEALTHCHECKS_API_KEY` (read-only key) and, only for the AI summary,
 `OPENAI_API_KEY`.
 
 ```bash
-npm test          # drift rules, usage, login, Quest log page
+npm test          # drift rules, usage, login, Quest log page, journal page
 npx wrangler dev  # local, with secrets in .dev.vars
 ```

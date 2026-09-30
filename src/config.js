@@ -160,8 +160,9 @@ export const LINKS = [
   ] }
 ];
 
-// The one thing it writes: the buffer line in the 🌍 callout on the Quest log
-// page (src/questlog.js), each morning at this Amsterdam hour.
+// It writes the buffer line in the 🌍 callout on the Quest log
+// page (src/questlog.js), each morning at this Amsterdam hour. (The journal
+// page's writes are in src/journal.js.)
 export const QUEST_LOG = {
   page: 'd835f903-d475-4c9b-bf52-100097824752',
   icon: '🌍',

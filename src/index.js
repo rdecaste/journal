@@ -5,6 +5,10 @@
 //                  iPad and phone (signed in; ?fresh=1 skips the 5-minute
 //                  cache); /questlog is the same page
 //   GET  /admin    the admin dashboard (signed in)
+//   GET  /journal  the journal page: today's Notion journal as a calm place to
+//                  write, morning and evening (signed in; src/journal.js)
+//   POST /journal/save  writes what changed on the journal page into the day's
+//                  Notion journal (signed in; JSON)
 //   Signed out, each page sends you to the login and back afterwards.
 //   GET  /login    the login page; POST /login with the password
 //   POST /logout   signs out
@@ -13,15 +17,18 @@
 //
 // It reads Notion (Work Location Log, Workouts, Body Metrics, Sleep & Recovery,
 // the Health Journey's quests), the Quest
-// Engine's GET /status and GET /ledger, and healthchecks.io. The one thing it
-// writes is the cross-border buffer line in the 🌍 callout on the Quest log
-// page: each morning at 07:00 Amsterdam time (cron), or the first time the
-// dashboard opens after that if the cron missed it.
+// Engine's GET /status and GET /ledger, and healthchecks.io. It writes the
+// cross-border buffer line in the 🌍 callout on the Quest log page (each
+// morning at 07:00 Amsterdam time by cron, or the first time the dashboard
+// opens after that if the cron missed it), and what Roy writes on the journal
+// page into that day's Journal row and its To-Dos.
 import { isSignedIn, sessionCookie, clearCookie, sameText } from './auth.js';
 import { loadDashboard } from './load.js';
 import { dashboardHtml, loginHtml } from './page.js';
 import { loadToday } from './today.js';
 import { todayHtml } from './todaypage.js';
+import { loadJournal, saveJournal } from './journal.js';
+import { journalHtml } from './journalpage.js';
 import { summaryDue, writeSummary, isSummaryHour } from './summary.js';
 import { writeBufferLine, questLogDue, isQuestLogHour } from './questlog.js';
 import { store } from './usage.js';
@@ -33,7 +40,7 @@ const PAGE_HEADERS = {
 };
 const redirect = (to, cookie) => new Response(null, { status: 303, headers: { Location: to, ...(cookie ? { 'Set-Cookie': cookie } : {}) } });
 // Where the login sends you back to: only the dashboard's own pages.
-const NEXT = new Set(['/', '/questlog', '/admin']);
+const NEXT = new Set(['/', '/questlog', '/admin', '/journal']);
 const nextPath = p => (NEXT.has(p) ? p : '/');
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 
@@ -84,6 +91,23 @@ export default {
         }
         ctx.waitUntil(store(env).get('questlog_day').then(day => questLogDue(day, dash) ? writeBufferLine(env, dash) : null).catch(e => console.error('questlog', e && e.stack || e)));
         return new Response(todayHtml(await loadToday(env, { fresh: fresh || dueNow, dashboard: dash })), { headers: PAGE_HEADERS });
+      }
+      if (pathname === '/journal') {
+        if (!signedIn) return redirect('/login?next=/journal');
+        return new Response(journalHtml(await loadJournal(env)), { headers: PAGE_HEADERS });
+      }
+      if (pathname === '/journal/save' && request.method === 'POST') {
+        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+        if (!(request.headers.get('Content-Type') || '').includes('application/json')) return json({ ok: 0, code: 'bad_request' }, 400);
+        try {
+          return json(await saveJournal(env, await request.json()));
+        } catch (e) {
+          console.error('journal save', e && e.stack || e);
+          const message = String(e.message || e);
+          // Notion refuses writes until the connection has "Update content".
+          if (/Notion 403/.test(message)) return json({ ok: 0, code: 'no_write', message }, 403);
+          return json({ ok: 0, code: e.code || 'server_error', message }, e.code === 'bad_request' ? 400 : 500);
+        }
       }
       if (pathname === '/admin') return signedIn ? new Response(dashboardHtml(), { headers: PAGE_HEADERS }) : redirect('/login?next=/admin');
       return new Response('Not found', { status: 404 });
