@@ -5,7 +5,7 @@
 // 'attention' (needs attention), plus the specific flags that caused it. There
 // is no combined score: the Overview lists the flagged areas themselves.
 
-import { CROSS_BORDER, LOCATIONS, TRAINING, SPORTS, SYNCS, PRICES, ENGINE } from './config.js';
+import { CROSS_BORDER, LOCATIONS, TRAINING, RECOVERY, INTERVAL_PATTERN, SPORTS, SYNCS, PRICES, ENGINE, NOTION } from './config.js';
 
 const DAY = 86400000;
 const RANK = { ok: 0, watch: 1, attention: 2, unknown: 0 };
@@ -146,7 +146,6 @@ export function crossBorder(rows, today, cfg = CROSS_BORDER) {
 
 // ============================== Health ==============================
 
-// workouts: Workouts pages; metrics: Body Metrics pages; today: 'YYYY-MM-DD'.
 // The boss-battle form, as the Quest Engine scores a workout attack
 // (quest-engine src/rules/attack.js): Fitness is a 44-day and Fatigue a 7-day
 // moving average of each workout's Effort Score, written by the Strava sync.
@@ -175,9 +174,11 @@ export function battleForm(sessions, today) {
   };
 }
 
-export function health(workouts, metrics, today, cfg = TRAINING) {
+// workouts: Workouts pages; metrics: Body Metrics pages; today: 'YYYY-MM-DD';
+// sleep: Sleep & Recovery pages; quests: the Health Journey's active quests.
+export function health(workouts, metrics, today, { sleep = null, quests = null } = {}, cfg = TRAINING, rc = RECOVERY) {
   const sessions = workouts
-    .map(w => ({ date: dateOf(w, 'start_date_local').slice(0, 10), sport: SPORTS[sel(w, 'sport_type_mapped')] || null, hours: (num(w, 'moving_time') || 0) / 3600, fitness: num(w, 'Fitness'), fatigue: num(w, 'Fatigue'), form: sel(w, 'Form State'), ratio: num(w, 'Form'), effort: num(w, 'Effort Score'), level: sel(w, 'Effort Level'), mult: num(w, 'Effort Multiplier'), special: (prop(w, 'Special Move').rich_text || []).map(t => t.plain_text).join(''), type: sel(w, 'sport_type_mapped'), name: (prop(w, 'name').title || []).map(t => t.plain_text).join(''), url: (prop(w, 'strava_url').url) || w.url || '' }))
+    .map(w => ({ date: dateOf(w, 'start_date_local').slice(0, 10), sport: SPORTS[sel(w, 'sport_type_mapped')] || null, hours: (num(w, 'moving_time') || 0) / 3600, km: (num(w, 'distance') || 0) / 1000, fitness: num(w, 'Fitness'), fatigue: num(w, 'Fatigue'), form: sel(w, 'Form State'), ratio: num(w, 'Form'), effort: num(w, 'Effort Score'), level: sel(w, 'Effort Level'), mult: num(w, 'Effort Multiplier'), special: (prop(w, 'Special Move').rich_text || []).map(t => t.plain_text).join(''), type: sel(w, 'sport_type_mapped'), name: (prop(w, 'name').title || []).map(t => t.plain_text).join(''), url: (prop(w, 'strava_url').url) || w.url || '' }))
     .filter(s => s.date && s.date <= today)
     .sort((a, b) => (a.date < b.date ? -1 : 1));
   const training = sessions.filter(s => s.sport);
@@ -187,14 +188,22 @@ export function health(workouts, metrics, today, cfg = TRAINING) {
   const weekStarts = [];
   for (let i = cfg.recentWeeks + cfg.baselineWeeks; i >= 1; i--) weekStarts.push(addDays(thisWeek, -7 * i));
   const weekOf = s => mondayOf(s.date);
-  const weeks = weekStarts.map(start => {
+  const minutesBy = list => Object.fromEntries(WEEK_SPORTS.map(sport => [sport, Math.round(list.filter(s => s.sport === sport).reduce((a, s) => a + s.hours * 60, 0))]));
+  const weekRow = start => {
     const w = training.filter(s => weekOf(s) === start);
     const by = sport => w.filter(s => s.sport === sport).length;
-    return { week: start, sessions: w.length, hours: round(w.reduce((a, s) => a + s.hours, 0), 2), run: by('run'), bike: by('bike'), swim: by('swim'), strength: by('strength') };
-  });
+    return { week: start, sessions: w.length, hours: round(w.reduce((a, s) => a + s.hours, 0), 2), run: by('run'), bike: by('bike'), swim: by('swim'), strength: by('strength'), minutes: minutesBy(w) };
+  };
+  const weeks = weekStarts.map(weekRow);
   const recent = weeks.slice(-cfg.recentWeeks), baseline = weeks.slice(0, cfg.baselineWeeks);
   const avg = (list, key) => (list.length ? round(list.reduce((a, w) => a + w[key], 0) / list.length, 1) : null);
   const current = training.filter(s => weekOf(s) === thisWeek);
+
+  // This week's step toward the goal: the 4 full weeks before it plus 10%, capped.
+  const stepFor = before => Math.max(1, Math.min(cfg.weeklyHours, round((before.reduce((a, w) => a + w.hours, 0) / before.length) * cfg.stepGrowth, 1)));
+  const step = stepFor(recent);
+  let lastStep = null;
+  for (let i = cfg.recentWeeks; i < weeks.length; i++) if (weeks[i].hours >= stepFor(weeks.slice(i - cfg.recentWeeks, i))) lastStep = weeks[i].week;
 
   const lastOf = sport => { const s = training.filter(x => x.sport === sport).pop(); return s ? { date: s.date, days_ago: daysBetween(s.date, today), name: s.name } : null; };
   const sports = Object.fromEntries(['run', 'bike', 'strength', 'swim'].map(sport => [sport, {
@@ -220,37 +229,208 @@ export function health(workouts, metrics, today, cfg = TRAINING) {
     const prior = list.filter(x => x.date <= addDays(last.date, -14)).reduce((best, x) => (!best || Math.abs(daysBetween(x.date, target)) < Math.abs(daysBetween(best.date, target)) ? x : best), null);
     return prior ? { delta: round(last[key] - prior[key], 1), from: prior.date } : null;
   };
-  const weight = { latest: latest('weight'), change_30d: change30('weight'), series: body.filter(x => x.weight !== null).slice(-30).map(x => ({ date: x.date, value: round(x.weight, 1) })) };
-  const bodyFat = { latest: latest('fat'), change_30d: change30('fat'), target: cfg.bodyFatTarget, series: body.filter(x => x.fat !== null).slice(-30).map(x => ({ date: x.date, value: round(x.fat, 1) })) };
-  const lastWorkout = sessions[sessions.length - 1] || null;
+  // Week average (last 7 days) and its change on the same week a month ago.
+  const mean = list => (list.length ? list.reduce((a, b) => a + b, 0) / list.length : null);
+  const between = (key, from, to) => body.filter(x => x[key] !== null && x.date >= from && x.date <= to).map(x => x[key]);
+  const weekAvg = key => {
+    const now = mean(between(key, addDays(today, -6), today)), then = mean(between(key, addDays(today, -36), addDays(today, -30)));
+    return { week_avg: round(now), month_change: now !== null && then !== null ? round(now - then) : null };
+  };
+  const series = key => body.filter(x => x[key] !== null && x.date >= addDays(today, -60)).map(x => ({ date: x.date, value: round(x[key], 1) }));
+  const weight = { latest: latest('weight'), change_30d: change30('weight'), ...weekAvg('weight'), series: series('weight') };
+  const fats = between('fat', addDays(today, -90), today);
+  const bodyFat = { latest: latest('fat'), change_30d: change30('fat'), ...weekAvg('fat'), high_90d: fats.length ? round(Math.max(...fats)) : null, target: cfg.bodyFatTarget, series: series('fat') };
   const load = battleForm(sessions, today);
+  const recovery = sleep ? recoveryToday(sleep, today, rc, current.filter(s => s.date === today).pop()) : null;
+  const recovering = !!(recovery && recovery.recovering);
 
   const flags = [];
-  const recentSessions = avg(recent, 'sessions'), baseSessions = avg(baseline, 'sessions');
-  if (baseSessions && recentSessions !== null && recentSessions < 0.75 * baseSessions) flags.push(flag('watch', 'Training frequency has fallen', `${recentSessions} sessions a week over the last ${cfg.recentWeeks} weeks, against ${baseSessions} in the ${cfg.baselineWeeks} weeks before.`));
-  const recentHours = avg(recent, 'hours');
-  const shortWeeks = streak(w => w.hours < cfg.weeklyHours);
-  if (recentHours !== null && recentHours < cfg.weeklyHours) flags.push(flag(shortWeeks >= 3 ? 'attention' : 'watch', 'Training hours below target', `${recentHours} h a week over the last ${cfg.recentWeeks} weeks; target ${cfg.weeklyHours} h. ${shortWeeks} week${shortWeeks === 1 ? '' : 's'} in a row under target.`));
-  const runs = sports.run;
-  if (!runs.last || runs.last.days_ago > 14) flags.push(flag('attention', 'No run in over two weeks', runs.last ? `Last run ${runs.last.days_ago} days ago (${runs.last.date}).` : 'No run recorded.'));
-  else if (runs.recent_per_week !== null && runs.recent_per_week < cfg.runsPerWeek) flags.push(flag('watch', 'Runs below 2 a week', `${runs.recent_per_week} runs a week over the last ${cfg.recentWeeks} weeks.`));
-  const strength = sports.strength.last;
-  const strengthDays = strength ? strength.days_ago : Infinity;
-  if (strengthDays > cfg.strengthWatchDays) flags.push(flag(strengthDays > cfg.strengthAttentionDays ? 'attention' : 'watch', 'No recent strength training', strength ? `Last strength session ${strength.days_ago} days ago.` : 'No strength session in the last 12 weeks.'));
+  if (recovery && recovery.stale) flags.push(flag('watch', 'No sleep data for ' + recovery.stale + ' days', `The newest Sleep & Recovery row is from ${recovery.last_date}, so Recovery today is out of date.`, NOTION.sleepRecovery));
+  if (recovery && recovery.broken.length >= 2) flags.push(flag('watch', `${WORDS[recovery.broken.length] || recovery.broken.length} broken nights this week`.replace(/^./, c => c.toUpperCase()), `Awake ${listing(recovery.broken.map(b => durationText(b.awake / 60) + ' ' + b.night))}, against a usual ${Math.round(recovery.awake_usual)} minutes.`));
+  // Training flags pause while recovering; a missed step is never a flag.
+  if (!recovering) {
+    const recentSessions = avg(recent, 'sessions'), baseSessions = avg(baseline, 'sessions');
+    if (baseSessions && recentSessions !== null && recentSessions < 0.75 * baseSessions) flags.push(flag('watch', 'Training frequency has fallen', `${recentSessions} sessions a week over the last ${cfg.recentWeeks} weeks, against ${baseSessions} in the ${cfg.baselineWeeks} weeks before.`));
+    const runs = sports.run;
+    if (!runs.last || runs.last.days_ago > 14) flags.push(flag('watch', 'No run in over two weeks', runs.last ? `Last run ${runs.last.days_ago} days ago (${runs.last.date}).` : 'No run recorded.'));
+    const strength = sports.strength.last;
+    const strengthDays = strength ? strength.days_ago : Infinity;
+    if (strengthDays > cfg.strengthWatchDays) flags.push(flag(strengthDays > cfg.strengthAttentionDays ? 'attention' : 'watch', 'No recent strength training', strength ? `Last strength session ${strength.days_ago} days ago.` : 'No strength session in the last 12 weeks.'));
+  }
   if (bodyFat.latest && bodyFat.change_30d && bodyFat.latest.value > cfg.bodyFatTarget && bodyFat.change_30d.delta >= 0.5) flags.push(flag('watch', 'Body fat moving away from target', `${bodyFat.latest.value}% (+${bodyFat.change_30d.delta} since ${bodyFat.change_30d.from}); target about ${cfg.bodyFatTarget}%.`));
   const lastWeighIn = body.length ? daysBetween(body[body.length - 1].date, today) : null;
   if (lastWeighIn !== null && lastWeighIn > 14) flags.push(flag('watch', 'No weigh-in for two weeks', `Last Withings measurement ${lastWeighIn} days ago, so weight and body-fat trends are stale.`));
 
+  const thisWeekHours = round(current.reduce((a, s) => a + s.hours, 0), 2);
   return {
     status: worst(...flags.map(f => f.level)),
     flags,
-    targets: { weekly_hours: cfg.weeklyHours, runs_per_week: cfg.runsPerWeek, body_fat: cfg.bodyFatTarget },
-    this_week: { hours: round(current.reduce((a, s) => a + s.hours, 0), 2), sessions: current.length, runs: current.filter(s => s.sport === 'run').length, days_left: 6 - ((weekday(today) + 6) % 7) },
-    recent: { sessions: recentSessions, hours: recentHours }, baseline: { sessions: baseSessions, hours: avg(baseline, 'hours') },
-    weeks, sports, streaks, weight, body_fat: bodyFat, load, last_weigh_in_days: lastWeighIn,
-    // Not in any database the Worker can read yet.
-    missing_sources: ['sleep', 'recovery', 'resting_hr'].filter(k => k !== 'resting_hr' || !body.some(x => x.hr !== null)),
+    targets: { weekly_hours: cfg.weeklyHours, runs_per_week: cfg.runsPerWeek, body_fat: cfg.bodyFatTarget, step },
+    this_week: { hours: thisWeekHours, sessions: current.length, runs: current.filter(s => s.sport === 'run').length, days_left: 6 - ((weekday(today) + 6) % 7), step, step_share: round(thisWeekHours / step, 2), last_step: lastStep, list: current.map(s => ({ date: s.date, sport: s.sport })) },
+    recent: { sessions: avg(recent, 'sessions'), hours: avg(recent, 'hours') }, baseline: { sessions: avg(baseline, 'sessions'), hours: avg(baseline, 'hours') },
+    before_recent: { hours: avg(weeks.slice(-2 * cfg.recentWeeks, -cfg.recentWeeks), 'hours') },
+    weeks, current_week: { week: thisWeek, hours: thisWeekHours, minutes: minutesBy(current) },
+    sports, streaks, weight, body_fat: bodyFat, load, last_weigh_in_days: lastWeighIn,
+    tsb: tsbSeries(sessions, addDays(today, -91), today),
+    recovery,
+    quests: quests ? healthQuests(quests, training, today, cfg) : null,
     resting_hr: latest('hr')
+  };
+}
+
+const WEEK_SPORTS = ['run', 'bike', 'strength', 'swim', 'ebike', 'other'];
+
+// ---- Form: training stress balance ----
+// Daily fitness and fatigue, decayed between workouts as the Quest Engine does;
+// TSB = fitness − fatigue.
+export const tsbZone = t => (t > 0 ? 'Fresh' : t >= -10 ? 'Neutral' : t >= -30 ? 'Building' : 'Overreaching');
+export function tsbSeries(sessions, from, to) {
+  const scored = sessions.filter(s => s.fitness !== null && s.fitness !== undefined);
+  const out = [];
+  let j = 0, last = null;
+  for (let d = from; d <= to; d = addDays(d, 1)) {
+    while (j < scored.length && scored[j].date <= d) last = scored[j++];
+    if (!last) continue;
+    const n = daysBetween(last.date, d);
+    const fit = last.fitness * Math.pow(1 - 1 / 44, n), fat = (last.fatigue || 0) * Math.pow(1 - 1 / 7, n);
+    out.push({ date: d, fit: round(fit), fat: round(fat), tsb: round(fit - fat), workout: n === 0 });
+  }
+  if (!out.length) return null;
+  const now = out[out.length - 1];
+  const low = out.reduce((a, p) => (p.tsb < a.tsb ? p : a));
+  const peak = out.reduce((a, p) => (p.fit > a.fit ? p : a));
+  return { series: out, today: now, zone: tsbZone(now.tsb), low, peak };
+}
+
+// ---- Recovery today ----
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+export const words = n => (n < 20 ? WORDS[n] : n < 100 ? TENS[Math.floor(n / 10)] + (n % 10 ? '-' + WORDS[n % 10] : '') : n === 100 ? 'a hundred' : String(n));
+const listing = list => (list.length < 2 ? list.join('') : list.slice(0, -1).join(', ') + ' and ' + list[list.length - 1]);
+// 6.37 h → "6 h 22"; under an hour → "35 min".
+export const durationText = h => { const m = Math.round(h * 60); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0'); };
+const nightOf = (date, today) => (date === today ? 'last night' : 'on ' + WEEKDAYS[weekday(addDays(date, -1))] + ' night');
+
+// One row per morning; Apple Health values win over Withings when both exist.
+function sleepNights(rows, today) {
+  const by = new Map();
+  for (const r of rows) {
+    const date = dateOf(r, 'Date').slice(0, 10);
+    if (!date || date > today) continue;
+    const n = { date, sleep: num(r, 'Total Sleep'), awake: num(r, 'Awake'), hrv: num(r, 'HRV'), rhr: num(r, 'Resting HR') };
+    const had = by.get(date), apple = sel(r, 'Source') === 'Apple Health';
+    if (!had) by.set(date, n);
+    else for (const k of ['sleep', 'awake', 'hrv', 'rhr']) if (n[k] !== null && (apple || had[k] === null)) had[k] = n[k];
+  }
+  return [...by.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
+}
+
+// The verdict for the morning `date`, each signal against the 30 nights before.
+function judge(nights, date, rc) {
+  const night = nights.find(n => n.date === date);
+  const before = nights.filter(n => n.date < date && n.date >= addDays(date, -rc.usualNights));
+  const usual = key => { const v = before.map(n => n[key]).filter(x => x !== null); return v.length >= 7 ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+  const signal = (key, isLow) => {
+    const value = night ? night[key] : null, u = usual(key);
+    return { value, usual: u === null ? null : round(u, 2), delta: value !== null && u !== null ? round(value - u, 2) : null, low: value !== null && u !== null && isLow(value, u) };
+  };
+  const signals = {
+    sleep: signal('sleep', (v, u) => v < u - rc.sleepShortMinutes / 60),
+    hrv: signal('hrv', (v, u) => v < u * (1 - rc.hrvDropShare)),
+    rhr: signal('rhr', (v, u) => v > u + rc.rhrRiseBpm)
+  };
+  const judged = Object.values(signals).filter(s => s.delta !== null);
+  const low = judged.filter(s => s.low).length;
+  const verdict = judged.length ? (low === 0 ? 'good' : low === 1 ? 'steady' : 'easy') : null;
+  const rhr7 = nights.filter(n => n.date <= date && n.date > addDays(date, -7) && n.rhr !== null).map(n => n.rhr);
+  const rhrUsual = usual('rhr');
+  const rhrRise = rhr7.length >= 4 && rhrUsual !== null ? rhr7.reduce((a, b) => a + b, 0) / rhr7.length - rhrUsual : null;
+  return { signals, judged: judged.length, low, verdict, rhr_rise: rhrRise === null ? null : round(rhrRise), awake_usual: usual('awake'), trigger: verdict === 'easy' || (rhrRise !== null && rhrRise >= rc.recoveringRhrBpm) };
+}
+
+export function recoveryToday(rows, today, rc = RECOVERY, trainedToday = null) {
+  const nights = sleepNights(rows, today);
+  const last = nights[nights.length - 1];
+  if (!last) return null;
+  const age = daysBetween(last.date, today);
+  if (age > rc.staleDays) return { stale: age, last_date: last.date, broken: [], recovering: false };
+  const j = judge(nights, last.date, rc);
+  // Recovering until the trigger has been clear for recoveringClearDays mornings.
+  const recent = nights.filter(n => n.date > addDays(last.date, -rc.recoveringClearDays));
+  const recovering = recent.some(n => judge(nights, n.date, rc).trigger);
+  const broken = nights.filter(n => n.date > addDays(last.date, -7) && n.awake !== null && n.awake >= rc.brokenAwakeMinutes).reverse()
+    .map(n => ({ date: n.date, awake: n.awake, night: nightOf(n.date, today) }));
+  const out = {
+    date: last.date, night: last.date === today ? 'last night' : WEEKDAYS[weekday(addDays(last.date, -1))] + ' night',
+    sleep: j.signals.sleep, hrv: j.signals.hrv, rhr: j.signals.rhr,
+    awake: last.awake, awake_usual: j.awake_usual === null ? null : round(j.awake_usual, 0),
+    judged: j.judged, low: j.low, verdict: j.verdict, verdict_text: VERDICT[j.verdict] || null, verdict_sub: VERDICT_SUB[j.verdict] || null,
+    rhr_rise: j.rhr_rise, recovering, broken,
+    series: nights.slice(-14).map(n => ({ date: n.date, sleep: n.sleep, hrv: n.hrv, rhr: n.rhr }))
+  };
+  out.note = j.verdict ? gogginsNote(out, trainedToday) : null;
+  return out;
+}
+const VERDICT = { good: 'Good to go', steady: 'Go steady', easy: 'Take it easy' };
+const VERDICT_SUB = { good: 'Train as planned', steady: 'Easy session only · skip anything hard', easy: 'Rest or a gentle walk today' };
+
+// A short note in David Goggins' voice (Roy's Health Journey accountability
+// partner), put together from written lines and this morning's numbers. No AI.
+const hoursWords = h => { const m = Math.round(h * 60), hh = Math.floor(m / 60), mm = m % 60; return words(hh) + (hh === 1 ? ' hour' : ' hours') + (mm ? ' ' + words(mm) : ' flat'); };
+const minutesWords = m => { m = Math.round(m); if (m === 60) return 'a full hour'; if (m <= 100) return words(m) + ' minutes'; const h = Math.floor(m / 60); return words(h) + (h === 1 ? ' hour ' : ' hours ') + words(m % 60); };
+const SPORT_DONE = { swim: 'in the pool', run: 'out for a run', bike: 'on the bike', ebike: 'on the bike', strength: 'under the bar', other: 'your work in' };
+export function gogginsNote(r, trainedToday = null) {
+  const { sleep, hrv, rhr } = r;
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  const lines = [];
+  if (sleep.low && r.awake >= 60) lines.push(`Roy. ${cap(hoursWords(sleep.value))}, and ${minutesWords(r.awake)} of it staring at the ceiling.`);
+  else if (sleep.low) lines.push(`Roy. ${cap(hoursWords(sleep.value))} of sleep. That's not enough, and you know it.`);
+  else if (hrv.low) lines.push(`Roy. HRV ${Math.round(hrv.value)}, down from your usual ${Math.round(hrv.usual)}. Your body is waving a white flag.`);
+  else if (rhr.low) lines.push(`Roy. Resting heart rate ${Math.round(rhr.value)}, ${words(Math.round(rhr.delta))} over your usual. Your body is telling you something.`);
+  else lines.push(sleep.value !== null ? `Roy. ${cap(hoursWords(sleep.value))} of sleep and every signal in the green. No excuses today.` : 'Roy. Every signal in the green. No excuses today.');
+
+  const mid = [];
+  if (sleep.low) mid.push("That's a bad night.");
+  if (trainedToday) mid.push(`And you still got ${SPORT_DONE[trainedToday.sport] || SPORT_DONE.other} today. That's the guy I want to see.`);
+  if (r.recovering && rhr.delta !== null && hrv.delta !== null) {
+    const d = Math.round(rhr.delta), v = Math.round(hrv.delta);
+    mid.push(`${mid.length ? 'Now listen: resting' : 'Listen: resting'} heart rate ${d >= 0 ? 'up ' + words(d) : 'down ' + words(-d)}, HRV ${v < 0 ? 'down ' + words(-v) : v > 0 ? 'up ' + words(v) : 'flat'}. Your body's still fighting whatever took you out. Training sick doesn't make you hard, it makes you slow to heal.`);
+  }
+  mid.push(r.verdict === 'good' ? 'The numbers say go. Nobody is coming to do the work for you, so go do it.' : r.verdict === 'steady' ? 'Easy session today. No hero miles.' : "Today you rest. Not because you're soft, because you're smart. Walk, stretch, eat right.");
+  lines.push(mid.join(' '));
+  lines.push(r.verdict === 'good' ? 'Get after it. Then come back tomorrow and do it again.'
+    : r.verdict === 'easy' ? "Recover like it's your job. Because today it is."
+      : sleep.low ? 'Lights out by ten. Tomorrow you come back and earn it.' : 'Bank the easy day. Tomorrow you come back and earn it.');
+  return { lines, sign: 'Stay hard.' };
+}
+
+// ---- Health quests ----
+// One card per active quest on the Health Journey (never the Main Quest).
+function healthQuests(pages, training, today, cfg) {
+  const text = (p, name) => (prop(p, name).rich_text || prop(p, name).title || []).map(t => t.plain_text).join('');
+  return pages
+    .filter(p => check(p, 'Active Quest') && !check(p, 'Main Quest') && !dateOf(p, 'Completed At'))
+    .map(p => {
+      const name = text(p, 'Quest');
+      const q = { name, phase: sel(p, 'Quest Phase'), question: text(p, 'Pass/Fail Question'), url: p.url || '', kind: /half marathon/i.test(name) ? 'half' : /shape/i.test(name) ? 'shape' : 'other' };
+      if (q.kind === 'half') q.half = halfMarathon(training, today, cfg);
+      return q;
+    });
+}
+function halfMarathon(training, today, cfg) {
+  const runs = training.filter(s => s.sport === 'run').map(s => {
+    const interval = INTERVAL_PATTERN.test(s.name);
+    return { date: s.date, name: s.name, km: round(s.km, 1), interval, long: !interval && (s.hours * 60 >= cfg.longRunMinutes || s.km >= cfg.longRunKm) };
+  });
+  const week = start => { const w = runs.filter(r => r.date >= start && r.date < addDays(start, 7)); return { long: w.filter(r => r.long).pop() || null, interval: w.filter(r => r.interval).pop() || null }; };
+  const thisWeek = mondayOf(today);
+  const longest = runs.reduce((a, r) => (!a || r.km > a.km ? r : a), null);
+  const before = longest ? runs.filter(r => r.date < longest.date).reduce((a, r) => (!a || r.km > a.km ? r : a), null) : null;
+  return {
+    this_week: week(thisWeek), last_week: week(addDays(thisWeek, -7)),
+    last_interval: runs.filter(r => r.interval).pop() || null,
+    longest, longest_before: before && before.km < longest.km ? before : null, goal_km: cfg.halfMarathonKm
   };
 }
 

@@ -6,8 +6,14 @@
 export const DATA_SOURCES = {
   workLocation: 'd9b2d597-947a-4cf9-863e-482f5f84f84c',
   workouts: 'd1a9346d-eef4-4458-8d91-f0a877bd0140',
-  bodyMetrics: 'e2eccdcd-5ffa-4386-bb92-33add61b67c1'
+  bodyMetrics: 'e2eccdcd-5ffa-4386-bb92-33add61b67c1',
+  sleepRecovery: 'd32c2f70-27b3-4c3a-8ca8-85bf77349644',
+  quests: '9cbb0e5a-10cf-4013-9eea-961aba9b4ac1'
 };
+
+// The Health Journey page (Journeys database). Its active quests, apart from
+// the Main Quest, get a card on the Health tab.
+export const HEALTH_JOURNEY = '3cd24147-f877-818c-afcf-d18407ac1200';
 
 // Cross-border work (Work Location Log). Counting starts at the move, as in
 // the Quest Engine's YTD snapshot (WORK_LOCATION_START in its src/journal.js).
@@ -35,12 +41,20 @@ export const LOCATIONS = {
 };
 
 // Training targets, taken from the quests: Get Back in Shape (6 h a week,
-// about 12% body fat) and Run a Half Marathon (2 runs a week). Sports without a
-// target are shown for consistency only.
+// about 12% body fat) and Run a Half Marathon (a long run and an interval run
+// each week). Sports without a target are shown for consistency only.
 export const TRAINING = {
   weeklyHours: 6,
   runsPerWeek: 2,
   bodyFatTarget: 12,
+  // This week's step toward the 6 h: the last 4 full weeks' average plus 10%,
+  // never above weeklyHours. A missed step is shown on the bar, never flagged.
+  stepGrowth: 1.1,
+  // Half marathon: a run this long counts as the long run; a run whose name
+  // matches intervalPattern counts as the interval run.
+  longRunMinutes: 60,
+  longRunKm: 10,
+  halfMarathonKm: 21.1,
   // No strength session for this many days: watch, then attention.
   strengthWatchDays: 14,
   strengthAttentionDays: 28,
@@ -48,15 +62,36 @@ export const TRAINING = {
   recentWeeks: 4,
   baselineWeeks: 8
 };
+export const INTERVAL_PATTERN = /interval|\d{3}m|\b(200|300|400|800)'?s?\b|reps?\b|tempo|fartlek|track/i;
 
-// Strava sport_type_mapped → the dashboard's groups. Walks, hikes and e-bike
-// commutes are not training.
+// Recovery today (Sleep & Recovery, Apple Health), each signal against Roy's
+// own average over the 30 nights before last night. A signal is low when sleep
+// is 45 min short, HRV 10% lower or resting HR 3 bpm higher. None low: Good to
+// go; one: Go steady; two or more: Take it easy.
+export const RECOVERY = {
+  usualNights: 30,
+  sleepShortMinutes: 45,
+  hrvDropShare: 0.10,
+  rhrRiseBpm: 3,
+  // Recovering: the 7-night resting HR this far above usual, or Take it easy.
+  // Training flags pause meanwhile; it lifts after this many normal days.
+  recoveringRhrBpm: 2,
+  recoveringClearDays: 3,
+  // A night with this much time awake counts as broken; two in 7 nights: watch.
+  brokenAwakeMinutes: 60,
+  // No sleep row for this many days: watch.
+  staleDays: 2
+};
+
+// Strava sport_type_mapped → the dashboard's groups. E-bike rides count toward
+// the 6 h (Roy, 28 Sep); walks and hikes are not training.
 export const SPORTS = {
   Run: 'run', TrailRun: 'run', VirtualRun: 'run',
   Ride: 'bike', VirtualRide: 'bike', GravelRide: 'bike', MountainBikeRide: 'bike',
   Swim: 'swim',
   WeightTraining: 'strength', HighIntensityIntervalTraining: 'strength', Workout: 'strength',
-  Rowing: 'other', VirtualRow: 'other'
+  Rowing: 'other', VirtualRow: 'other',
+  EBikeRide: 'ebike'
 };
 
 // When the Strava or Withings sync looks stopped: days since its newest Notion row.
@@ -91,6 +126,8 @@ export const NOTION = {
   workLocation: notion('3b24f6ff11b04379959f0e0b2effe42f'),
   bodyMetrics: notion('c04d532ae0904d24a657f19979f2df57'),
   workouts: notion('ec4d7e3ef61c4269988d68d228207c8b'),
+  sleepRecovery: notion('bd1a2a982c6c49b29001b6efc94b96a1'),
+  healthJourney: notion('3cd24147f877818cafcfd18407ac1200'),
   familyFinance: notion('357ede89a3b34661a8c535f3e9c71a13')
 };
 

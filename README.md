@@ -19,7 +19,7 @@ Full description and change log: the Notion page "🧭 Admin Dashboard".
 | Area | Reads |
 |---|---|
 | Cross Border | Notion Work Location Log (from 1 Jul 2026, AM/PM half-days, E-bike €) |
-| Health | Notion Workouts (Strava sync) and Body Metrics (Withings sync) |
+| Health | Notion Workouts (Strava sync), Body Metrics (Withings sync), Sleep & Recovery (Apple Health) and the Health Journey's active quests |
 | System Health | Quest Engine `GET /status` and `GET /ledger`, healthchecks.io, newest Workouts / Body Metrics rows (the Quest Engine's Strava and Withings syncs) |
 | Quick Links | `src/config.js` |
 
