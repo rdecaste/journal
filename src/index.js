@@ -1,5 +1,5 @@
 // Admin dashboard: a private cockpit over cross-border work, health and the
-// automations (the Quest Engine, the Make syncs, healthchecks.io).
+// automations (the Quest Engine with its Strava and Withings syncs, healthchecks.io).
 //
 //   GET  /         the landing page: the Quest log as one clean page for the
 //                  iPad and phone (signed in; ?fresh=1 skips the 5-minute

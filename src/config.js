@@ -59,11 +59,15 @@ export const SPORTS = {
   Rowing: 'other', VirtualRow: 'other'
 };
 
-// When a sync still in Make looks stopped: days since its newest Notion row.
+// When the Strava or Withings sync looks stopped: days since its newest Notion row.
 export const SYNCS = {
-  strava: { scenario: 9739463, watchDays: 7, attentionDays: 14 },
-  withings: { scenario: 9754079, watchDays: 14, attentionDays: 30 }
+  strava: { wasMake: 9739463, watchDays: 7, attentionDays: 14 },
+  withings: { wasMake: 9754079, watchDays: 14, attentionDays: 30 }
 };
+
+// The Quest Engine checks the boss card against Notion at least hourly (and
+// when it is opened), so an older check means its timer has stopped.
+export const ENGINE = { watchHours: 1.25, attentionHours: 3 };
 
 // Estimated unit prices (USD) for the paid calls the Quest Engine and this
 // dashboard make. These are

@@ -5,7 +5,7 @@
 // 'attention' (needs attention), plus the specific flags that caused it. There
 // is no combined score: the Overview lists the flagged areas themselves.
 
-import { CROSS_BORDER, LOCATIONS, TRAINING, SPORTS, SYNCS, PRICES } from './config.js';
+import { CROSS_BORDER, LOCATIONS, TRAINING, SPORTS, SYNCS, PRICES, ENGINE } from './config.js';
 
 const DAY = 86400000;
 const RANK = { ok: 0, watch: 1, attention: 2, unknown: 0 };
@@ -276,11 +276,16 @@ export function system({ status, checks, ledger, latest }, now = Date.now()) {
   const add = (p) => processes.push({ ...p, level: p.level || 'ok' });
   const s = status || {};
 
-  // The 2-minute timer and boss card rebuild.
-  const built = hoursSince(s.built_at, now);
-  add({ key: 'engine', name: 'Quest Engine', detail: 'Cloudflare Worker: timer and boss card rebuild every 2 minutes', last_ok: s.built_at || null,
-    level: !status ? 'attention' : worst(built > 1 ? 'attention' : built > 0.2 ? 'watch' : 'ok', fromCheck(check('heartbeat')) || 'ok'),
-    problem: !status ? 'The Quest Engine did not answer GET /status. Check the Cloudflare dashboard (quest-engine → Observability).' : built > 0.2 ? `Boss card last rebuilt ${Math.round(built * 60)} minutes ago; the 2-minute timer may have stopped.` : check('heartbeat') && check('heartbeat').status === 'down' ? 'healthchecks.io has not heard the hourly heartbeat.' : '' });
+  // The boss card is rebuilt from Notion when opened and checked once an hour
+  // by the timer (quest-engine PR #12). checked_at moves on every check, even
+  // when nothing changed; built_at only when the card changed (older Engines
+  // only send built_at).
+  const checkedAt = s.checked_at || s.built_at;
+  const checked = hoursSince(checkedAt, now);
+  const late = checked > ENGINE.attentionHours ? 'attention' : checked > ENGINE.watchHours ? 'watch' : 'ok';
+  add({ key: 'engine', name: 'Quest Engine', detail: 'Cloudflare Worker: 2-minute timer; boss card rebuilt when opened and checked hourly', last_ok: checkedAt || null,
+    level: !status ? 'attention' : worst(late, fromCheck(check('heartbeat')) || 'ok'),
+    problem: !status ? 'The Quest Engine did not answer GET /status. Check the Cloudflare dashboard (quest-engine → Observability).' : late !== 'ok' ? `Boss card last checked against Notion ${Math.round(checked * 60)} minutes ago; the hourly check may have stopped.` : check('heartbeat') && check('heartbeat').status === 'down' ? 'healthchecks.io has not heard the hourly heartbeat.' : '' });
 
   // Journal chain (03:00) and the quest steps inside it.
   const chain = s.journal_chain || {};
@@ -327,17 +332,21 @@ export function system({ status, checks, ledger, latest }, now = Date.now()) {
 
   // Dashboard publishing: the cards the Worker serves.
   const vaultPub = hoursSince(s.vault_published && s.vault_published.at, now);
-  add({ key: 'publish', name: 'Dashboard publishing', detail: 'Boss, Main Quest, Questboard and Vault cards served by the Quest Engine', last_ok: s.built_at || null,
+  add({ key: 'publish', name: 'Dashboard publishing', detail: 'Boss, Main Quest, Questboard and Vault cards served by the Quest Engine', last_ok: checkedAt || null,
     // Unknown, not failing, when the Quest Engine itself did not answer.
-    level: !status ? 'unknown' : built > 1 ? 'attention' : 'ok', problem: !status ? 'Unknown while the Quest Engine does not answer.' : built > 1 ? 'The cards are not being rebuilt.' : '',
+    level: !status ? 'unknown' : late === 'attention' ? 'attention' : 'ok', problem: !status ? 'Unknown while the Quest Engine does not answer.' : late === 'attention' ? 'The cards are not being rebuilt.' : '',
     note: s.vault_published ? `Vault card last published ${Math.round(vaultPub)} h ago` : '' });
 
-  // Syncs still in Make, judged by their newest Notion row.
-  for (const [key, name, cfg, row] of [['strava', 'Workout / Strava sync (Make)', SYNCS.strava, latest && latest.workout], ['withings', 'Health / Withings sync (Make)', SYNCS.withings, latest && latest.metric]]) {
+  // The Strava and Withings syncs (in the Quest Engine since 30 Sep; Make
+  // before), judged by their newest Notion row and their healthchecks.io check.
+  for (const [key, name, cfg, row] of [['strava', 'Workout / Strava sync', SYNCS.strava, latest && latest.workout], ['withings', 'Health / Withings sync', SYNCS.withings, latest && latest.metric]]) {
     const age = row && row.created ? hoursSince(row.created, now) / 24 : Infinity;
-    const level = age > cfg.attentionDays ? 'attention' : age > cfg.watchDays ? 'watch' : 'ok';
-    add({ key, name, detail: `Make scenario ${cfg.scenario}; judged by the newest Notion row`, last_ok: row && row.created || null, make: cfg.scenario,
-      level, problem: level === 'ok' ? '' : `No new ${key === 'strava' ? 'workout' : 'measurement'} for ${Number.isFinite(age) ? Math.floor(age) + ' days' : 'a long time'}. If you ${key === 'strava' ? 'trained' : 'weighed in'} since, the Make scenario has stopped.` });
+    const stale = age > cfg.attentionDays ? 'attention' : age > cfg.watchDays ? 'watch' : 'ok';
+    const failing = check(key) && check(key).status === 'down';
+    add({ key, name, detail: `Quest Engine (was Make ${cfg.wasMake}); judged by the newest Notion row and the ${key} check`, last_ok: row && row.created || null,
+      level: worst(stale, fromCheck(check(key)) || 'ok'),
+      problem: failing ? `healthchecks.io reports the ${key} sync failing. See GET /status (${key}) and the Quest Engine logs.`
+        : stale === 'ok' ? '' : `No new ${key === 'strava' ? 'workout' : 'measurement'} for ${Number.isFinite(age) ? Math.floor(age) + ' days' : 'a long time'}. If you ${key === 'strava' ? 'trained' : 'weighed in'} since, the Quest Engine's ${key} sync has stopped.` });
   }
 
   // Failures from the ledger (every job report since the ledger started).
@@ -356,8 +365,7 @@ export function system({ status, checks, ledger, latest }, now = Date.now()) {
   return {
     status: worst(...flags.map(f => f.level)),
     flags, processes, failures, usage,
-    checks: (checks || []).map(c => ({ slug: c.slug, name: c.name, status: c.status, last_ping: c.last_ping })),
-    make_in_use: [SYNCS.strava.scenario, SYNCS.withings.scenario]
+    checks: (checks || []).map(c => ({ slug: c.slug, name: c.name, status: c.status, last_ping: c.last_ping }))
   };
 }
 
