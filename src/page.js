@@ -13,20 +13,23 @@ const STYLE = `
 *{box-sizing:border-box}html,body{margin:0}
 body{background:var(--page);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
 a{color:inherit}
-header{position:sticky;top:0;z-index:5;background:var(--page);border-bottom:1px solid var(--ring)}
-.bar{max-width:1080px;margin:0 auto;padding:12px 16px 0;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.bar h1{font-size:16px;margin:0;font-weight:650;letter-spacing:-.01em}
-.bar .home{font-size:13px;color:var(--ink2);text-decoration:none;border:1px solid var(--ring);border-radius:6px;padding:3px 8px}
-.bar .meta{margin-left:auto;color:var(--muted);font-size:12px;display:flex;gap:10px;align-items:center}
-.bar button{font:inherit;font-size:12px;color:var(--ink2);background:none;border:1px solid var(--ring);border-radius:6px;padding:3px 8px;cursor:pointer}
-nav{max-width:1080px;margin:0 auto;padding:0 16px;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
-nav a{padding:10px 10px 9px;text-decoration:none;color:var(--ink2);font-size:14px;border-bottom:2px solid transparent;white-space:nowrap;display:flex;gap:6px;align-items:center}
+header{position:sticky;top:0;z-index:5;background:var(--page);border-bottom:1px solid var(--ring);padding-top:env(safe-area-inset-top,0px)}
+.bar{max-width:1080px;margin:0 auto;padding:10px max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px));display:flex;align-items:center;gap:10px}
+.bar h1{font-size:16px;margin:0;font-weight:650;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.bar .home{font-size:13px;color:var(--ink2);text-decoration:none;border:1px solid var(--ring);border-radius:8px;padding:6px 10px;white-space:nowrap;flex:none}
+.bar .meta{margin-left:auto;color:var(--muted);font-size:12px;display:flex;gap:8px;align-items:center;flex:none}
+.bar button{font:inherit;font-size:13px;color:var(--ink2);background:none;border:1px solid var(--ring);border-radius:8px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+nav{max-width:1080px;margin:0 auto;padding:0 max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px));display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+nav::-webkit-scrollbar{display:none}
+nav a{padding:12px 10px 11px;-webkit-tap-highlight-color:transparent;text-decoration:none;color:var(--ink2);font-size:14px;border-bottom:2px solid transparent;white-space:nowrap;display:flex;gap:6px;align-items:center}
 nav a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--ink);font-weight:600}
-main{max-width:1080px;margin:0 auto;padding:18px 16px 48px}
+main{max-width:1080px;margin:0 auto;padding:18px max(16px,env(safe-area-inset-right,0px)) calc(48px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+nav .short{display:none}
 section[hidden]{display:none}
 h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin:26px 0 10px}
 h2:first-child{margin-top:4px}
-.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))}
+@media (min-width:600px) and (max-width:900px){.grid:has(> :nth-child(4):last-child){grid-template-columns:repeat(2,minmax(0,1fr))}}
 .card{background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:14px 16px;min-width:0}
 .card h3{margin:0 0 6px;font-size:13px;font-weight:600;color:var(--ink2)}
 .big{font-size:26px;font-weight:650;letter-spacing:-.02em;line-height:1.15}
@@ -61,17 +64,18 @@ svg text{fill:var(--muted);font-size:11px;font-family:inherit}
 .proc .when{color:var(--muted);font-size:12px;text-align:right;white-space:nowrap}
 .links{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
 .links ul{list-style:none;margin:0;padding:0}
-.links li a{display:block;padding:7px 0;text-decoration:none;border-bottom:1px solid var(--grid)}
+.links li a{display:block;padding:11px 0;text-decoration:none;border-bottom:1px solid var(--grid)}
 .links li:last-child a{border-bottom:0}
 .links li a:hover{color:var(--accent)}
 .src{font-size:12px;color:var(--muted);text-decoration:none}.src:hover{color:var(--accent)}
 .empty{color:var(--muted);font-size:13px}
 
 .chart{width:100%;overflow:hidden}
-#tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--page);font-size:12px;padding:5px 8px;border-radius:6px;opacity:0;transition:opacity .08s;z-index:9;max-width:240px}
+#tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--page);font-size:12px;padding:5px 8px;border-radius:6px;opacity:0;transition:opacity .08s;z-index:9;max-width:min(260px,calc(100vw - 16px))}
 details summary{cursor:pointer;color:var(--ink2);font-size:13px}
 .err{background:var(--wash-crit);border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:12px}
-@media (max-width:560px){.big{font-size:22px}.bar .meta span{display:none}}
+@media (max-width:560px){.big{font-size:22px}.bar .meta span{display:none}.bar h1{font-size:15px}nav .long{display:none}nav .short{display:inline}nav a{padding:12px 8px 11px}}
+@media (max-width:430px){.bar h1{display:none}}
 `;
 
 const HEALTH_STYLE = `
@@ -88,15 +92,14 @@ const HEALTH_STYLE = `
 #health .sec::after{content:"";order:1;flex:1;height:1px;background:var(--grid);align-self:center;min-width:20px}
 #health .sec .src{order:2}
 #health .card{border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
-#health .two{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))}
+#health .two{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))}
 #health .grid{gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr))}
 #health .num{font:700 34px/1 var(--display);font-variant-numeric:tabular-nums}
 #health .num small{font:500 15px var(--body);color:var(--ink2);margin-left:3px}
 #health .chip{display:inline-flex;align-items:center;gap:6px;font:600 12px/1.3 var(--body);padding:3px 9px;border-radius:999px;white-space:nowrap}
 #health .chip.good{background:var(--wash-good);color:var(--good)}#health .chip.warn{background:var(--wash-warn);color:var(--warn)}#health .chip.crit{background:var(--wash-crit);color:var(--crit)}#health .chip.blue{background:var(--wash-blue);color:var(--fit)}#health .chip.muted{background:var(--grid);color:var(--ink2)}
-#health .hero{background:var(--hero);color:var(--hero-ink);border-radius:18px;padding:22px 22px 20px;display:grid;gap:22px 28px;grid-template-columns:minmax(0,300px) minmax(0,1fr);position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.06)}
+#health .hero{background:var(--hero);color:var(--hero-ink);border-radius:18px;padding:22px 22px 20px;display:grid;gap:22px 28px;grid-template-columns:minmax(0,260px) minmax(0,1fr);position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.06)}
 #health .hero::before{content:"";position:absolute;inset:0 0 auto 0;height:4px;background:var(--amber)}
-@media (max-width:760px){#health .hero{grid-template-columns:1fr;padding:20px 18px 18px}}
 #health .gaugebox{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
 #health .eyebrow{font:600 12px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--hero-muted);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 #health .eyebrow .chip{letter-spacing:0;text-transform:none;background:rgba(240,168,24,.16);color:var(--amber)}
@@ -110,7 +113,6 @@ const HEALTH_STYLE = `
 #health .coach .sign{font:800 22px/1 var(--display);text-transform:uppercase;letter-spacing:.06em;color:var(--amber);margin-top:2px}
 #health .coach footer{font-size:12px;color:var(--hero-muted)}
 #health .sigs{grid-column:1/-1;display:grid;gap:12px;grid-template-columns:repeat(3,minmax(0,1fr))}
-@media (max-width:620px){#health .sigs{grid-template-columns:1fr}}
 #health .sig{background:var(--hero2);border-radius:12px;padding:12px 14px 10px;display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:baseline;min-width:0}
 #health .sig .k{font-size:12px;color:var(--hero-muted);grid-column:1/-1;display:flex;align-items:center;gap:6px}
 #health .sig .k .dot{width:7px;height:7px}
@@ -155,10 +157,15 @@ const HEALTH_STYLE = `
 #health .kv dd{font-weight:600}
 #health .read{margin:12px 0 0;font-size:14px;color:var(--ink2);max-width:72ch}
 #health details.explain{background:var(--surface);border:1px solid var(--ring);border-radius:14px;padding:14px 18px}
-#health details.explain summary{font:700 18px/1.2 var(--display);text-transform:uppercase;letter-spacing:.03em;color:var(--ink)}
+#health details.explain summary{padding:4px 0;font:700 18px/1.2 var(--display);text-transform:uppercase;letter-spacing:.03em;color:var(--ink)}
 #health .explain ol{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;color:var(--ink2);font-size:14px;max-width:75ch}
 #health .explain ol b{color:var(--ink)}
 @media (prefers-reduced-motion:no-preference){#health .gauge .seg{animation:grow .8s ease both}@keyframes grow{from{stroke-dashoffset:var(--len)}}}
+/* iPad mini (portrait) and iPhone */
+@media (max-width:600px){#health .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}#health .grid>:last-child:nth-child(odd){grid-column:1/-1}#health .card{padding:14px}#health .num{font-size:30px}#health .num small{font-size:13px}#health .sec{flex-wrap:wrap;gap:4px 12px;margin-top:16px}#health .sec::after{display:none}#health .sec h2{font-size:20px}#health .sec .src{margin-left:auto}#health .qtop .ring{width:68px;height:68px}#health .qname{font-size:19px}#health .chead .num{font-size:34px}#health .wflag{padding:12px 14px;gap:2px 12px}#health .check{padding:10px 12px}}
+@media (max-width:900px){#health .hero{grid-template-columns:minmax(0,210px) minmax(0,1fr);gap:18px 22px}#health .verdict{font-size:46px}}
+@media (max-width:600px){#health .hero{grid-template-columns:1fr;padding:18px 16px 16px;gap:16px;border-radius:16px}#health .gaugebox{display:grid;grid-template-columns:132px minmax(0,1fr);align-items:center;gap:0 14px}#health .eyebrow{grid-column:1/-1;margin-bottom:6px}#health .gauge{grid-row:2/4;margin:0;max-width:132px}#health .verdict{font-size:40px;margin:0;align-self:end}#health .verdict-sub{align-self:start;font-size:13px}#health .coach p{font-size:15.5px;line-height:1.5}#health .coach p:first-child{font-size:21px}#health .coach .sign{font-size:19px}}
+@media (max-width:600px){#health .sigs{grid-template-columns:1fr;gap:8px}#health .sig{grid-template-columns:auto auto minmax(0,1fr);gap:0 10px;padding:10px 12px;align-items:center}#health .sig .k{grid-column:1/3}#health .sig .v{font-size:24px}#health .sig .delta{justify-self:start}#health .sig .chart{grid-column:3;grid-row:1/4;margin:0}#health .sig .u{grid-column:1/3;font-size:11.5px}}
 `;
 
 const SCRIPT = `
@@ -220,13 +227,16 @@ function drawCharts() {
 }
 let resizeTimer; addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(drawCharts, 150); });
 const tip = $('#tip');
-document.addEventListener('pointermove', e => {
+const showTip = e => {
   const t = e.target.closest && e.target.closest('[data-tip]');
   if (!t) { tip.style.opacity = 0; return; }
   tip.textContent = t.dataset.tip; tip.style.opacity = 1;
   const x = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8);
-  tip.style.left = x + 'px'; tip.style.top = (e.clientY - 34) + 'px';
-});
+  tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.max(8, e.clientY - (e.pointerType === 'touch' ? 64 : 34)) + 'px';
+};
+document.addEventListener('pointermove', showTip);
+document.addEventListener('pointerdown', showTip);
+addEventListener('scroll', () => { tip.style.opacity = 0; }, { passive: true });
 
 const flagList = flags => flags.length
   ? '<ul class="flags">' + flags.map(f => '<li class="flag ' + f.level + '"><span class="dot" style="margin-top:7px;background:var(--' + (f.level === 'attention' ? 'crit' : 'warnfill') + ')"></span><span class="t">' + esc(f.title) + '</span>' + (f.link ? '<a class="src" href="' + esc(f.link) + '" target="_blank" rel="noopener">Open ↗</a>' : '<span></span>') + '<span class="w">' + esc(f.why) + '</span></li>').join('') + '</ul>'
@@ -306,7 +316,7 @@ function ringSvg(frac, col, big, small) {
 }
 // Fitness and fatigue on top; TSB over its zones below.
 function tsbSvg(t, _, W) {
-  const D = t.series, n = D.length, H = 320, L = 30, R = 96, T = 8, B = 22, gap = 18;
+  const narrow = W < 560, D = t.series, n = D.length, H = narrow ? 290 : 320, L = 30, R = narrow ? 10 : 96, T = 8, B = 22, gap = 18;
   const topH = (H - T - B - gap) / 2, botH = topH, X = i => L + i * (W - L - R) / (n - 1);
   const top = Math.max(20, Math.ceil(Math.max(...D.map(p => Math.max(p.fit, p.fat))) / 20) * 20);
   const lo = Math.min(-45, Math.floor(Math.min(...D.map(p => p.tsb)) / 5) * 5 - 5), hi = Math.max(20, Math.ceil(Math.max(...D.map(p => p.tsb)) / 5) * 5 + 5);
@@ -314,7 +324,8 @@ function tsbSvg(t, _, W) {
   let s = svgOpen(W, H);
   for (const [a, b, f, name, c] of [[hi, 0, 'var(--wash-good)', 'Fresh', 'var(--good)'], [0, -10, 'transparent', 'Neutral', 'var(--muted)'], [-10, -30, 'var(--wash-blue)', 'Building', 'var(--fit)'], [-30, lo, 'var(--wash-crit)', 'Overreaching', 'var(--crit)']]) {
     s += S_('rect', { x: L, y: Yb(a), width: W - L - R, height: Yb(b) - Yb(a), fill: f });
-    s += S_('text', { x: W - R + 8, y: (Yb(a) + Yb(b)) / 2 + 4, style: 'fill:' + c + ';font-weight:600' }, name);
+    if (narrow && name === 'Neutral') continue;
+    s += narrow ? S_('text', { x: L + 4, y: Yb(a) + 11, style: 'fill:' + c + ';font-weight:600;font-size:10px' }, name) : S_('text', { x: W - R + 8, y: (Yb(a) + Yb(b)) / 2 + 4, style: 'fill:' + c + ';font-weight:600' }, name);
   }
   s += hgrid([0, top / 2, top], Yt, L, W, R);
   for (let v = 20; v >= lo; v -= 20) if (v <= hi) s += S_('text', { x: L - 6, y: Yb(v) + 4, 'text-anchor': 'end' }, (v > 0 ? '+' : '') + v);
@@ -329,15 +340,18 @@ function tsbSvg(t, _, W) {
   const li = D.indexOf(D.reduce((a, p) => (p.tsb < a.tsb ? p : a)));
   if (D[li].tsb < -10) {
     s += S_('circle', { cx: X(li), cy: Yb(D[li].tsb), r: 4, fill: 'var(--crit)', stroke: 'var(--surface)', 'stroke-width': 2 });
-    s += S_('text', { x: X(li) + (li > n * 0.8 ? -8 : 8), y: Yb(D[li].tsb) + 4, 'text-anchor': li > n * 0.8 ? 'end' : 'start', style: 'fill:var(--crit);font-weight:600' }, Math.round(D[li].tsb) + ' · ' + day(D[li].date));
+    const right = li > n * (narrow ? 0.6 : 0.8);
+    s += S_('text', { x: X(li) + (right ? -8 : 8), y: Yb(D[li].tsb) + 4, 'text-anchor': right ? 'end' : 'start', style: 'fill:var(--crit);font-weight:600' }, Math.round(D[li].tsb) + ' · ' + day(D[li].date));
   }
   const last = D[n - 1], zc = { Fresh: 'var(--good)', Neutral: 'var(--muted)', Building: 'var(--fit)', Overreaching: 'var(--crit)' }[t.zone];
   s += S_('circle', { cx: X(n - 1), cy: Yb(last.tsb), r: 5, fill: zc, stroke: 'var(--surface)', 'stroke-width': 2 });
   s += S_('circle', { cx: X(n - 1), cy: Yt(last.fit), r: 4, fill: 'var(--fit)', stroke: 'var(--surface)', 'stroke-width': 2 });
   let yf = Yt(last.fit) + 4, ya = Yt(last.fat) + 4;
   if (Math.abs(yf - ya) < 14) { if (yf <= ya) ya = yf + 14; else yf = ya + 14; }
-  s += S_('text', { x: X(n - 1) + 8, y: yf, style: 'fill:var(--fit);font-weight:600' }, 'Fitness ' + Math.round(last.fit));
-  s += S_('text', { x: X(n - 1) + 8, y: ya, style: 'fill:var(--fat);font-weight:600' }, 'Fatigue ' + Math.round(last.fat));
+  if (!narrow) {
+    s += S_('text', { x: X(n - 1) + 8, y: yf, style: 'fill:var(--fit);font-weight:600' }, 'Fitness ' + Math.round(last.fit));
+    s += S_('text', { x: X(n - 1) + 8, y: ya, style: 'fill:var(--fat);font-weight:600' }, 'Fatigue ' + Math.round(last.fat));
+  }
   D.forEach((p, i) => { if (p.date.slice(8) === '01') s += S_('text', { x: X(i), y: H - 6, 'text-anchor': 'middle' }, day(p.date)); });
   const w = (W - L - R) / (n - 1);
   D.forEach((p, i) => { s += S_('rect', { x: X(i) - w / 2, y: T, width: w, height: H - T - B, fill: 'transparent', 'data-tip': esc(day(p.date) + (p.workout ? ' (workout)' : '') + ' · Fitness ' + fmt(p.fit) + ' · Fatigue ' + fmt(p.fat) + ' · TSB ' + signed(p.tsb, 1)) }); });
@@ -527,13 +541,15 @@ show(); load(true);
 const linkCards = LINKS.map(g => `<div class="card"><h3>${g.group}</h3><ul>${g.items.map(i => `<li><a href="${i.url}" target="_blank" rel="noopener">${i.name} ↗</a></li>`).join('')}</ul></div>`).join('');
 
 export const dashboardHtml = () => `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex"><title>Admin cockpit</title>
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Admin"><meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%232a78d6'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,600&family=Barlow:wght@400;500;600;700&display=swap">
 <style>${STYLE}${HEALTH_STYLE}</style></head><body>
 <header><div class="bar"><a class="home" href="/">‹ Quest log</a><h1>Admin cockpit</h1><div class="meta"><span id="stamp">Loading…</span><button id="reload" type="button">Refresh</button><form method="post" action="/logout" style="margin:0"><button type="submit">Sign out</button></form></div></div>
-<nav><a href="#cross"><span class="unknown"><span class="dot"></span></span>Cross Border</a><a href="#health"><span class="unknown"><span class="dot"></span></span>Health</a><a href="#system"><span class="unknown"><span class="dot"></span></span>System Health</a><a href="#links">Quick Links</a></nav></header>
+<nav><a href="#cross"><span class="unknown"><span class="dot"></span></span><span class="long">Cross Border</span><span class="short">Border</span></a><a href="#health"><span class="unknown"><span class="dot"></span></span>Health</a><a href="#system"><span class="unknown"><span class="dot"></span></span><span class="long">System Health</span><span class="short">System</span></a><a href="#links"><span class="long">Quick Links</span><span class="short">Links</span></a></nav></header>
 <main><div id="notice"></div><section id="cross"><p class="empty">Loading…</p></section><section id="health" hidden></section><section id="system" hidden></section>
 <section id="links" hidden><h2>Quick links</h2><div class="links">${linkCards}</div></section></main>
 <div id="tip" role="tooltip"></div>
