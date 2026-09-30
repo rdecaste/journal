@@ -96,33 +96,31 @@ const dash = (over = {}) => ({
   ...over
 });
 
-test('questlog page: briefing carries the old Overview (flags, summary, systems)', () => {
-  const b = briefingView(dash());
+test('questlog page: one briefing card, summary first, no repeats', () => {
+  const b = briefingView(dash({ overview: { areas: [{ key: 'cross', name: 'Cross border', status: 'ok' }, { key: 'health', name: 'Health', status: 'watch' }], drifting: [{ area: 'health', area_name: 'Health', level: 'watch', title: 'Training below routine', why: '2 h vs 5 h' }] } }));
   assert.equal(b.flags[0].title, 'Training below routine');
-  assert.deepEqual(b.systems, { checked: 2, problems: [] });
   assert.equal(briefingView(null), null);
   const base = { built_at: '2026-09-29T05:00:00Z', today: '2026-09-29', spark: '', journal: null, main_quest: null, notes: {}, training: null, todo: null, hero: null, quests: [], errors: [],
     cross: { be_share: 62, minimum: 50, buffer_days: 13, be_days_needed: 0, missing: 0, today: workDay({ am: '🇧🇪 Beerse', pm: '🇧🇪 Beerse', url: 'https://www.notion.so/day' }) } };
   const html = todayHtml({ ...base, briefing: b });
-  assert.match(html, /Needs you/);
-  assert.match(html, /Training below routine/);
-  assert.match(html, /href="\/admin#health"/);
-  assert.doesNotMatch(html, /2 h vs 5 h/); // the summary explains it
+  assert.match(html, /Today’s briefing/);
+  assert.doesNotMatch(html, /Needs you|Training below routine|2 h vs 5 h/); // the summary says it
   assert.match(html, /<li>Belgium share is safe\.<\/li>/);
-  assert.match(html, /written 07:40/);
+  assert.match(html, /<a class="watch" href="\/admin#health"><i aria-hidden="true"><\/i>Health <span>keep an eye on<\/span>/);
+  assert.match(html, /<a class="ok" href="\/admin#cross">/);
+  assert.match(todayHtml({ ...base, briefing: { ...b, areas: [{ key: 'system', name: 'System health', status: 'attention' }] } }), /System health <span>for Claude<\/span>/);
+  assert.match(html, /AI summary · 07:40/);
   assert.match(html, /action="\/summary\?back=1"/);
-  assert.match(html, /Automations: all 2 running/);
   assert.match(html, /Today: Belgium \(Beerse\)/);
-  // No summary yet today: the flags explain themselves; a system flag replaces the systems line.
+  // No summary yet today: the flags explain themselves.
   const quiet = todayHtml({ ...base, briefing: briefingView(dash({ summary: { day: '2026-09-28', text: '- old', stale: true },
-    overview: { areas: [], drifting: [{ area: 'system', area_name: 'System health', level: 'attention', title: 'Nightly failed', why: 'twice' }] },
-    system: { processes: [{ name: 'Nightly', level: 'attention' }] } })) });
+    overview: { areas: [], drifting: [{ area: 'system', area_name: 'System health', level: 'attention', title: 'Nightly failed', why: 'twice' }] } })) });
+  assert.match(quiet, /Nightly failed/);
   assert.match(quiet, /twice/);
   assert.doesNotMatch(quiet, /<li>old<\/li>/);
-  assert.match(quiet, /written at 05:00/);
-  assert.doesNotMatch(quiet, /Automations:/);
+  assert.match(quiet, /Summary comes at 05:00/);
   assert.doesNotMatch(quiet, /Hand to Claude|<script/); // removed 30 Sep (Roy: not useful)
-  const calm = todayHtml({ ...base, briefing: briefingView(dash({ overview: { areas: [], drifting: [] } })) });
+  const calm = todayHtml({ ...base, briefing: briefingView(dash({ summary: null, overview: { areas: [], drifting: [] } })) });
   assert.match(calm, /Nothing needs you right now/);
 });
 

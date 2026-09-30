@@ -88,24 +88,23 @@ h2{font-family:var(--display);font-weight:600;font-size:21px;margin:0;letter-spa
 .bar i{display:block;height:100%;border-radius:4px;background:var(--hp)}
 .hero .note{color:var(--hero-muted);font-size:14.5px}
 .hero .more{font-size:14px;color:var(--hero-muted);text-underline-offset:3px;margin-top:auto}
-.brief{display:grid;grid-template-columns:1fr 1.08fr;gap:16px;align-items:start}
-.brief>*{min-width:0}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;display:flex;flex-direction:column;gap:10px}
-.card .eyebrow{display:flex;justify-content:space-between;gap:8px}
+.brief{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;display:flex;flex-direction:column;gap:12px}
 .flags{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
-.flags li{display:grid;grid-template-columns:10px 1fr auto;gap:4px 10px;align-items:baseline}
+.flags li{display:grid;grid-template-columns:10px 1fr;gap:2px 10px;align-items:baseline}
 .flags .dot{width:10px;height:10px;border-radius:50%;background:var(--gold);align-self:center}
 .flags .attention .dot{background:var(--warn)}
 .flags .t{font-weight:600;font-size:15px}
-.flags .area{font-size:13px;color:var(--muted);white-space:nowrap;text-decoration:none}
-.flags .w{grid-column:2/4;font-size:13.5px;color:var(--muted)}
+.flags .w{grid-column:2;font-size:13.5px;color:var(--muted)}
 .calm{margin:0;color:var(--muted);font-size:15px}
-.points{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:15px;line-height:1.5}
-.by{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.points{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:15.5px;line-height:1.5;max-width:75ch}
+.areas{display:flex;flex-wrap:wrap;gap:8px;padding-top:12px;border-top:1px solid var(--line)}
+.areas a{display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:0 12px;border-radius:999px;background:var(--bg);text-decoration:none;font-size:13.5px}
+.areas a span{color:var(--muted)}
+.areas i{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.areas .ok i{background:var(--ok)} .areas .watch i{background:var(--gold)} .areas .attention i{background:var(--warn)}
+.by{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-left:auto}
 .by form{margin:0}
 .by button{font:inherit;font-size:12.5px;color:var(--muted);background:none;border:1px solid var(--line);border-radius:999px;padding:3px 10px;min-height:28px;cursor:pointer}
-.systems{font-size:13.5px;color:var(--muted);margin:0;padding-top:8px;border-top:1px solid var(--line)}
-.systems.bad{color:var(--warn)}
 .glance{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 .gauge{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;display:flex;flex-direction:column;gap:8px;min-width:0}
 .gauge .label{font-size:14px;font-weight:600;text-decoration:none;display:flex;justify-content:space-between}
@@ -143,7 +142,7 @@ h2{font-family:var(--display);font-weight:600;font-size:21px;margin:0;letter-spa
 .errors{font-size:13px;color:var(--warn);margin:0}
 @media (min-width:1000px){.deck{grid-template-columns:repeat(4,1fr)} h1{font-size:46px}}
 @media (max-width:700px){.glance{grid-template-columns:1fr}}
-@media (max-width:640px){.today,.brief{grid-template-columns:1fr} .deck{grid-template-columns:1fr} h1{font-size:34px}}
+@media (max-width:640px){.today{grid-template-columns:1fr} .deck{grid-template-columns:1fr} h1{font-size:34px}}
 @media (max-width:420px){.hero{grid-template-columns:1fr} .hero img{max-height:340px}}
 `;
 
@@ -216,30 +215,31 @@ function summaryPoints(text) {
   return items.length ? `<ul class="points">${items.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : `<p class="calm">${esc(text)}</p>`;
 }
 
-function flagsHtml(b, explained) {
-  if (!b.flags.length) return '<p class="calm">Nothing needs you right now.</p>';
-  return `<ul class="flags">${b.flags.map(f => `<li class="${esc(f.level)}"><span class="dot" aria-label="${f.level === 'attention' ? 'Needs attention' : 'Keep an eye on'}"></span><span class="t">${esc(f.title)}</span><a class="area" href="/admin#${esc(f.area)}">${esc(f.area_name)} ›</a>${explained ? '' : `<span class="w">${esc(f.why)}</span>`}</li>`).join('')}</ul>`;
+// Without today's summary the flags speak for themselves (with their why).
+function flagsHtml(flags) {
+  if (!flags.length) return '<p class="calm">Nothing needs you right now.</p>';
+  return `<ul class="flags">${flags.map(f => `<li class="${esc(f.level)}"><span class="dot" aria-label="${f.level === 'attention' ? 'Needs attention' : 'Keep an eye on'}"></span><span class="t">${esc(f.title)}</span><span class="w">${esc(f.why)}</span></li>`).join('')}</ul>`;
 }
 
-// Skipped when a System health flag above already says what is wrong.
-function systemsHtml(sys, flagged) {
-  if (sys && sys.problems.length && flagged) return '';
-  if (!sys) return '<p class="systems bad">The automations could not be checked just now.</p>';
-  if (!sys.problems.length) return `<p class="systems">Automations: all ${sys.checked} running.</p>`;
-  return `<p class="systems bad">Automations: ${esc(sys.problems.join(', '))} not running right.</p>`;
-}
+const STATE = { ok: 'on track', watch: 'keep an eye on', attention: 'needs you', unknown: 'not readable' };
+// Tech problems are Claude's to fix (Roy, 29 Sep), not Roy's.
+const stateOf = a => (a.key === 'system' && (a.status === 'watch' || a.status === 'attention') ? 'for Claude' : STATE[a.status] || a.status);
 
+// One card (Roy, 30 Sep: no repeats between "Needs you" and the summary): the
+// summary's bullets already say what drifts and why, so under them each area
+// only gets its state, linking to its tab in /admin.
 function briefingHtml(b, today) {
   if (!b) return '';
   const s = b.summary && b.summary.day === today ? b.summary : null;
   const written = s && s.at ? new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Amsterdam', hour: '2-digit', minute: '2-digit' }).format(new Date(s.at)) : '';
   const rewrite = b.ai_enabled ? '<form method="post" action="/summary?back=1"><button type="submit">Rewrite</button></form>' : '';
-  const summary = s ? `${summaryPoints(s.text)}<div class="by"><span>AI summary · written ${esc(written)}</span>${rewrite}</div>`
-    : `<p class="calm">${b.ai_enabled ? 'Today’s summary is written at 05:00.' : 'The AI summary is switched off.'}</p>`;
-  const n = b.flags.length;
+  const areas = b.areas.map(a => `<a class="${esc(a.status)}" href="/admin#${esc(a.key)}"><i aria-hidden="true"></i>${esc(a.name)} <span>${esc(stateOf(a))}</span></a>`).join('');
+  const by = s ? `<div class="by"><span>AI summary · ${esc(written)}</span>${rewrite}</div>`
+    : `<div class="by"><span>${b.ai_enabled ? 'Summary comes at 05:00' : 'AI summary off'}</span></div>`;
   return `<section class="brief" aria-label="Briefing">
-    <article class="card"><div class="eyebrow"><span>Needs you</span>${n ? `<span>${n} item${n === 1 ? '' : 's'}</span>` : ''}</div>${flagsHtml(b, !!s)}${systemsHtml(b.systems, b.flags.some(f => f.area === 'system'))}</article>
-    <article class="card"><div class="eyebrow">Summary</div>${summary}</article>
+    <div class="eyebrow">Today’s briefing</div>
+    ${s ? summaryPoints(s.text) : flagsHtml(b.flags)}
+    <div class="areas">${areas}${by}</div>
   </section>`;
 }
 
