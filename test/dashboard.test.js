@@ -105,7 +105,7 @@ test('health: fewer sessions, no strength and rising body fat are flagged', () =
 // 28 Sep 2026 09:00 Amsterdam (07:00 UTC).
 const NOW = Date.parse('2026-09-28T07:00:00Z');
 
-test('system: healthy state, overdue journal chain and stale Make sync', () => {
+test('system: healthy state, overdue journal chain and stale Strava sync', () => {
   const status = {
     built_at: new Date(NOW - 60000).toISOString(),
     journal_chain: { day: '2026-09-28', complete: true, at: '2026-09-28T01:05:00Z', done: { digest: 'ok', match: 'ok', questboard: 'ok', setup: 'ok' } },
@@ -121,7 +121,7 @@ test('system: healthy state, overdue journal chain and stale Make sync', () => {
   const names = late.flags.map(f => f.title);
   assert.ok(names.includes('Journal automation'));
   assert.ok(names.includes('Quest processing'));
-  assert.ok(names.includes('Workout / Strava sync (Make)'));
+  assert.ok(names.includes('Workout / Strava sync'));
   assert.equal(late.status, 'attention');
 
   const down = system({ status, checks: [{ slug: 'visuals', status: 'down' }], ledger: { jobs: [] }, latest }, NOW);
@@ -273,4 +273,34 @@ test('Quest log line: the 🌍 callout is found inside columns', async () => {
   try { assert.equal(await writeBufferLine(env, { today: '2026-09-29', cross: null }), 'globe'); }
   finally { globalThis.fetch = realFetch; }
   assert.deepEqual(patched, ['/v1/blocks/globe']);
+});
+
+test('system: the boss card is judged by its hourly check, not by when it last changed', () => {
+  const at = Date.parse('2026-09-30T10:00:00Z');
+  const base = { journal_chain: { day: '2026-09-30', complete: true, done: { digest: 'ok', match: 'ok', questboard: 'ok' } }, nightly: { at: '2026-09-30T02:03:00Z' },
+    journal_enabled: true, nightly_enabled: true, vault_enabled: false, family_enabled: false };
+  const latest = { workout: { created: '2026-09-29T12:00:00Z' }, metric: { created: '2026-09-30T06:28:00Z' } };
+  const checks = [{ slug: 'heartbeat', status: 'up' }];
+  const ago = min => new Date(at - min * 60000).toISOString();
+  const run = s => system({ status: { ...base, ...s }, checks, ledger: { jobs: [] }, latest }, at);
+  const by = (r, k) => r.processes.find(p => p.key === k);
+  // A quiet card: unchanged for 5 hours, checked 40 minutes ago.
+  const quiet = run({ built_at: ago(300), checked_at: ago(40) });
+  assert.equal(by(quiet, 'engine').level, 'ok', JSON.stringify(quiet.flags));
+  assert.equal(by(quiet, 'publish').level, 'ok');
+  assert.equal(by(run({ built_at: ago(300), checked_at: ago(100) }), 'engine').level, 'watch');
+  const stopped = run({ built_at: ago(300), checked_at: ago(200) });
+  assert.equal(by(stopped, 'engine').level, 'attention');
+  assert.equal(by(stopped, 'publish').level, 'attention');
+  // An Engine without checked_at is judged by built_at.
+  assert.equal(by(run({ built_at: ago(30) }), 'engine').level, 'ok');
+});
+
+test('system: a failing strava or withings check flags the sync even with a recent row', () => {
+  const s = system({ status: { built_at: new Date(NOW).toISOString() }, checks: [{ slug: 'strava', status: 'down' }, { slug: 'withings', status: 'up' }], ledger: { jobs: [] },
+    latest: { workout: { created: '2026-09-27T12:00:00Z' }, metric: { created: '2026-09-27T13:00:00Z' } } }, NOW);
+  const strava = s.processes.find(p => p.key === 'strava');
+  assert.equal(strava.level, 'attention');
+  assert.match(strava.problem, /reports the strava sync failing/);
+  assert.equal(s.processes.find(p => p.key === 'withings').level, 'ok');
 });

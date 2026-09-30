@@ -20,7 +20,7 @@ Full description and change log: the Notion page "🧭 Admin Dashboard".
 |---|---|
 | Cross Border | Notion Work Location Log (from 1 Jul 2026, AM/PM half-days, E-bike €) |
 | Health | Notion Workouts (Strava sync) and Body Metrics (Withings sync) |
-| System Health | Quest Engine `GET /status` and `GET /ledger`, healthchecks.io, newest Workouts / Body Metrics rows (Make syncs) |
+| System Health | Quest Engine `GET /status` and `GET /ledger`, healthchecks.io, newest Workouts / Body Metrics rows (the Quest Engine's Strava and Withings syncs) |
 | Quick Links | `src/config.js` |
 
 It reads, with one write: at 07:00 Amsterdam it rewrites the 🌍 callout on the
