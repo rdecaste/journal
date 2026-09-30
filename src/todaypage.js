@@ -283,7 +283,7 @@ export function todayHtml(d) {
   <section class="today" aria-label="Today">
     <div class="story">
       <article class="spark"><div class="eyebrow">Morning spark</div>${sparkHtml(d.spark)}
-        ${d.journal ? `<a class="journal" href="${esc(d.journal.url)}" ${ext}><div><b>Today’s journal</b><br><span>${esc(d.journal.title)}</span></div><div class="chev" aria-hidden="true">›</div></a>` : ''}</article>
+        <a class="journal" href="/journal"><div><b>Today’s journal</b><br><span>${esc(d.journal ? d.journal.title : 'Write this morning or tonight')}</span></div><div class="chev" aria-hidden="true">›</div></a></article>
     </div>
     ${heroHtml(d.hero, d.notes && d.notes.main_quest, d.main_quest)}
   </section>
