@@ -69,7 +69,7 @@ h2{font-family:var(--display);font-weight:600;font-size:21px;margin:0;letter-spa
 .spark{background:var(--ki-soft);border-radius:var(--radius);padding:20px 22px;flex:1;display:flex;flex-direction:column;gap:10px}
 .spark p{margin:0;font-size:16.5px;line-height:1.6;max-width:62ch}
 .spark p.sign{color:var(--muted);font-size:14px}
-.journal{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 18px;text-decoration:none;min-height:56px}
+.journal{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border-radius:12px;padding:12px 16px;text-decoration:none;min-height:52px;margin-top:auto}
 .journal b{font-weight:600}
 .journal span{color:var(--muted);font-size:14.5px}
 .chev{color:var(--muted);font-size:20px;line-height:1}
@@ -281,8 +281,8 @@ export function todayHtml(d) {
 
   <section class="today" aria-label="Today">
     <div class="story">
-      <article class="spark"><div class="eyebrow">Morning spark</div>${sparkHtml(d.spark)}</article>
-      ${d.journal ? `<a class="journal" href="${esc(d.journal.url)}" ${ext}><div><b>Today’s journal</b><br><span>${esc(d.journal.title)}</span></div><div class="chev" aria-hidden="true">›</div></a>` : ''}
+      <article class="spark"><div class="eyebrow">Morning spark</div>${sparkHtml(d.spark)}
+        ${d.journal ? `<a class="journal" href="${esc(d.journal.url)}" ${ext}><div><b>Today’s journal</b><br><span>${esc(d.journal.title)}</span></div><div class="chev" aria-hidden="true">›</div></a>` : ''}</article>
     </div>
     ${heroHtml(d.hero, d.notes && d.notes.main_quest, d.main_quest)}
   </section>
