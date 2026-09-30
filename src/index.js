@@ -11,7 +11,8 @@
 //   GET  /data     everything the page shows, as JSON (signed in)
 //   POST /summary  rewrite today's AI summary now (signed in; one OpenAI call)
 //
-// It reads Notion (Work Location Log, Workouts, Body Metrics), the Quest
+// It reads Notion (Work Location Log, Workouts, Body Metrics, Sleep & Recovery,
+// the Health Journey's quests), the Quest
 // Engine's GET /status and GET /ledger, and healthchecks.io. The one thing it
 // writes is the cross-border buffer line in the 🌍 callout on the Quest log
 // page: each morning at 07:00 Amsterdam time (cron), or the first time the

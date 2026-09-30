@@ -74,6 +74,93 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px}
 @media (max-width:560px){.big{font-size:22px}.bar .meta span{display:none}}
 `;
 
+const HEALTH_STYLE = `
+/* ---- Health tab: dark Recovery today card, quest cards, form, training, body ---- */
+:root{--hero:#161615;--hero2:#232321;--hero-ink:#f6f5f0;--hero-muted:#a3a29b;--amber:#f0a818;--wash-good:#e6f4ea;--wash-blue:#e8effb;
+--fit:#2f6fd6;--fat:#e8663a;--run:#e8663a;--bike:#2f6fd6;--str:#189a74;--swim:#e0a000;--commute:#c9c8bf;
+--display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;--body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;--shadow:0 1px 2px rgba(20,20,19,.04),0 4px 14px rgba(20,20,19,.05)}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){--hero:#1e1e1c;--hero2:#2a2a27;--amber:#f5b52e;--wash-good:#15261b;--wash-blue:#15202f;--fit:#4f8ae8;--fat:#f07a4f;--run:#f07a4f;--bike:#4f8ae8;--str:#2bb58c;--swim:#e8ad1c;--commute:#4a4a46;--shadow:none}}
+:root[data-theme="dark"]{--hero:#1e1e1c;--hero2:#2a2a27;--amber:#f5b52e;--wash-good:#15261b;--wash-blue:#15202f;--fit:#4f8ae8;--fat:#f07a4f;--run:#f07a4f;--bike:#4f8ae8;--str:#2bb58c;--swim:#e8ad1c;--commute:#4a4a46;--shadow:none}
+#health{font-family:var(--body)}#health:not([hidden]){display:flex;flex-direction:column;gap:14px}
+#health>p{margin:0}
+#health .sec{display:flex;align-items:baseline;gap:12px;margin:22px 0 0}
+#health .sec h2{font:700 22px/1 var(--display);text-transform:uppercase;letter-spacing:.03em;margin:0;color:var(--ink)}
+#health .sec::after{content:"";order:1;flex:1;height:1px;background:var(--grid);align-self:center;min-width:20px}
+#health .sec .src{order:2}
+#health .card{border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
+#health .two{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))}
+#health .grid{gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr))}
+#health .num{font:700 34px/1 var(--display);font-variant-numeric:tabular-nums}
+#health .num small{font:500 15px var(--body);color:var(--ink2);margin-left:3px}
+#health .chip{display:inline-flex;align-items:center;gap:6px;font:600 12px/1.3 var(--body);padding:3px 9px;border-radius:999px;white-space:nowrap}
+#health .chip.good{background:var(--wash-good);color:var(--good)}#health .chip.warn{background:var(--wash-warn);color:var(--warn)}#health .chip.crit{background:var(--wash-crit);color:var(--crit)}#health .chip.blue{background:var(--wash-blue);color:var(--fit)}#health .chip.muted{background:var(--grid);color:var(--ink2)}
+#health .hero{background:var(--hero);color:var(--hero-ink);border-radius:18px;padding:22px 22px 20px;display:grid;gap:22px 28px;grid-template-columns:minmax(0,300px) minmax(0,1fr);position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.06)}
+#health .hero::before{content:"";position:absolute;inset:0 0 auto 0;height:4px;background:var(--amber)}
+@media (max-width:760px){#health .hero{grid-template-columns:1fr;padding:20px 18px 18px}}
+#health .gaugebox{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+#health .eyebrow{font:600 12px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--hero-muted);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#health .eyebrow .chip{letter-spacing:0;text-transform:none;background:rgba(240,168,24,.16);color:var(--amber)}
+#health .gauge{width:100%;max-width:260px;margin-top:10px}
+#health .verdict{font:800 clamp(44px,9vw,64px)/.9 var(--display);text-transform:uppercase;letter-spacing:.01em;margin-top:-4px}
+#health .verdict-sub{color:var(--hero-muted);font-size:14px}
+#health .coach{margin:0;display:flex;flex-direction:column;gap:10px;align-self:center}
+#health .coach p{margin:0;font-size:17px;line-height:1.55;max-width:58ch}
+#health .coach p:first-child{font:italic 600 26px/1.15 var(--display);color:#fff}
+#health .coach p:first-child::before{content:"\\201C";color:var(--amber);margin-right:2px}
+#health .coach .sign{font:800 22px/1 var(--display);text-transform:uppercase;letter-spacing:.06em;color:var(--amber);margin-top:2px}
+#health .coach footer{font-size:12px;color:var(--hero-muted)}
+#health .sigs{grid-column:1/-1;display:grid;gap:12px;grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:620px){#health .sigs{grid-template-columns:1fr}}
+#health .sig{background:var(--hero2);border-radius:12px;padding:12px 14px 10px;display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:baseline;min-width:0}
+#health .sig .k{font-size:12px;color:var(--hero-muted);grid-column:1/-1;display:flex;align-items:center;gap:6px}
+#health .sig .k .dot{width:7px;height:7px}
+#health .sig .v{font:700 28px/1.05 var(--display);font-variant-numeric:tabular-nums}
+#health .sig .v small{font:500 13px var(--body);color:var(--hero-muted);margin-left:2px}
+#health .sig .delta{font-size:12px;font-weight:600;padding:2px 7px;border-radius:6px;background:rgba(255,255,255,.07);font-variant-numeric:tabular-nums}
+#health .sig .delta.low{background:rgba(240,168,24,.18);color:var(--amber)}
+#health .sig .chart{grid-column:1/-1;margin-top:6px}
+#health .sig .u{grid-column:1/-1;font-size:12px;color:var(--hero-muted)}
+#health .quest{display:flex;flex-direction:column;gap:14px}
+#health .qtop{display:flex;gap:14px;align-items:center}
+#health .qtop .ring{flex:none;width:84px;height:84px}
+#health .qname{font:700 21px/1.05 var(--display);text-transform:uppercase;letter-spacing:.02em;margin:0;color:var(--ink)}
+#health .qname a{text-decoration:none}#health .qname a:hover{color:var(--accent)}
+#health .qphase{font-size:12px;color:var(--muted);margin-top:4px;display:block}
+#health .q{margin:0;font-size:14px;color:var(--ink2);padding:10px 12px;border-radius:10px;background:var(--page)}
+#health .q b{color:var(--ink);font-weight:600}
+#health .mrow{display:flex;flex-direction:column;gap:6px}
+#health .mrow .row{display:flex;justify-content:space-between;gap:10px;font-size:14px}
+#health .mrow b{font-variant-numeric:tabular-nums}
+#health .meter{position:relative;height:10px;border-radius:5px;background:var(--grid)}
+#health .meter i{position:absolute;inset:0 auto 0 0;border-radius:5px;background:var(--fit)}
+#health .meter .mark{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:var(--ink);border-radius:1px}
+#health .checks{display:flex;gap:8px;flex-wrap:wrap}
+#health .check{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;border:1.5px dashed var(--axis);font-size:14px;color:var(--ink2)}
+#health .check i{width:16px;height:16px;border-radius:50%;border:2px solid var(--axis);flex:none}
+#health .check.done{border-style:solid;border-color:var(--good);color:var(--ink)}
+#health .check.done i{background:var(--good);border-color:var(--good)}
+#health .wflag{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;align-items:start;background:var(--surface);border:1px solid var(--ring);border-left:5px solid var(--amber);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow)}
+#health .wflag.attention{border-left-color:var(--crit)}
+#health .wflag .ic{width:30px;height:30px;border-radius:50%;background:var(--wash-warn);color:var(--warn);display:grid;place-items:center;font:800 18px/1 var(--display);grid-row:1/3}
+#health .wflag.attention .ic{background:var(--wash-crit);color:var(--crit)}
+#health .wflag .t{font-weight:600;font-size:15px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#health .wflag .d{font-size:13px;color:var(--ink2)}
+#health .legend{gap:14px;flex-wrap:wrap;margin:10px 0 0}
+#health .legend span{display:inline-flex;align-items:center}
+#health .legend i.line{height:3px;width:14px;border-radius:2px}
+#health .legend i.dash{height:0;width:14px;border-top:2px dashed var(--ink2);border-radius:0}
+#health .chead{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+#health .chead .num{font-size:40px}
+#health .kv{gap:5px 12px;margin:10px 0 0;font-size:13px}
+#health .kv dd{font-weight:600}
+#health .read{margin:12px 0 0;font-size:14px;color:var(--ink2);max-width:72ch}
+#health details.explain{background:var(--surface);border:1px solid var(--ring);border-radius:14px;padding:14px 18px}
+#health details.explain summary{font:700 18px/1.2 var(--display);text-transform:uppercase;letter-spacing:.03em;color:var(--ink)}
+#health .explain ol{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;color:var(--ink2);font-size:14px;max-width:75ch}
+#health .explain ol b{color:var(--ink)}
+@media (prefers-reduced-motion:no-preference){#health .gauge .seg{animation:grow .8s ease both}@keyframes grow{from{stroke-dashoffset:var(--len)}}}
+`;
+
 const SCRIPT = `
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -128,7 +215,7 @@ function drawCharts() {
   for (const el of document.querySelectorAll('.chart')) {
     const [kind, a, b] = charts[el.dataset.i], w = Math.max(240, el.clientWidth);
     if (!el.offsetParent) continue;
-    el.innerHTML = kind === 'line' ? lineChart(a, b, w) : barChart(a, b, w);
+    el.innerHTML = ({ line: lineChart, bar: barChart, spark: sparkSvg, tsb: tsbSvg, weeks: weeksSvg, body: bodySvg })[kind](a, b, w);
   }
 }
 let resizeTimer; addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(drawCharts, 150); });
@@ -167,34 +254,218 @@ function renderCross(c) {
   return html + '<p><a class="src" href="' + NOTION.workLocation + '" target="_blank" rel="noopener">Work Location Log ↗</a> · <a class="src" href="' + NOTION.borderDashboard + '" target="_blank" rel="noopener">Border Worker Dashboard ↗</a></p>';
 }
 
-// ---- Health ----
+// ---- Health (Recovery today, quests, form, training, body) ----
+const attr = o => Object.keys(o).map(k => k + '="' + o[k] + '"').join(' ');
+const S_ = (t, o, inner) => '<' + t + ' ' + attr(o) + (inner === undefined ? '/>' : '>' + inner + '</' + t + '>');
+const pathOf = pts => pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+let gid = 0;
+const grad = (color, top) => { const id = 'g' + (++gid); return ['<defs><linearGradient id="' + id + '" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="' + color + '" stop-opacity="' + top + '"/><stop offset="1" stop-color="' + color + '" stop-opacity="0"/></linearGradient></defs>', 'url(#' + id + ')']; };
+const svgOpen = (W, H) => '<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" role="img">';
+const hgrid = (ticks, Y, L, W, R, f) => ticks.map(t => S_('line', { x1: L, x2: W - R, y1: Y(t), y2: Y(t), stroke: 'var(--grid)' }) + S_('text', { x: L - 6, y: Y(t) + 4, 'text-anchor': 'end' }, f ? f(t) : t)).join('');
+const signed = (n, d = 0) => (n > 0 ? '+' : n < 0 ? '−' : '±') + fmt(Math.abs(n), d);
+const dur = h => { const m = Math.round(Math.abs(h) * 60); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0'); };
+const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const wday = d => WD[new Date(d + 'T12:00:00Z').getUTCDay()];
+const SPORT = { run: 'Run', bike: 'Bike', strength: 'Strength', swim: 'Swim', ebike: 'E-bike', other: 'Other' };
+const SPORT_COL = { run: 'var(--run)', bike: 'var(--bike)', strength: 'var(--str)', swim: 'var(--swim)', ebike: 'var(--commute)', other: 'var(--axis)' };
+
+// Three segments on a half ring: amber for a low signal, green otherwise.
+function gaugeSvg(r) {
+  const cx = 130, cy = 132, rad = 108, sw = 18, gap = 4 * Math.PI / 180, span = (Math.PI - 2 * gap) / 3;
+  const pt = a => (cx - rad * Math.cos(a)).toFixed(1) + ' ' + (cy - rad * Math.sin(a)).toFixed(1);
+  let s = '<svg class="gauge" viewBox="0 0 260 150" role="img" aria-label="' + (r.judged - r.low) + ' of ' + r.judged + ' signals in the green">';
+  ['sleep', 'hrv', 'rhr'].forEach((k, i) => {
+    const a0 = i * (span + gap), a1 = a0 + span, d = 'M' + pt(a0) + ' A' + rad + ' ' + rad + ' 0 0 1 ' + pt(a1), sig = r[k];
+    s += S_('path', { d, fill: 'none', stroke: 'rgba(255,255,255,.08)', 'stroke-width': sw });
+    if (sig && sig.delta !== null) s += S_('path', { class: 'seg', d, fill: 'none', stroke: sig.low ? 'var(--amber)' : 'var(--good)', 'stroke-width': sw, 'stroke-dasharray': (rad * span).toFixed(1), style: '--len:' + (rad * span).toFixed(1) });
+  });
+  s += S_('text', { x: cx, y: cy - 12, 'text-anchor': 'middle', style: 'fill:var(--hero-ink);font:800 44px var(--display)' }, (r.judged - r.low) + '/' + r.judged);
+  s += S_('text', { x: cx, y: cy + 6, 'text-anchor': 'middle', style: 'fill:var(--hero-muted);font-size:12px' }, 'signals in the green');
+  return s + '</svg>';
+}
+// The last 14 nights, with a dashed line at the usual value.
+function sparkSvg(series, o, W) {
+  const H = 48, P = 4, pts = series.filter(p => p[o.key] !== null && p[o.key] !== undefined);
+  if (pts.length < 2) return '';
+  const vals = pts.map(p => p[o.key]).concat(o.usual === null ? [] : [o.usual]);
+  const lo = Math.min(...vals), hi = Math.max(...vals), step = (W - 2 * P) / (pts.length - 1);
+  const X = i => P + i * step, Y = v => P + (1 - (v - lo) / (hi - lo || 1)) * (H - 2 * P);
+  const xy = pts.map((p, i) => [X(i), Y(p[o.key])]), [defs, fill] = grad(o.color, 0.35), l = xy[xy.length - 1];
+  let s = svgOpen(W, H) + defs;
+  if (o.usual !== null) s += S_('line', { x1: P, x2: W - P, y1: Y(o.usual), y2: Y(o.usual), stroke: 'var(--hero-muted)', 'stroke-dasharray': '3 3', opacity: 0.7 });
+  s += S_('path', { d: pathOf(xy) + ' L' + l[0] + ' ' + H + ' L' + P + ' ' + H + ' Z', fill }) + S_('path', { d: pathOf(xy), fill: 'none', stroke: o.color, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
+  s += S_('circle', { cx: l[0], cy: l[1], r: 3.5, fill: o.color, stroke: 'var(--hero2)', 'stroke-width': 2 });
+  pts.forEach((p, i) => { s += S_('rect', { x: X(i) - step / 2, y: 0, width: step, height: H, fill: 'transparent', 'data-tip': esc(day(p.date) + ': ' + o.fmt(p[o.key])) }); });
+  return s + '</svg>';
+}
+function ringSvg(frac, col, big, small) {
+  const r = 34, c = 2 * Math.PI * r, f = Math.min(1, frac || 0);
+  return '<svg class="ring" viewBox="0 0 84 84" role="img" aria-label="' + esc(big + ' ' + small) + '">' + S_('circle', { cx: 42, cy: 42, r, fill: 'none', stroke: 'var(--grid)', 'stroke-width': 9 }) +
+    (frac > 0 ? S_('circle', { cx: 42, cy: 42, r, fill: 'none', stroke: col, 'stroke-width': 9, 'stroke-linecap': 'round', 'stroke-dasharray': (c * f).toFixed(1) + ' ' + c.toFixed(1), transform: 'rotate(-90 42 42)' }) : '') +
+    S_('text', { x: 42, y: 44, 'text-anchor': 'middle', style: 'fill:var(--ink);font:700 20px var(--display)' }, esc(big)) + S_('text', { x: 42, y: 58, 'text-anchor': 'middle', style: 'fill:var(--muted);font-size:10px' }, esc(small)) + '</svg>';
+}
+// Fitness and fatigue on top; TSB over its zones below.
+function tsbSvg(t, _, W) {
+  const D = t.series, n = D.length, H = 320, L = 30, R = 96, T = 8, B = 22, gap = 18;
+  const topH = (H - T - B - gap) / 2, botH = topH, X = i => L + i * (W - L - R) / (n - 1);
+  const top = Math.max(20, Math.ceil(Math.max(...D.map(p => Math.max(p.fit, p.fat))) / 20) * 20);
+  const lo = Math.min(-45, Math.floor(Math.min(...D.map(p => p.tsb)) / 5) * 5 - 5), hi = Math.max(20, Math.ceil(Math.max(...D.map(p => p.tsb)) / 5) * 5 + 5);
+  const Yt = v => T + (1 - v / top) * topH, y0 = T + topH + gap, Yb = v => y0 + (1 - (v - lo) / (hi - lo)) * botH;
+  let s = svgOpen(W, H);
+  for (const [a, b, f, name, c] of [[hi, 0, 'var(--wash-good)', 'Fresh', 'var(--good)'], [0, -10, 'transparent', 'Neutral', 'var(--muted)'], [-10, -30, 'var(--wash-blue)', 'Building', 'var(--fit)'], [-30, lo, 'var(--wash-crit)', 'Overreaching', 'var(--crit)']]) {
+    s += S_('rect', { x: L, y: Yb(a), width: W - L - R, height: Yb(b) - Yb(a), fill: f });
+    s += S_('text', { x: W - R + 8, y: (Yb(a) + Yb(b)) / 2 + 4, style: 'fill:' + c + ';font-weight:600' }, name);
+  }
+  s += hgrid([0, top / 2, top], Yt, L, W, R);
+  for (let v = 20; v >= lo; v -= 20) if (v <= hi) s += S_('text', { x: L - 6, y: Yb(v) + 4, 'text-anchor': 'end' }, (v > 0 ? '+' : '') + v);
+  s += S_('line', { x1: L, x2: W - R, y1: Yb(0), y2: Yb(0), stroke: 'var(--axis)' });
+  const fp = D.map((p, i) => [X(i), Yt(p.fit)]), [defs, fill] = grad('var(--fit)', 0.22);
+  s += defs + S_('path', { d: pathOf(fp) + ' L' + X(n - 1) + ' ' + Yt(0) + ' L' + X(0) + ' ' + Yt(0) + ' Z', fill });
+  s += S_('path', { d: pathOf(fp), fill: 'none', stroke: 'var(--fit)', 'stroke-width': 2.2, 'stroke-linejoin': 'round' });
+  s += S_('path', { d: pathOf(D.map((p, i) => [X(i), Yt(p.fat)])), fill: 'none', stroke: 'var(--fat)', 'stroke-width': 1.8, 'stroke-linejoin': 'round', opacity: 0.9 });
+  const tp = D.map((p, i) => [X(i), Yb(p.tsb)]);
+  s += S_('path', { d: pathOf(tp) + ' L' + X(n - 1) + ' ' + Yb(0) + ' L' + X(0) + ' ' + Yb(0) + ' Z', fill: 'var(--ink)', opacity: 0.12 });
+  s += S_('path', { d: pathOf(tp), fill: 'none', stroke: 'var(--ink)', 'stroke-width': 2, 'stroke-linejoin': 'round' });
+  const li = D.indexOf(D.reduce((a, p) => (p.tsb < a.tsb ? p : a)));
+  if (D[li].tsb < -10) {
+    s += S_('circle', { cx: X(li), cy: Yb(D[li].tsb), r: 4, fill: 'var(--crit)', stroke: 'var(--surface)', 'stroke-width': 2 });
+    s += S_('text', { x: X(li) + (li > n * 0.8 ? -8 : 8), y: Yb(D[li].tsb) + 4, 'text-anchor': li > n * 0.8 ? 'end' : 'start', style: 'fill:var(--crit);font-weight:600' }, Math.round(D[li].tsb) + ' · ' + day(D[li].date));
+  }
+  const last = D[n - 1], zc = { Fresh: 'var(--good)', Neutral: 'var(--muted)', Building: 'var(--fit)', Overreaching: 'var(--crit)' }[t.zone];
+  s += S_('circle', { cx: X(n - 1), cy: Yb(last.tsb), r: 5, fill: zc, stroke: 'var(--surface)', 'stroke-width': 2 });
+  s += S_('circle', { cx: X(n - 1), cy: Yt(last.fit), r: 4, fill: 'var(--fit)', stroke: 'var(--surface)', 'stroke-width': 2 });
+  let yf = Yt(last.fit) + 4, ya = Yt(last.fat) + 4;
+  if (Math.abs(yf - ya) < 14) { if (yf <= ya) ya = yf + 14; else yf = ya + 14; }
+  s += S_('text', { x: X(n - 1) + 8, y: yf, style: 'fill:var(--fit);font-weight:600' }, 'Fitness ' + Math.round(last.fit));
+  s += S_('text', { x: X(n - 1) + 8, y: ya, style: 'fill:var(--fat);font-weight:600' }, 'Fatigue ' + Math.round(last.fat));
+  D.forEach((p, i) => { if (p.date.slice(8) === '01') s += S_('text', { x: X(i), y: H - 6, 'text-anchor': 'middle' }, day(p.date)); });
+  const w = (W - L - R) / (n - 1);
+  D.forEach((p, i) => { s += S_('rect', { x: X(i) - w / 2, y: T, width: w, height: H - T - B, fill: 'transparent', 'data-tip': esc(day(p.date) + (p.workout ? ' (workout)' : '') + ' · Fitness ' + fmt(p.fit) + ' · Fatigue ' + fmt(p.fat) + ' · TSB ' + signed(p.tsb, 1)) }); });
+  return s + '</svg>';
+}
+// Minutes per week by sport, stacked, with the goal as a dashed line.
+function weeksSvg(weeks, goal, W) {
+  const H = 230, L = 34, R = 8, T = 12, B = 22, n = weeks.length, bw = (W - L - R) / n;
+  const total = w => Object.values(w.minutes).reduce((a, b) => a + b, 0);
+  const max = Math.max(goal * 60, Math.ceil(Math.max(...weeks.map(total)) / 120) * 120), Y = v => T + (1 - v / max) * (H - T - B);
+  const ticks = []; for (let v = 0; v <= max; v += 120) ticks.push(v);
+  let s = svgOpen(W, H) + hgrid(ticks, Y, L, W, R, v => v / 60 + ' h');
+  weeks.forEach((wk, i) => {
+    const w = Math.min(bw * 0.6, 46), x = L + i * bw + (bw - w) / 2, tot = total(wk), id = 'c' + (++gid);
+    const segs = Object.keys(SPORT).filter(k => wk.minutes[k]);
+    if (tot > 0) {
+      s += '<defs><clipPath id="' + id + '">' + S_('rect', { x, y: Y(tot), width: w, height: Y(0) - Y(tot), rx: 5 }) + '</clipPath></defs><g clip-path="url(#' + id + ')">';
+      let acc = 0;
+      for (const k of segs) { const v = wk.minutes[k]; s += S_('rect', { x, y: Y(acc + v), width: w, height: Y(acc) - Y(acc + v), fill: SPORT_COL[k], opacity: wk.current ? 0.55 : 1 }) + S_('line', { x1: x, x2: x + w, y1: Y(acc + v), y2: Y(acc + v), stroke: 'var(--surface)', 'stroke-width': 1.5 }); acc += v; }
+      s += '</g>';
+    }
+    s += S_('text', { x: x + w / 2, y: H - 6, 'text-anchor': 'middle' }, wk.current ? 'now' : (bw < 44 && (n - 1 - i) % 2 ? '' : day(wk.week)));
+    s += S_('rect', { x: L + i * bw, y: T, width: bw, height: H - T - B, fill: 'transparent', 'data-tip': esc('Week of ' + day(wk.week) + ' · ' + fmt(tot / 60) + ' h' + (segs.length ? ' · ' + segs.map(k => SPORT[k] + ' ' + wk.minutes[k] + ' min').join(', ') : '')) });
+  });
+  s += S_('line', { x1: L, x2: W - R, y1: Y(goal * 60), y2: Y(goal * 60), stroke: 'var(--ink2)', 'stroke-width': 1.2, 'stroke-dasharray': '4 4', opacity: 0.6 });
+  return s + '</svg>';
+}
+// A body series by date, with an optional target line.
+function bodySvg(series, o, W) {
+  if (series.length < 2) return '<p class="empty">Not enough weigh-ins for a trend yet.</p>';
+  const H = 140, L = 30, R = 8, T = 10, B = 20, vals = series.map(p => p.value).concat(o.ref === undefined ? [] : [o.ref]);
+  const lo = Math.floor(Math.min(...vals) - 0.5), hi = Math.ceil(Math.max(...vals) + 0.5);
+  const t0 = Date.parse(series[0].date), t1 = Date.parse(series[series.length - 1].date) || t0 + 1;
+  const X = d => L + (Date.parse(d) - t0) / (t1 - t0 || 1) * (W - L - R), Y = v => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+  let s = svgOpen(W, H) + hgrid([lo, Math.round((lo + hi) / 2), hi], Y, L, W, R);
+  if (o.ref !== undefined) s += S_('line', { x1: L, x2: W - R, y1: Y(o.ref), y2: Y(o.ref), stroke: 'var(--good)', 'stroke-width': 1.5, 'stroke-dasharray': '4 4' }) + S_('text', { x: W - R, y: Y(o.ref) - 5, 'text-anchor': 'end', style: 'fill:var(--good);font-weight:600' }, 'target ' + o.ref + o.unit);
+  const xy = series.map(p => [X(p.date), Y(p.value)]), [defs, fill] = grad(o.color, 0.18), l = xy[xy.length - 1];
+  s += defs + S_('path', { d: pathOf(xy) + ' L' + l[0] + ' ' + Y(lo) + ' L' + xy[0][0] + ' ' + Y(lo) + ' Z', fill }) + S_('path', { d: pathOf(xy), fill: 'none', stroke: o.color, 'stroke-width': 2.2, 'stroke-linejoin': 'round' });
+  s += S_('circle', { cx: l[0], cy: l[1], r: 4.5, fill: o.color, stroke: 'var(--surface)', 'stroke-width': 2 });
+  for (const p of [series[0], series[Math.floor(series.length / 2)], series[series.length - 1]]) s += S_('text', { x: X(p.date), y: H - 4, 'text-anchor': p === series[0] ? 'start' : p === series[series.length - 1] ? 'end' : 'middle' }, day(p.date));
+  series.forEach((p, i) => { const a = i ? (xy[i - 1][0] + xy[i][0]) / 2 : L, b = i < xy.length - 1 ? (xy[i][0] + xy[i + 1][0]) / 2 : W - R; s += S_('rect', { x: a, y: 0, width: Math.max(1, b - a), height: H, fill: 'transparent', 'data-tip': esc(day(p.date) + ': ' + fmt(p.value) + o.unit) }); });
+  return s + '</svg>';
+}
+
+function heroHtml(r) {
+  if (!r) return '<p class="calm">Recovery today reads the Sleep &amp; Recovery database, which could not be read.</p>';
+  if (r.stale || !r.verdict) return '<p class="calm">Recovery today has no fresh sleep data' + (r.last_date ? ' (newest night: ' + day(r.last_date) + ')' : '') + '.</p>';
+  const sig = (name, s, value, unit, delta, usual, low, key, fmtTip, color) => '<div class="sig"><span class="k"><span class="dot" style="background:' + (low ? 'var(--amber)' : 'var(--good)') + '"></span>' + name + '</span><span class="v">' + value + (unit ? '<small>' + unit + '</small>' : '') + '</span>' + (delta ? '<span class="delta' + (low ? ' low' : '') + '">' + delta + '</span>' : '<span></span>') +
+    chart('spark', r.series, { key, usual: s.usual, color: low ? 'var(--amber)' : color, fmt: fmtTip }) + '<span class="u">' + usual + '</span></div>';
+  const S1 = r.sleep, S2 = r.hrv, S3 = r.rhr, n = r.note;
+  let html = '<section class="hero" aria-label="Recovery today"><div class="gaugebox"><span class="eyebrow">Recovery today' + (r.night !== 'last night' ? ' · ' + esc(r.night) : '') + (r.recovering ? ' <span class="chip">Recovering</span>' : '') + '</span>' + gaugeSvg(r) +
+    '<span class="verdict">' + esc(r.verdict_text) + '</span><span class="verdict-sub">' + esc(r.verdict_sub) + '</span></div>';
+  if (n) html += '<blockquote class="coach">' + n.lines.map(l => '<p>' + esc(l) + '</p>').join('') + '<span class="sign">' + esc(n.sign) + '</span><footer>Your accountability partner, David Goggins · written in his style from this morning\\'s numbers</footer></blockquote>';
+  html += '<div class="sigs">';
+  html += sig('Sleep ' + esc(r.night), S1, S1.value !== null ? dur(S1.value) : '–', '', S1.delta !== null ? (S1.delta < 0 ? '−' : '+') + dur(S1.delta) : '', 'Usual ' + (S1.usual !== null ? dur(S1.usual) : '–') + (r.awake !== null ? ' · awake ' + dur(r.awake / 60) : ''), S1.low, 'sleep', v => dur(v) + ' asleep', 'var(--good)');
+  html += sig('HRV', S2, fmt(S2.value, 0), 'ms', S2.delta !== null ? signed(S2.delta) : '', 'Usual ' + fmt(S2.usual, 0) + ' · higher is better', S2.low, 'hrv', v => v + ' ms', 'var(--good)');
+  html += sig('Resting heart rate', S3, fmt(S3.value, 0), 'bpm', S3.delta !== null ? signed(S3.delta) : '', 'Usual ' + fmt(S3.usual, 0) + ' · lower is better', S3.low, 'rhr', v => v + ' bpm', 'var(--good)');
+  return html + '</div></section>';
+}
+const wflag = f => '<div class="wflag ' + f.level + '"><span class="ic" aria-hidden="true">!</span><span class="t">' + esc(f.title) + ' <span class="chip ' + (f.level === 'attention' ? 'crit' : 'warn') + '">' + (f.level === 'attention' ? 'Attention' : 'Watch') + '</span>' + (f.link ? ' <a class="src" href="' + esc(f.link) + '" target="_blank" rel="noopener">Open ↗</a>' : '') + '</span><span class="d">' + esc(f.why) + '</span></div>';
+const meter = (share, color, mark) => '<div class="meter"><i style="width:' + Math.max(0, Math.min(100, share * 100)).toFixed(1) + '%' + (color ? ';background:' + color : '') + '"></i>' + (mark !== undefined ? '<span class="mark" style="left:' + Math.min(100, mark * 100).toFixed(1) + '%"></span>' : '') + '</div>';
+
+function questHtml(q, h) {
+  const head = (ring, sub) => '<div class="qtop">' + ring + '<div><h3 class="qname">' + (q.url ? '<a href="' + esc(q.url) + '" target="_blank" rel="noopener">' + esc(q.name) + '</a>' : esc(q.name)) + '</h3><span class="qphase">' + esc(q.phase ? q.phase + ' phase' : 'Active') + (sub ? ' · ' + sub : '') + '</span></div></div>' +
+    (q.question ? '<p class="q"><b>Pass/fail:</b> ' + esc(q.question) + '</p>' : '');
+  if (q.kind === 'shape') {
+    const w = h.this_week, goal = h.targets.weekly_hours, f = h.body_fat, paused = h.recovery && h.recovery.recovering;
+    let html = head(ringSvg(w.step_share, 'var(--fit)', Math.round(w.step_share * 100) + '%', 'of step'), 'goal ' + goal + ' h a week, body fat ' + f.target + '%');
+    html += '<div class="mrow"><div class="row"><span>This week\\'s step</span><b>' + fmt(w.hours) + ' / ' + fmt(w.step) + ' h</b></div>' + meter(w.hours / goal, null, w.step / goal) +
+      '<span class="sub">' + (paused ? 'Paused while you recover; it picks up after 3 normal days. ' : '') + 'Bar runs to the ' + goal + ' h goal; the tick is this week\\'s step (last 4 weeks plus 10%).' + (w.last_step ? ' Last step reached: week of ' + day(w.last_step) + '.' : '') + '</span></div>';
+    if (f.week_avg !== null) {
+      const share = f.high_90d > f.target ? (f.high_90d - f.week_avg) / (f.high_90d - f.target) : 1, up = f.month_change !== null && f.month_change > 0;
+      html += '<div class="mrow"><div class="row"><span>Body fat, week average</span><b>' + fmt(f.week_avg) + '% <span class="muted">→ ' + f.target + '%</span></b></div>' + meter(share, up ? 'var(--amber)' : 'var(--good)') +
+        '<span class="sub">' + (f.month_change === null ? 'No month-ago comparison yet.' : f.month_change > 0 ? 'Up ' + fmt(f.month_change) + ' points on a month ago, so not yet trending down.' : f.month_change < 0 ? 'Down ' + fmt(-f.month_change) + ' points on a month ago, heading toward ' + f.target + '%.' : 'Level with a month ago.') + ' The bar runs from your 90-day high (' + fmt(f.high_90d) + '%) to the target.</span></div>';
+    }
+    return '<section class="card quest">' + html + '</section>';
+  }
+  if (q.kind === 'half' && q.half) {
+    const m = q.half, done = (m.this_week.long ? 1 : 0) + (m.this_week.interval ? 1 : 0), lw = m.last_week;
+    let html = head(ringSvg(done / 2, 'var(--run)', done + '/2', 'runs'), m.goal_km + ' km');
+    const ck = (label, r) => '<span class="check' + (r ? ' done' : '') + '"' + (r ? ' data-tip="' + esc(wday(r.date) + ' · ' + r.name + ' · ' + fmt(r.km) + ' km') + '"' : '') + '><i></i>' + label + '</span>';
+    html += '<div class="checks">' + ck('Long run', m.this_week.long) + ck('Interval run', m.this_week.interval) + '</div>';
+    html += '<span class="sub" style="margin-top:-6px">Last week: ' + (lw.long ? 'the ' + fmt(lw.long.km) + ' km long run on ' + wday(lw.long.date) : 'no long run') + ', ' + (lw.interval ? 'intervals on ' + wday(lw.interval.date) + ' (' + esc(lw.interval.name) + ')' : 'no intervals' + (m.last_interval ? ' (last: ' + esc(m.last_interval.name) + ' on ' + day(m.last_interval.date) + ')' : '')) + '.</span>';
+    if (m.longest) html += '<div class="mrow"><div class="row"><span>Longest run</span><b>' + fmt(m.longest.km) + ' / ' + m.goal_km + ' km</b></div>' + meter(m.longest.km / m.goal_km, 'var(--run)') + '<span class="sub">' + day(m.longest.date) + (m.longest_before ? ', up from ' + fmt(m.longest_before.km) + ' km on ' + day(m.longest_before.date) : '') + '.</span></div>';
+    return '<section class="card quest">' + html + '</section>';
+  }
+  return '<section class="card quest">' + head('', '') + '</section>';
+}
+
 function renderHealth(h) {
   if (!h) return '<p class="calm">Workouts or Body Metrics could not be read.</p>';
-  const S = h.sports;
-  let html = '<h2 style="display:flex;justify-content:space-between;align-items:center">Against your routine ' + tag(h.status) + '</h2>' + flagList(h.flags);
-  html += '<h2>Training</h2><div class="grid">';
-  html += '<div class="card"><h3>Hours a week, last 4 weeks</h3><div class="big">' + fmt(h.recent.hours) + ' <span class="sub">h · target ' + h.targets.weekly_hours + '</span></div><div class="sub">Before that: ' + fmt(h.baseline.hours) + ' h a week</div></div>';
-  html += '<div class="card"><h3>Sessions a week</h3><div class="big">' + fmt(h.recent.sessions) + '</div><div class="sub">Before that: ' + fmt(h.baseline.sessions) + ' a week</div></div>';
-  html += '<div class="card"><h3>Streaks (full weeks)</h3><dl class="kv"><dt>' + h.targets.weekly_hours + ' h or more</dt><dd>' + h.streaks.hours + '</dd><dt>' + h.targets.runs_per_week + '+ runs</dt><dd>' + h.streaks.runs + '</dd><dt>Any training</dt><dd>' + h.streaks.active + '</dd></dl></div>';
-  html += '</div>';
-  html += '<div class="card" style="margin-top:12px"><h3>Training hours per week</h3>' + chart('bar', h.weeks.map(w => ({ label: 'Week of ' + day(w.week), y: w.hours, note: w.sessions + ' sessions' })), { target: h.targets.weekly_hours, targetLabel: h.targets.weekly_hours + ' h target', unit: ' h' }) + '</div>';
-  const L = h.load;
-  if (L) {
-    html += '<h2>Battle form</h2><div class="grid">';
-    html += '<div class="card"><h3>Form today</h3><div class="big">' + esc(L.state) + ' <span class="sub">' + fmt(L.ratio, 2) + '</span></div><div class="sub">' + (L.bonus > 1 ? 'Workout attacks get ×' + fmt(L.bonus, 2) + ' damage' : 'No form bonus on attacks') + '</div><dl class="kv"><dt>Fitness (44-day average)</dt><dd>' + fmt(L.fitness) + '</dd><dt>Fatigue (7-day average)</dt><dd>' + fmt(L.fatigue) + '</dd><dt>Last workout</dt><dd>' + day(L.last_workout) + '</dd></dl></div>';
-    html += '<div class="card"><h3>Form at each workout, last 13 weeks</h3>' + chart('line', L.series.map(p => ({ label: day(p.date) + (p.state ? ' · ' + p.state : ''), y: p.ratio })), { ref: 0.8, refLabel: 'Rusty below 0.8', height: 110, pad: 0.1 }) + '<div class="sub">Form = fatigue ÷ fitness. Steady 0.8–1.5 (×1.10), Building 1.5–2 (×1.15).</div></div>';
-    html += '</div><div class="card scroll" style="margin-top:12px"><table><thead><tr><th>Workout</th><th class="num">Effort score</th><th>Level</th><th class="num">Multiplier</th></tr></thead><tbody>' +
-      L.recent.map(r => '<tr><td>' + day(r.date) + ' · ' + esc(r.name || r.type) + (r.special ? ' <span class="sub">' + esc(r.special) + '</span>' : '') + '</td><td class="num">' + fmt(r.effort, 0) + '</td><td>' + esc(r.level || '–') + '</td><td class="num">' + (r.mult ? '×' + fmt(r.mult, 2) : '–') + '</td></tr>').join('') + '</tbody></table></div>';
+  let html = heroHtml(h.recovery);
+  html += h.flags.map(wflag).join('');
+  if (h.quests && h.quests.length) html += '<div class="sec"><h2>Health quests</h2><a class="src" href="' + NOTION.healthJourney + '" target="_blank" rel="noopener">from your Health Journey ↗</a></div><div class="two">' + h.quests.map(q => questHtml(q, h)).join('') + '</div>';
+  const t = h.tsb, L = h.load;
+  if (t) {
+    const zc = { Fresh: 'good', Neutral: 'muted', Building: 'blue', Overreaching: 'crit' }[t.zone], now = t.today;
+    const read = (t.low.tsb < -10 ? 'Lowest point ' + Math.round(t.low.tsb) + ' on ' + day(t.low.date) + '. ' : '') +
+      { Fresh: 'Fatigue is below fitness today, so you are fresh', Neutral: 'Fitness and fatigue are close to even', Building: 'You are carrying training load, the productive zone', Overreaching: 'Fatigue is far above fitness; this is deep load' }[t.zone] +
+      (t.peak.fit - now.fit >= 2 ? ', but fitness is sliding: ' + fmt(t.peak.fit) + ' at its peak on ' + day(t.peak.date) + ', ' + fmt(now.fit) + ' today.' : '.');
+    html += '<div class="sec"><h2>Form</h2><span class="src">Strava effort scores</span></div><section class="card"><div class="chead"><div><h3>Training stress balance (TSB)</h3><div class="num">' + signed(now.tsb, 1) + ' <span class="chip ' + zc + '" style="vertical-align:middle">' + t.zone + '</span></div></div>' +
+      '<dl class="kv" style="margin:0;min-width:180px"><dt>Fitness (44-day)</dt><dd>' + fmt(now.fit) + '</dd><dt>Fatigue (7-day)</dt><dd>' + fmt(now.fat) + '</dd>' + (L ? '<dt>Battle form</dt><dd>' + esc(L.state) + (L.bonus > 1 ? ' ×' + L.bonus.toFixed(2) : '') + '</dd>' : '') + '</dl></div>' +
+      (t.series.length > 1 ? chart('tsb', t) : '') + '<div class="legend"><span><i class="line" style="background:var(--fit)"></i>Fitness</span><span><i class="line" style="background:var(--fat)"></i>Fatigue</span><span><i style="background:var(--ink);opacity:.5"></i>TSB = fitness − fatigue</span></div><p class="read">' + read + '</p></section>';
   }
-  html += '<h2>Consistency by sport</h2><div class="card scroll"><table><thead><tr><th>Sport</th><th class="num">Last session</th><th class="num">Days since</th><th class="num">Per week, last 4 wk</th><th class="num">Per week, 8 wk before</th></tr></thead><tbody>' +
-    [['Run', 'run'], ['Bike', 'bike'], ['Strength', 'strength'], ['Swim', 'swim']].map(([n, k]) => '<tr><td>' + n + '</td><td class="num">' + (S[k].last ? day(S[k].last.date) : '–') + '</td><td class="num">' + (S[k].last ? S[k].last.days_ago : '–') + '</td><td class="num">' + fmt(S[k].recent_per_week) + '</td><td class="num">' + fmt(S[k].baseline_per_week) + '</td></tr>').join('') + '</tbody></table></div>';
-  html += '<h2>Body</h2><div class="grid">';
-  const w = h.weight, f = h.body_fat;
-  html += '<div class="card"><h3>Weight</h3><div class="big">' + (w.latest ? fmt(w.latest.value) + ' <span class="sub">kg</span>' : '–') + '</div><div class="sub">' + (w.change_30d ? (w.change_30d.delta > 0 ? '+' : '') + fmt(w.change_30d.delta) + ' kg since ' + day(w.change_30d.from) : 'No 30-day comparison yet') + (w.latest ? ' · measured ' + day(w.latest.date) : '') + '</div>' + chart('line', w.series.map(p => ({ label: day(p.date), y: p.value })), { unit: ' kg', height: 110 }) + '</div>';
-  html += '<div class="card"><h3>Body fat</h3><div class="big">' + (f.latest ? fmt(f.latest.value) + '%' : '–') + ' <span class="sub">target ~' + f.target + '%</span></div><div class="sub">' + (f.change_30d ? (f.change_30d.delta > 0 ? '+' : '') + fmt(f.change_30d.delta) + ' pts since ' + day(f.change_30d.from) : 'No 30-day comparison yet') + '</div>' + chart('line', f.series.map(p => ({ label: day(p.date), y: p.value })), { ref: f.target, refLabel: f.target + '% target', unit: '%', height: 110 }) + '</div>';
-  html += '</div>';
-  html += '<h2>Sleep and recovery</h2><div class="grid">' + [['sleep', 'Sleep trend'], ['recovery', 'Recovery / readiness'], ['resting_hr', 'Resting heart rate']].map(([k, n]) => '<div class="card"><h3>' + n + '</h3>' + (h.missing_sources.includes(k) ? '<div class="empty">No source connected yet. None of the synced databases holds this.</div>' : '<div class="big">' + fmt(h.resting_hr && h.resting_hr.value, 0) + ' <span class="sub">bpm at weigh-in</span></div>') + '</div>').join('') + '</div>';
-  return html + '<p><a class="src" href="' + NOTION.workouts + '" target="_blank" rel="noopener">Workouts ↗</a> · <a class="src" href="' + NOTION.bodyMetrics + '" target="_blank" rel="noopener">Body Metrics ↗</a></p>';
+  const w = h.this_week, S = h.sports;
+  const byDay = {}; for (const s of w.list) (byDay[s.date] = byDay[s.date] || []).push(SPORT[s.sport] || s.sport);
+  const done = Object.keys(byDay).map(d => byDay[d].join(' and ') + ' ' + (d === data.today ? 'today' : wday(d))).join(', ');
+  const lastList = ['run', 'bike', 'strength', 'swim'].filter(k => S[k].last).sort((a, b) => S[a].last.days_ago - S[b].last.days_ago);
+  const agoDays = n => (n === 0 ? 'today' : n === 1 ? 'yesterday' : n + ' days ago');
+  html += '<div class="sec"><h2>Training</h2><span class="src">Strava</span></div><div class="grid">' +
+    '<section class="card"><h3>This week</h3><div class="num">' + fmt(w.hours) + '<small>/ ' + fmt(w.step) + ' h step</small></div><p class="sub" style="margin:6px 0 0">' + (done || 'Nothing yet') + ' · ' + w.days_left + ' day' + (w.days_left === 1 ? '' : 's') + ' left</p></section>' +
+    '<section class="card"><h3>Last 4 weeks</h3><div class="num">' + fmt(h.recent.hours) + '<small>h a week</small></div><p class="sub" style="margin:6px 0 0">4 weeks before: ' + fmt(h.before_recent.hours) + ' h · e-bike included</p></section>' +
+    '<section class="card"><h3>Last session</h3><dl class="kv" style="margin-top:4px">' + (lastList.length ? lastList.map(k => '<dt>' + SPORT[k] + '</dt><dd>' + agoDays(S[k].last.days_ago) + '</dd>').join('') : '<dt>None in 12 weeks</dt><dd></dd>') + '</dl></section></div>';
+  const chartWeeks = h.weeks.slice(-8).concat([{ ...h.current_week, current: true }]);
+  html += '<section class="card"><h3>Hours per week</h3>' + chart('weeks', chartWeeks, h.targets.weekly_hours) + '<div class="legend">' + Object.keys(SPORT).filter(k => chartWeeks.some(x => x.minutes[k])).map(k => '<span><i style="background:' + SPORT_COL[k] + '"></i>' + SPORT[k] + '</span>').join('') + '<span><i class="dash"></i>' + h.targets.weekly_hours + ' h goal</span></div></section>';
+  const bodyCard = (title, b, unit, color, ref) => '<section class="card"><div class="chead"><div><h3>' + title + '</h3><div class="num">' + (b.latest ? fmt(b.latest.value) : '–') + '<small>' + unit + (ref !== undefined ? ' · target ' + ref + '%' : '') + '</small></div></div><span class="sub">' +
+    (b.week_avg !== null ? 'Week average ' + fmt(b.week_avg) + (unit === '%' ? '%' : '') : 'No weigh-in this week') + (b.month_change !== null ? ' · ' + signed(b.month_change, 1) + (unit === '%' ? '' : ' kg') + ' on a month ago' : '') + '</span></div>' +
+    chart('body', b.series, { color, unit: unit === '%' ? '%' : ' kg', ref }) + '</section>';
+  html += '<div class="sec"><h2>Body</h2><span class="src">Withings</span></div><div class="two">' + bodyCard('Weight', h.weight, 'kg', 'var(--fit)') + bodyCard('Body fat', h.body_fat, '%', 'var(--fat)', h.body_fat.target) + '</div>';
+  html += '<details class="explain"><summary>How this tab reads the numbers</summary><ol>' +
+    '<li><b>Recovery today.</b> Last night\\'s sleep, HRV and resting heart rate, each against your own average over the 30 nights before. A signal is low when sleep is 45 minutes short, HRV 10% lower or resting heart rate 3 bpm higher. None low reads Good to go, one Go steady, two or more Take it easy. The note is written lines in Goggins\\' voice filled in with your numbers; no AI.</li>' +
+    '<li><b>Recovering.</b> When your 7-night resting heart rate is 2 bpm or more above usual, or Recovery today says Take it easy. The training flags pause meanwhile and come back after 3 normal days.</li>' +
+    '<li><b>Health quests.</b> Each active quest on your Health Journey (never the Main Quest) gets a card that answers its own pass/fail question.</li>' +
+    '<li><b>Steps.</b> Each week is judged against a step: your last 4 full weeks plus 10%, never above ' + h.targets.weekly_hours + ' h. A missed step shows on the bar, never as a flag. E-bike rides count.</li>' +
+    '<li><b>Half marathon runs.</b> A long run is a run of 60 minutes or 10 km; an interval run has intervals, reps, tempo, track or a distance like 400m in its name.</li>' +
+    '<li><b>Form.</b> TSB is fitness minus fatigue, day by day from the Strava sync\\'s effort scores. Fresh above 0, neutral to −10, building to −30, overreaching below that.</li>' +
+    '<li><b>Watch items.</b> Only things that need you show up here, and they feed the Health dot and the Quest log page.</li></ol></details>';
+  return html + '<p><a class="src" href="' + NOTION.workouts + '" target="_blank" rel="noopener">Workouts ↗</a> · <a class="src" href="' + NOTION.bodyMetrics + '" target="_blank" rel="noopener">Body Metrics ↗</a> · <a class="src" href="' + NOTION.sleepRecovery + '" target="_blank" rel="noopener">Sleep &amp; Recovery ↗</a> · <a class="src" href="' + NOTION.healthJourney + '" target="_blank" rel="noopener">Health Journey ↗</a></p>';
 }
 
 // ---- System health ----
@@ -259,7 +530,8 @@ export const dashboardHtml = () => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex"><title>Admin cockpit</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%232a78d6'/%3E%3C/svg%3E">
-<style>${STYLE}</style></head><body>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,600&family=Barlow:wght@400;500;600;700&display=swap">
+<style>${STYLE}${HEALTH_STYLE}</style></head><body>
 <header><div class="bar"><a class="home" href="/">‹ Quest log</a><h1>Admin cockpit</h1><div class="meta"><span id="stamp">Loading…</span><button id="reload" type="button">Refresh</button><form method="post" action="/logout" style="margin:0"><button type="submit">Sign out</button></form></div></div>
 <nav><a href="#cross"><span class="unknown"><span class="dot"></span></span>Cross Border</a><a href="#health"><span class="unknown"><span class="dot"></span></span>Health</a><a href="#system"><span class="unknown"><span class="dot"></span></span>System Health</a><a href="#links">Quick Links</a></nav></header>
 <main><div id="notice"></div><section id="cross"><p class="empty">Loading…</p></section><section id="health" hidden></section><section id="system" hidden></section>

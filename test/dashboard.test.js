@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { crossBorder, health, system, overview, usageSummary, estimateCost, mergeUsage } from '../src/metrics.js';
+import { crossBorder, health, recoveryToday, tsbSeries, system, overview, usageSummary, estimateCost, mergeUsage } from '../src/metrics.js';
 import { addUsage } from '../src/usage.js';
 import { sessionCookie, isSignedIn } from '../src/auth.js';
 import { summaryFacts, summaryDue, isSummaryHour } from '../src/summary.js';
@@ -74,12 +74,13 @@ test('health: a steady routine raises nothing', () => {
     if (dow === 2 || dow === 6) ws.push(workout(d, 'Run', 60));
     if (dow === 4) ws.push(workout(d, 'WeightTraining', 60));
     if (dow === 0) ws.push(workout(d, 'Ride', 180));
-    if (dow === 3) ws.push(workout(d, 'EBikeRide', 60)); // commute, not training
+    if (dow === 3) ws.push(workout(d, 'EBikeRide', 60)); // e-bike rides count toward the hours
   }
   const ms = [metric('2026-08-28', 70, 13), metric('2026-09-26', 69.5, 12.6)];
   const h = health(ws, ms, '2026-09-28');
   assert.equal(h.status, 'ok', JSON.stringify(h.flags));
-  assert.equal(h.recent.hours, 6);
+  assert.equal(h.recent.hours, 7);
+  assert.equal(h.targets.step, 6); // 7 h plus 10%, capped at the 6 h goal
   assert.equal(h.sports.run.recent_per_week, 2);
   assert.equal(h.streaks.hours, 12);
   assert.equal(h.weight.change_30d.delta, -0.5);
@@ -95,11 +96,98 @@ test('health: fewer sessions, no strength and rising body fat are flagged', () =
   const h = health(ws, [metric('2026-08-20', 69, 15), metric('2026-09-24', 69.5, 16)], '2026-09-28');
   const titles = h.flags.map(f => f.title);
   assert.ok(titles.includes('Training frequency has fallen'), titles.join('|'));
-  assert.ok(titles.includes('Training hours below target'));
+  assert.ok(!titles.includes('Training hours below target'), 'a missed step is never a flag');
   assert.ok(titles.includes('No recent strength training'));
   assert.ok(titles.includes('Body fat moving away from target'));
   assert.equal(h.status, 'attention');
-  assert.deepEqual(h.missing_sources, ['sleep', 'recovery', 'resting_hr']);
+  assert.equal(h.recovery, null);
+  assert.equal(h.targets.step, 1); // 0.75 h a week plus 10%, never below 1 h
+});
+
+// Sleep & Recovery rows: 30 usual nights (7.5 h, HRV 55, RHR 52, 30 min awake), then `last` nights.
+const night = (date, h, awake, hrv, rhr) => page('s-' + date, { Date: P.date(date), 'Total Sleep': P.num(h), Awake: P.num(awake), HRV: P.num(hrv), 'Resting HR': P.num(rhr), Source: P.select('Apple Health') });
+function nights(last, today = '2026-09-30') {
+  const rows = [];
+  for (let i = 30 + last.length; i > last.length; i--) rows.push(night(addDays(today, -i + 1), 7.5, 30, 55, 52));
+  last.forEach((n, i) => rows.push(night(addDays(today, -last.length + i + 1), ...n)));
+  return rows;
+}
+
+test('recovery: all signals at usual reads Good to go, with a note and no pause', () => {
+  const r = recoveryToday(nights([[7.6, 20, 56, 51]]), '2026-09-30');
+  assert.equal(r.verdict, 'good');
+  assert.equal(r.verdict_text, 'Good to go');
+  assert.equal(r.low, 0);
+  assert.equal(r.recovering, false);
+  assert.equal(r.night, 'last night');
+  assert.equal(r.sleep.usual, 7.5);
+  assert.equal(r.note.lines.length, 3);
+  assert.equal(r.note.sign, 'Stay hard.');
+});
+
+test('recovery: a short broken night is Go steady, two low signals Take it easy', () => {
+  const steady = recoveryToday(nights([[7.5, 30, 55, 52], [6.37, 100, 54, 53]]), '2026-09-30', undefined, { sport: 'swim' });
+  assert.equal(steady.verdict, 'steady');
+  assert.ok(steady.sleep.low && !steady.hrv.low && !steady.rhr.low);
+  assert.match(steady.note.lines[0], /^Roy\. Six hours twenty-two, and a hundred minutes of it staring at the ceiling\.$/);
+  assert.match(steady.note.lines[1], /still got in the pool today/);
+  const easy = recoveryToday(nights([[6.2, 20, 45, 56]]), '2026-09-30');
+  assert.equal(easy.verdict, 'easy');
+  assert.equal(easy.recovering, true);
+});
+
+test('recovery: a raised 7-night resting heart rate means Recovering until 3 normal days', () => {
+  const up = Array(7).fill([7.5, 30, 55, 55.5]);
+  const r = recoveryToday(nights(up), '2026-09-30');
+  assert.equal(r.verdict, 'good');
+  assert.equal(r.recovering, true);
+  assert.equal(r.rhr.low, false);
+  // Back to normal: the 7-night average has to settle and then stay clear for 3 mornings.
+  assert.equal(recoveryToday(nights(up.concat(Array(3).fill([7.5, 30, 55, 52]))), '2026-09-30').recovering, true);
+  assert.equal(recoveryToday(nights(up.concat(Array(9).fill([7.5, 30, 55, 52]))), '2026-09-30').recovering, false);
+});
+
+test('recovery: two broken nights are a watch flag and recovering pauses training flags', () => {
+  const ws = [workout('2026-06-20', 'Run', 60)]; // no run, no strength for months
+  const sleep = nights([[7.5, 78, 55, 52], [7.5, 30, 55, 52], [6.2, 100, 45, 56]]);
+  const h = health(ws, [], '2026-09-30', { sleep });
+  const titles = h.flags.map(f => f.title);
+  assert.ok(titles.includes('Two broken nights this week'), titles.join('|'));
+  assert.match(h.flags.find(f => f.title === 'Two broken nights this week').why, /1 h 40 last night and 1 h 18 on Sunday night/);
+  assert.ok(!titles.includes('No recent strength training'));
+  assert.ok(!titles.includes('No run in over two weeks'));
+  const calm = health(ws, [], '2026-09-30', { sleep: nights([[7.5, 30, 55, 52]]) });
+  assert.ok(calm.flags.some(f => f.title === 'No recent strength training'));
+});
+
+test('recovery: old sleep data asks for a look instead of a verdict', () => {
+  const h = health([], [], '2026-09-30', { sleep: nights([[7.5, 30, 55, 52]], '2026-09-25') });
+  assert.equal(h.recovery.stale, 5);
+  assert.ok(h.flags.some(f => /No sleep data/.test(f.title)));
+});
+
+test('health quests: never the Main Quest; half marathon finds the long and interval runs', () => {
+  const q = (name, main) => page(name, { Quest: P.title(name), 'Quest Phase': P.select('Build'), 'Pass/Fail Question': P.text('Q?'), 'Active Quest': P.check(true), 'Main Quest': P.check(main) });
+  const run = (date, name, minutes, km) => workout(date, 'Run', minutes, { name: P.title(name), distance: P.num(km * 1000) });
+  const ws = [run('2026-08-23', 'Easy run', 50, 8.1), run('2026-08-25', "Rolling 300's", 40, 6), run('2026-09-27', 'Long run', 80, 13), run('2026-09-29', '400m intervals', 45, 7)];
+  const h = health(ws, [], '2026-09-30', { quests: [q('Get Back in Shape', false), q('Run a Half Marathon on my 39th bday', false), q('Secret', true)] });
+  assert.deepEqual(h.quests.map(x => x.kind), ['shape', 'half']);
+  const m = h.quests[1].half;
+  assert.equal(m.this_week.interval.name, '400m intervals');
+  assert.equal(m.this_week.long, null);
+  assert.equal(m.last_week.long.km, 13);
+  assert.equal(m.longest.km, 13);
+  assert.equal(m.longest_before.km, 8.1);
+});
+
+test('form: TSB decays daily between workouts and finds its low point', () => {
+  const t = tsbSeries([{ date: '2026-09-01', fitness: 30, fatigue: 60 }, { date: '2026-09-05', fitness: 32, fatigue: 50 }], '2026-09-01', '2026-09-10');
+  assert.equal(t.series.length, 10);
+  assert.equal(t.low.tsb, -30);
+  assert.equal(t.series[1].fit, 29.3);
+  assert.equal(t.today.date, '2026-09-10');
+  assert.equal(t.zone, ['Fresh', 'Neutral', 'Building', 'Overreaching'].find(z => z === t.zone));
+  assert.ok(t.today.tsb > -10);
 });
 
 // 28 Sep 2026 09:00 Amsterdam (07:00 UTC).
