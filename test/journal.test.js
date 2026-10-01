@@ -360,7 +360,7 @@ test('journal page: the evening commute reads and writes today’s Work Location
   assert.doesNotMatch(journalHtml(none), /🚗 Commute/);
 });
 
-test('journal page: "Today is a win if…" becomes a To-Do whose Status follows the win', async () => {
+test('journal page: "Today is a win if…" becomes a To-Do the boss page ticks off', async () => {
   const { fake } = setup();
   const winRows = () => Object.values(fake.pages).filter(p => p.properties.Tag && p.properties.Tag.select && p.properties.Tag.select.name === WIN.tag);
   fake.queries[JOURNAL.todos] = body => {
@@ -370,26 +370,26 @@ test('journal page: "Today is a win if…" becomes a To-Do whose Status follows 
   fake.queries[JOURNAL.journal] = () => [fake.pages[PAGE]];
   const save = win => fake.use(() => saveJournal(env, { page: PAGE, win }));
 
-  await save({ text: 'I call the gate company.', did: '', day: '2026-09-30' });
+  await save({ text: 'I call the gate company.', day: '2026-09-30' });
   assert.equal(winRows().length, 1);
   const row = winRows()[0];
   assert.equal(row.properties.Task.title.map(r => r.text.content).join(''), 'I call the gate company.');
   assert.deepEqual([row.properties.Status.status.name, row.properties.Due.date.start, row.properties['Related Journal'].relation[0].id, row.parent.data_source_id],
     ['Not started', '2026-09-30', PAGE, JOURNAL.todos]);
 
-  // Edited, then the evening's answer: one row, its Status follows.
-  await save({ text: 'I call the gate company and get a date.', did: 'Partly', day: '2026-09-30' });
-  await save({ text: 'I call the gate company and get a date.', did: 'It happened', day: '2026-09-30' });
+  // Ticked off on the boss page, then edited on the journal: one row, still Done.
+  row.properties.Status = { status: { name: 'Done' } };
+  await save({ text: 'I call the gate company and get a date.', day: '2026-09-30' });
   assert.equal(winRows().length, 1);
   assert.equal(row.properties.Status.status.name, 'Done');
   assert.equal(row.properties.Task.title.map(r => r.text.content).join(''), 'I call the gate company and get a date.');
 
-  // The page reads it back; ticked off elsewhere counts the same.
+  // The page reads it back.
   const d = await fake.use(() => loadJournal(env, { now: Date.parse('2026-09-30T18:00:00Z') }));
   assert.deepEqual(d.win, { id: row.id, status: 'Done' });
 
   // Emptied: the To-Do goes to the trash, nothing new is made.
-  await save({ text: '  ', did: 'It happened', day: '2026-09-30' });
+  await save({ text: '  ', day: '2026-09-30' });
   assert.equal(row.in_trash, true);
   assert.equal(winRows().length, 1);
 });
