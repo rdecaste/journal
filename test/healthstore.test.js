@@ -56,10 +56,7 @@ test('cross-border totals read D1 rows the same way: E-bike € comes through as
   assert.equal(c.months.find(m => m.month === '2026-10').ebike, 25.9);
 });
 
-test('the store follows HEALTH_STORE, and refuses "d1" without the database', () => {
-  const n = { query: async () => ({ results: [] }), call: async () => ({}) };
-  assert.equal(healthStore({}, n).kind, 'notion');
-  assert.equal(healthStore({ HEALTH_STORE: 'd1', DB: fakeD1() }, n).kind, 'd1');
-  assert.throws(() => healthStore({ HEALTH_STORE: 'd1' }, n), /not bound/);
-  assert.equal(notionStore(n).kind, 'notion');
+test('the store is D1, and refuses to run without the database', () => {
+  assert.equal(healthStore({ DB: fakeD1() }).kind, 'd1');
+  assert.throws(() => healthStore({}), /not bound/);
 });

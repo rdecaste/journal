@@ -220,5 +220,333 @@ AREAS.journal = {
   ]
 };
 
+
+// Step 3: the battle, and the tables the visuals pick from. Every table keeps
+// pages sent to Notion's trash as rows marked `in_trash` (`trash`), and the
+// page's blocks (`content`). Two-way relations are kept on one side, as in
+// step 2: a character's Quests and Signature Moves are the quests' Character
+// and the moves' Character. `rollups`: Notion rollups the code reads, rebuilt
+// from the related table by the store.
+AREAS.battle = {
+  tables: [
+    {
+      table: 'habits',
+      dataSource: 'd9b479a1-705d-481a-9fb6-9316c441fdb2',
+      content: 'blocks', trash: true,
+      columns: {
+        ...PAGE,
+        habit: 'Habit', section: 'Section', shortcut_key: 'Shortcut Key', effect: 'Effect', magnitude: 'Magnitude',
+        enabled: 'Enabled', once_a_day: 'Once a Day',
+        minimum_damage: 'Minimum Damage', maximum_damage: 'Maximum Damage', minimum_heal: 'Minimum Heal', maximum_heal: 'Maximum Heal',
+        streak: 'Streak', streak_day: 'Streak Day', last_attack: 'Last Attack', expectation: 'Expectation',
+        habit_icon: 'Icon', sort_order: 'Order', strava_types: 'Strava Types'
+      },
+      types: {
+        Habit: 'title', Section: 'select', 'Shortcut Key': 'rich_text', Effect: 'select', Magnitude: 'select',
+        Enabled: 'checkbox', 'Once a Day': 'checkbox', 'Streak Day': 'date', 'Last Attack': 'date',
+        Expectation: 'rich_text', Icon: 'rich_text', 'Strava Types': 'rich_text'
+      },
+      ignore: []
+    },
+    {
+      table: 'events',
+      dataSource: '98b44701-f6e6-4121-8b10-120e9c40199f',
+      content: 'blocks', trash: true,
+      columns: {
+        ...PAGE,
+        event: 'Event', occurred_at: 'Occurred At', event_type: 'Event Type', actor: 'Actor', processing_status: 'Processing Status',
+        request_id: 'Request ID', fight: 'Fight', habit_attack: 'Habit Attack',
+        damage: 'Damage', heal: 'Heal', hp_before: 'HP Before', hp_after: 'HP After', base_roll: 'Base Roll', critical_hit: 'Critical Hit',
+        level_multiplier: 'Level Multiplier', effort_multiplier: 'Effort Multiplier', form_bonus: 'Form Bonus',
+        streak: 'Streak', dragon_ball: 'Dragon Ball', special_move: 'Special Move'
+      },
+      types: {
+        Event: 'title', 'Occurred At': 'date', 'Event Type': 'select', Actor: 'select', 'Processing Status': 'select',
+        'Request ID': 'rich_text', Fight: 'relation', 'Habit Attack': 'relation', 'Critical Hit': 'checkbox', 'Special Move': 'rich_text'
+      },
+      rollups: {
+        'Habit Key': { relation: 'habit_attack', table: 'habits', column: 'shortcut_key', type: 'rich_text' },
+        'Habit Section': { relation: 'habit_attack', table: 'habits', column: 'section', type: 'select' }
+      },
+      ignore: []
+    },
+    {
+      table: 'fights',
+      dataSource: 'c1f99f19-2719-4492-95b2-21a4763688a9',
+      content: 'blocks', trash: true,
+      columns: {
+        ...PAGE,
+        fight: 'Fight', status: 'Status', started_at: 'Started At', defeated_at: 'Defeated At', defeat_reason: 'Defeat Reason',
+        victory_claimed_at: 'Victory Claimed At', boss_design: 'Boss Design', boss_max_hp: 'Boss Max HP', boss_current_hp: 'Boss Current HP',
+        hero_level_at_spawn: 'Hero Level at Spawn', hits: 'Hits', crits: 'Crits', best_hit: 'Best Hit', best_hit_habit: 'Best Hit Habit',
+        final_blow: 'Final Blow', epithet: 'Epithet', video_public_id: 'Video Public ID', video_version: 'Video Version',
+        restyle: 'Restyle', restyle_design: 'Restyle Design', restyle_image: 'Restyle Image', restyle_step: 'Restyle Step'
+      },
+      types: {
+        Fight: 'title', Status: 'select', 'Started At': 'date', 'Defeated At': 'date', 'Defeat Reason': 'select',
+        'Victory Claimed At': 'date', 'Boss Design': 'relation', 'Best Hit Habit': 'rich_text', 'Final Blow': 'rich_text',
+        Epithet: 'rich_text', 'Video Public ID': 'rich_text', Restyle: 'checkbox', 'Restyle Design': 'relation',
+        'Restyle Image': 'rich_text', 'Restyle Step': 'select'
+      },
+      ignore: []
+    },
+    {
+      table: 'hero',
+      dataSource: '12a9628c-f84c-4552-94b0-9ed73c647396',
+      content: 'blocks', trash: true,
+      columns: {
+        ...PAGE,
+        hero: 'Hero', current_hp: 'Current HP', max_hp: 'Max HP', last_recovery_date: 'Last Recovery Date',
+        last_processed_xp: 'Last Processed XP', last_level: 'Last Level', dragon_balls: 'Dragon Balls',
+        wish: 'Wish', wish_day: 'Wish Day', heal_day: 'Heal Day', healed_today: 'Healed Today'
+      },
+      types: { Hero: 'title', 'Last Recovery Date': 'date', Wish: 'select', 'Wish Day': 'date', 'Heal Day': 'date' },
+      ignore: []
+    },
+    {
+      table: 'rates',
+      dataSource: '58decdf7-d57e-473a-bbaf-837b8e4ec94d',
+      content: 'blocks', trash: true,
+      columns: { ...PAGE, performance_tier: 'Performance Tier', tier: 'Tier', min_average: 'Min Average', max_average: 'Max Average', xp_multiplier: 'XP Multiplier' },
+      types: { 'Performance Tier': 'title' },
+      ignore: []
+    },
+    {
+      table: 'stages',
+      dataSource: '4fea0ba5-7397-4d4b-a5cb-f5c114971b36',
+      content: 'blocks', trash: true,
+      columns: { ...PAGE, stage_label: 'Stage Label', stage: 'Stage', level: 'Level', sublevel: 'Sublevel', min_xp: 'Min XP', max_xp: 'Max XP' },
+      types: { 'Stage Label': 'title' },
+      ignore: []
+    },
+    {
+      table: 'goku',
+      dataSource: 'f51585f7-0ca0-4619-a725-250bb809ff60',
+      content: 'blocks', trash: true,
+      columns: {
+        ...PAGE,
+        form: 'Form', character: 'Character', level: 'Level', sublevel: 'Sublevel',
+        character_description: 'Character Description', hair_face: 'Hair / Face', outfit: 'Outfit', aura_energy: 'Aura / Energy',
+        expression: 'Expression', pose: 'Pose', environment: 'Environment', camera_lighting: 'Camera & Lighting',
+        motion_style: 'Motion Style', signature_move: 'Signature Move', core_voice: 'Core Voice', level_voice: 'Level Voice', avoid: 'Avoid',
+        image_url: 'Image URL', reference_image: 'Reference Image', video_url: 'Video URL'
+      },
+      types: {
+        Form: 'title', Character: 'select', 'Character Description': 'rich_text', 'Hair / Face': 'rich_text', Outfit: 'rich_text',
+        'Aura / Energy': 'rich_text', Expression: 'rich_text', Pose: 'rich_text', Environment: 'rich_text', 'Camera & Lighting': 'rich_text',
+        'Motion Style': 'rich_text', 'Signature Move': 'rich_text', 'Core Voice': 'rich_text', 'Level Voice': 'rich_text', Avoid: 'rich_text',
+        'Image URL': 'url', 'Reference Image': 'url', 'Video URL': 'url'
+      },
+      ignore: []
+    },
+    {
+      table: 'designs',
+      dataSource: '42725285-34b2-496a-91d8-b36e868ea7c2',
+      content: 'blocks', trash: true,
+      columns: {
+        ...PAGE,
+        boss_name: 'Boss Name', epithet: 'Epithet', hero_level: 'Hero Level', starting_hp: 'Starting HP', enabled: 'Enabled',
+        lore: 'Lore', appearance: 'Appearance', aura_energy: 'Aura / Energy', pose: 'Pose', environment: 'Environment',
+        scene_prompt: 'Scene / Prompt', avoid: 'Avoid', defeat_prompt: 'Defeat Prompt',
+        intro_image: 'Intro Image', defeat_image: 'Defeat Image', reference_image: 'Reference Image'
+      },
+      types: {
+        'Boss Name': 'title', Epithet: 'rich_text', Enabled: 'checkbox', Lore: 'rich_text', Appearance: 'rich_text',
+        'Aura / Energy': 'rich_text', Pose: 'rich_text', Environment: 'rich_text', 'Scene / Prompt': 'rich_text', Avoid: 'rich_text',
+        'Defeat Prompt': 'rich_text', 'Intro Image': 'url', 'Defeat Image': 'url', 'Reference Image': 'url'
+      },
+      ignore: []
+    },
+    {
+      table: 'characters',
+      dataSource: '33108fca-63c6-4f5c-83ad-1310ef9b9cb8',
+      content: 'blocks', trash: true,
+      columns: {
+        ...PAGE,
+        character_name: 'Character Name', character_id: 'Character ID', character_mode: 'Character Mode', franchise: 'Franchise',
+        enabled: 'Enabled', canonical_identity: 'Canonical Identity', canonical_elements: 'Canonical Elements',
+        signature_powers_forms: 'Signature Powers & Forms', restrictions: 'Restrictions'
+      },
+      types: {
+        'Character Name': 'title', 'Character ID': 'unique_id', 'Character Mode': 'rich_text', Franchise: 'rich_text', Enabled: 'checkbox',
+        'Canonical Identity': 'rich_text', 'Canonical Elements': 'rich_text', 'Signature Powers & Forms': 'rich_text', Restrictions: 'rich_text'
+      },
+      ignore: ['Quests', 'Signature Moves']
+    },
+    {
+      table: 'moves',
+      dataSource: '2a74e332-e0f3-4727-989e-3a340c9c15c5',
+      content: 'blocks', trash: true,
+      columns: {
+        ...PAGE,
+        move_name: 'Move Name', move_mode: 'Move Mode', move_number: 'Move Number', character: 'Character', franchise: 'Franchise',
+        enabled: 'Enabled', intensity: 'Intensity', allowed_phase: 'Allowed Phase', move_category: 'Move Category',
+        canonical_identity: 'Canonical Identity', visual_elements: 'Visual Elements', restrictions: 'Restrictions'
+      },
+      types: {
+        'Move Name': 'title', 'Move Mode': 'rich_text', Character: 'relation', Franchise: 'rich_text', Enabled: 'checkbox',
+        Intensity: 'select', 'Allowed Phase': 'multi_select', 'Move Category': 'rich_text', 'Canonical Identity': 'rich_text',
+        'Visual Elements': 'rich_text', Restrictions: 'rich_text'
+      },
+      ignore: []
+    },
+    {
+      table: 'scenes',
+      dataSource: '64c3d98e-80fe-45ac-85ec-d5399d0897de',
+      content: 'blocks', trash: true,
+      columns: {
+        ...PAGE,
+        scene_name: 'Scene Name', scene_number: 'Scene Number', scene_mode: 'Scene Mode', franchise: 'Franchise', enabled: 'Enabled',
+        scene_category: 'Scene Category', canonical_identity: 'Canonical Identity', canonical_elements: 'Canonical Elements',
+        signature_features: 'Signature Features', restrictions: 'Restrictions'
+      },
+      types: {
+        'Scene Name': 'title', 'Scene Mode': 'rich_text', Franchise: 'rich_text', Enabled: 'checkbox', 'Scene Category': 'rich_text',
+        'Canonical Identity': 'rich_text', 'Canonical Elements': 'rich_text', 'Signature Features': 'rich_text', Restrictions: 'rich_text'
+      },
+      ignore: []
+    }
+  ]
+};
+
+// Step 4: the vault (VaultQuest) and the family dashboard, as step 3: every
+// table keeps trashed pages (`trash`) and the page's blocks (`content`).
+const RT = (...names) => Object.fromEntries(names.map(n => [n, 'rich_text']));
+AREAS.vault = {
+  tables: [
+    {
+      table: 'vaults',
+      dataSource: 'c390cc11-6939-47ea-922f-9eaf6bf3697f',
+      content: 'blocks', trash: true,
+      columns: {
+        ...PAGE,
+        vault: 'Vault', status: 'Status', goal: 'Goal', currency: 'Currency',
+        starting_amount: 'Starting Amount', target_amount: 'Target Amount', current_balance: 'Current Balance', current_tier: 'Current Tier',
+        core_charge: 'Core Charge', original_core_charge: 'Original Core Charge', evolution_charge: 'Evolution Charge',
+        core_month: 'Core Month', core_paid_this_month: 'Core Paid This Month',
+        overcharge_this_month: 'Overcharge This Month', lifetime_overcharge: 'Lifetime Overcharge',
+        defense_streak: 'Defense Streak', best_streak: 'Best Streak', perfect_defenses: 'Perfect Defenses',
+        week_breaches: 'Week Breaches', breach_week: 'Breach Week', last_breach_at: 'Last Breach At',
+        last_evaluated_week: 'Last Evaluated Week', major_evolution_count: 'Major Evolution Count',
+        weeks_per_evolution: 'Weeks Per Evolution', expected_campaign_weeks: 'Expected Campaign Weeks',
+        baseline_completion: 'Baseline Completion', baseline_history: 'Baseline History',
+        goal_started_at: 'Goal Started At', opened_at: 'Opened At'
+      },
+      types: {
+        Vault: 'title', Status: 'select', ...RT('Goal', 'Currency', 'Core Month', 'Breach Week', 'Baseline History'),
+        'Last Breach At': 'date', 'Last Evaluated Week': 'date', 'Baseline Completion': 'date', 'Goal Started At': 'date', 'Opened At': 'date'
+      },
+      // Notion's own created and edited times, kept as the row's.
+      ignore: ['Created At', 'Updated At']
+    },
+    {
+      table: 'vault_events',
+      dataSource: '80c81e68-bf65-40ec-9e44-f3081c554709',
+      content: 'blocks', trash: true,
+      columns: { ...PAGE, event: 'Event', vault: 'Vault', type: 'Type', amount: 'Amount', reason: 'Reason', metadata: 'Metadata', month: 'Month', occurred_at: 'Occurred At' },
+      types: { Event: 'title', Vault: 'relation', Type: 'select', ...RT('Reason', 'Metadata', 'Month'), 'Occurred At': 'date' },
+      ignore: []
+    },
+    {
+      table: 'vault_weeks',
+      dataSource: '6610f72b-a296-468b-9170-d1099552cf2b',
+      content: 'blocks', trash: true,
+      columns: {
+        ...PAGE, week: 'Week', vault: 'Vault', week_start: 'Week Start', week_end: 'Week End', tier_before: 'Tier Before', tier_after: 'Tier After',
+        charge_before: 'Charge Before', charge_after: 'Charge After', breach_count: 'Breach Count', breached: 'Breached',
+        perfect_defense: 'Perfect Defense', shield_integrity: 'Shield Integrity', loot: 'Loot'
+      },
+      types: { Week: 'title', Vault: 'relation', 'Week Start': 'date', 'Week End': 'date', Breached: 'checkbox', 'Perfect Defense': 'checkbox', Loot: 'rich_text' },
+      ignore: []
+    },
+    {
+      table: 'vault_forms',
+      dataSource: 'a09891a3-1d76-4d86-a024-65ae31e8e0dd',
+      content: 'blocks', trash: true,
+      columns: {
+        ...PAGE, form: 'Form', tier: 'Tier', rarity: 'Rarity', aura: 'Aura', lore: 'Lore', scene_prompt: 'Scene Prompt',
+        image_url: 'Image URL', video_public_id: 'Video Public ID', video_version: 'Video Version', regenerate: 'Regenerate'
+      },
+      types: { Form: 'title', Rarity: 'select', ...RT('Aura', 'Lore', 'Scene Prompt', 'Video Public ID'), 'Image URL': 'url', Regenerate: 'checkbox' },
+      ignore: []
+    }
+  ]
+};
+
+const kid = name => ({
+  [`${name.toLowerCase()}_earned_points`]: `${name} Earned Points`, [`${name.toLowerCase()}_missed_points`]: `${name} Missed Points`,
+  [`${name.toLowerCase()}_total_points`]: `${name} Total Points`, [`${name.toLowerCase()}_claimed_rewards`]: `${name} Claimed Rewards`,
+  [`${name.toLowerCase()}_extra_chores`]: `${name} Extra Chores`, [`${name.toLowerCase()}_screen_today`]: `${name} | Screen Time Today?`,
+  [`${name.toLowerCase()}_screen_tomorrow`]: `${name} | Screen Time Tomorrow?`
+});
+const kidTypes = name => ({ ...RT(`${name} Claimed Rewards`, `${name} Extra Chores`), [`${name} | Screen Time Today?`]: 'select', [`${name} | Screen Time Tomorrow?`]: 'select' });
+AREAS.family = {
+  tables: [
+    {
+      table: 'family_days',
+      dataSource: '256097f3-9ebc-44b8-ad5c-b4f249a18852',
+      content: 'blocks', trash: true,
+      columns: { ...PAGE, day: 'Day', date: 'Date', ...kid('Michelle'), ...kid('Rassell') },
+      types: { Day: 'title', Date: 'date', ...kidTypes('Michelle'), ...kidTypes('Rassell') },
+      ignore: []
+    },
+    {
+      table: 'family_tasks',
+      dataSource: '0fb653fe-ab7c-4d72-9f50-81cf1ef66f0e',
+      content: 'blocks', trash: true,
+      columns: {
+        ...PAGE, taakje: 'Taakje', person: 'Person', level: 'Level', points: 'Points', target_day: 'Target Day',
+        completed: 'Completed', completed_day: 'Completed Day', completed_by: 'Completed By', status: 'Status', processed: 'Processed',
+        recurring: 'Recurring', reward: 'Reward', comment: 'comment'
+      },
+      types: {
+        Taakje: 'title', Person: 'select', Level: 'select', 'Target Day': 'date', Completed: 'checkbox', 'Completed Day': 'date',
+        'Completed By': 'people', Status: 'select', Processed: 'checkbox', Recurring: 'checkbox', Reward: 'checkbox', comment: 'rich_text'
+      },
+      // A Notion formula no code reads (Reset and Excused are buttons: no data).
+      ignore: ['Reward Action']
+    },
+    {
+      table: 'family_rewards',
+      dataSource: 'd5de67ff-c58f-4e8e-8d9d-2d76f08db702',
+      content: 'blocks', trash: true,
+      columns: { ...PAGE, beloning: 'Beloning', key: 'Key', emoji: 'Emoji', kosten: 'Kosten', volgorde: 'Volgorde', actief: 'Actief' },
+      types: { Beloning: 'title', ...RT('Key', 'Emoji'), Actief: 'checkbox' },
+      ignore: []
+    },
+    {
+      table: 'family_chores',
+      dataSource: '2ce448ad-03b7-48fb-aec4-d32481b39cfc',
+      content: 'blocks', trash: true,
+      columns: { ...PAGE, taakje: 'Taakje', person: 'Person', level: 'Level', dagen: 'Dagen', actief: 'Actief' },
+      types: { Taakje: 'title', Person: 'select', Level: 'select', Dagen: 'multi_select', Actief: 'checkbox' },
+      ignore: []
+    },
+    {
+      table: 'family_treasures',
+      dataSource: '266d3adb-91f2-4193-acb3-6a548f03917e',
+      content: 'blocks', trash: true,
+      columns: { ...PAGE, beloning: 'Beloning', emoji: 'Emoji', volgorde: 'Volgorde', actief: 'Actief', laatst_gebruikt: 'Laatst gebruikt' },
+      types: { Beloning: 'title', Emoji: 'rich_text', Actief: 'checkbox', 'Laatst gebruikt': 'date' },
+      ignore: []
+    },
+    {
+      table: 'family_bosses',
+      dataSource: 'cc224298-e906-4fbd-a282-f68a4b3f9b2d',
+      content: 'blocks', trash: true,
+      columns: {
+        ...PAGE, baas: 'Baas', wereld: 'Wereld', thema: 'Thema', baas_uiterlijk: 'Baas uiterlijk', beloning: 'Beloning',
+        max_hp: 'Max HP', laatste_hp: 'Laatste HP', schade_per_punt: 'Schade per punt',
+        week_start: 'Week Start', verslagen_op: 'Verslagen op', kist_geopend_op: 'Kist geopend op'
+      },
+      types: {
+        Baas: 'title', Wereld: 'select', ...RT('Thema', 'Baas uiterlijk', 'Beloning'),
+        'Week Start': 'date', 'Verslagen op': 'date', 'Kist geopend op': 'date'
+      },
+      ignore: []
+    }
+  ]
+};
+
 // Every copied table by name, with its area.
 export const TABLES = Object.fromEntries(Object.entries(AREAS).flatMap(([area, a]) => a.tables.map(t => [t.table, { ...t, area }])));

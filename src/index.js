@@ -34,7 +34,6 @@ import { loadJournal, saveJournal, journalDay } from './journal.js';
 import { writeEveningQuestion, aiOn } from './eveningq.js';
 import { journalHtml } from './journalpage.js';
 import { summaryDue, writeSummary, isSummaryHour } from './summary.js';
-import { writeBufferLine, questLogDue, isQuestLogHour, notionQuestLog } from './questlog.js';
 import { store } from './usage.js';
 export { Store } from './store.js';
 
@@ -71,7 +70,6 @@ export default {
         if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
         const data = await loadDashboard(env, { fresh: searchParams.get('fresh') === '1' });
         if (summaryDue(env, data)) ctx.waitUntil(writeSummary(env, data).catch(e => console.error('summary', e && e.stack || e)));
-        if (notionQuestLog(env)) ctx.waitUntil(store(env).get('questlog_day').then(day => questLogDue(day, data) ? writeBufferLine(env, data) : null).catch(e => console.error('questlog', e && e.stack || e)));
         return json(data);
       }
       if (pathname === '/summary' && request.method === 'POST') {
@@ -93,7 +91,6 @@ export default {
             const summary = await writeSummary(env, dash).catch(e => { console.error('summary', e && e.stack || e); return null; });
             if (summary) { dash.summary = summary; dash.summary_written = true; }
           }
-          if (notionQuestLog(env)) ctx.waitUntil(store(env).get('questlog_day').then(day => questLogDue(day, dash) ? writeBufferLine(env, dash) : null).catch(e => console.error('questlog', e && e.stack || e)));
           return dash;
         });
         let today = await loadToday(env, { fresh, dashboard });
@@ -141,17 +138,11 @@ export default {
   },
 
   // Cron runs at 03:00-06:00 UTC; whichever is 05:00 in Amsterdam (summer or
-  // winter time) writes the AI summary, and whichever is 07:00 writes the
-  // Quest log line.
+  // winter time) writes the AI summary. (The 07:00 run wrote the 🌍 line on
+  // the Notion Quest log until 1 Oct 2026.)
   async scheduled(event, env, ctx) {
-    if (isSummaryHour(event.scheduledTime)) {
-      const data = await loadDashboard(env, { fresh: true });
-      if (summaryDue(env, data, event.scheduledTime)) await writeSummary(env, data);
-      return;
-    }
-    if (!notionQuestLog(env) || !isQuestLogHour(event.scheduledTime)) return;
+    if (!isSummaryHour(event.scheduledTime)) return;
     const data = await loadDashboard(env, { fresh: true });
-    if (!data.cross) throw new Error('Work Location Log not readable: ' + data.errors.join('; '));
-    await writeBufferLine(env, data);
+    if (summaryDue(env, data, event.scheduledTime)) await writeSummary(env, data);
   }
 };

@@ -320,49 +320,6 @@ test('an unreachable Quest Engine does not also mark card publishing as failing'
   assert.equal(by('withings').level, 'ok');
 });
 
-test('Quest log line: label, buffer and days to fill in, found by its 🌍 callout', async () => {
-  const { bufferLine, findCallout, questLogDue, isQuestLogHour } = await import('../src/questlog.js');
-  const cross = { ytd: { be_share: 61.8 }, minimum: 50, buffer_days: 12.5, be_days_needed: 0, projection: { year_end_be_share: 58.4 }, missing: [{ date: '2026-09-28' }] };
-  const line = bufferLine(cross, '2026-09-29', 'https://dash.example');
-  const text = line.map(t => t.text.content).join('');
-  assert.equal(text, 'Cross-border\n62% Belgium · 13 NL days spare · 1 day to fill in');
-  assert.equal(line[0].annotations.bold, true);
-  assert.equal(line[0].text.link.url, 'https://dash.example');
-  assert.equal(bufferLine({ ...cross, missing: [] }, '2026-09-29', 'x').map(t => t.text.content).join(''), 'Cross-border\n62% Belgium · 13 NL days spare');
-  assert.match(bufferLine({ ...cross, buffer_days: -2, be_days_needed: 4, missing: [] }, '2026-09-29', 'x').map(t => t.text.content).join(''), /4 BE days short/);
-  const blocks = [{ id: 'a', type: 'callout', callout: { icon: { emoji: '✨' } } }, { id: 'b', type: 'heading_2', heading_2: {} }, { id: 'c', type: 'callout', callout: { icon: { type: 'emoji', emoji: '🌍' } } }];
-  assert.equal(findCallout(blocks).id, 'c');
-  assert.equal(findCallout(blocks.slice(0, 2)), null);
-  // 07:00 Amsterdam is 05:00 UTC in summer, 06:00 UTC in winter.
-  assert.equal(isQuestLogHour(Date.parse('2026-09-29T05:00:00Z')), true);
-  assert.equal(isQuestLogHour(Date.parse('2026-09-29T06:00:00Z')), false);
-  assert.equal(isQuestLogHour(Date.parse('2026-12-01T06:00:00Z')), true);
-  const data = { today: '2026-09-29', cross };
-  assert.equal(questLogDue('2026-09-28', data, Date.parse('2026-09-29T04:30:00Z')), false);
-  assert.equal(questLogDue('2026-09-28', data, Date.parse('2026-09-29T05:10:00Z')), true);
-  assert.equal(questLogDue('2026-09-29', data, Date.parse('2026-09-29T09:00:00Z')), false);
-});
-
-test('Quest log line: the 🌍 callout is found inside columns', async () => {
-  const { writeBufferLine } = await import('../src/questlog.js');
-  const tree = {
-    'd835f903-d475-4c9b-bf52-100097824752': [{ id: 'cl', type: 'column_list', has_children: true }],
-    cl: [{ id: 'c1', type: 'column', has_children: true }],
-    c1: [{ id: 'globe', type: 'callout', has_children: true, callout: { icon: { emoji: '🌍' } } }]
-  };
-  const patched = [];
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async (url, init) => {
-    const path = new URL(url).pathname;
-    if (init.method === 'PATCH') { patched.push(path); return new Response('{}'); }
-    return new Response(JSON.stringify({ results: tree[path.split('/')[3]] || [] }));
-  };
-  const env = { NOTION_TOKEN: 't', STORE: { idFromName: () => 'x', get: () => ({ put: async () => {} }) } };
-  try { assert.equal(await writeBufferLine(env, { today: '2026-09-29', cross: null }), 'globe'); }
-  finally { globalThis.fetch = realFetch; }
-  assert.deepEqual(patched, ['/v1/blocks/globe']);
-});
-
 test('system: the boss card is judged by its hourly check, not by when it last changed', () => {
   const at = Date.parse('2026-09-30T10:00:00Z');
   const base = { journal_chain: { day: '2026-09-30', complete: true, done: { digest: 'ok', match: 'ok', questboard: 'ok' } }, nightly: { at: '2026-09-30T02:03:00Z' },

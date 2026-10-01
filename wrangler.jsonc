@@ -11,34 +11,21 @@
   // (Cloudflare answers 404, error 1042), so the Quest Engine is reached
   // through a service binding. Only routing: /ledger still needs the token.
   "services": [{ "binding": "QUEST_ENGINE", "service": "quest-engine" }],
-  // The Quest Engine's D1 database (its schema lives in rdecaste/quest-engine
-  // migrations/): the health and work tables once HEALTH_STORE is "d1".
+  // The Quest Engine's D1 database, where all the data lives (its schema is
+  // in rdecaste/quest-engine migrations/).
   "d1_databases": [{ "binding": "DB", "database_name": "quest", "database_id": "94e5f5c7-b24f-4a3c-808c-a85345a27f7f" }],
-  // The morning buffer line in Quest log: 07:00 Amsterdam, which is 05:00 UTC
-  // in summer and 06:00 UTC in winter; the handler skips the other one.
-  "triggers": { "crons": ["0 3,4,5,6 * * *"] },
+  // The daily AI summary: 05:00 Amsterdam, which is 03:00 UTC in summer and
+  // 04:00 UTC in winter; the handler skips the other one.
+  "triggers": { "crons": ["0 3,4 * * *"] },
   "vars": {
     // The Quest Engine, monitored through GET /status and GET /ledger.
     "QUEST_ENGINE_URL": "https://quest-engine.quest-engine.workers.dev",
     // The daily AI summary: one short OpenAI chat call a day. "1" = on.
     "ADMIN_AI": "1",
-    // Where Workouts, Body Metrics, Sleep & Recovery and Work Location live:
-    // "notion" until step 1's switch, then "d1" (src/healthstore.js). Always
-    // the same as the Quest Engine's HEALTH_STORE.
-    "HEALTH_STORE": "d1",
-    // Where the Journal, To-Dos and Quests live: "notion" until step 2's
-    // switch, then "d1" (src/journald1.js for the journal page; switched 1 Oct 2026 13:59 UTC). Always the
-    // same as the Quest Engine's JOURNAL_STORE.
-    "JOURNAL_STORE": "d1",
-    // Whether the 🌍 line is still written on the Notion Quest log page:
-    // "1" until step 5's switch, then "0". The same as the Quest Engine's.
-    "NOTION_QUEST_LOG": "0",
     "CHAT_MODEL": "gpt-6-astra"
   }
   // Secrets (set with `npx wrangler secret put <NAME>`, never committed):
   //   DASHBOARD_PASSWORD     the login password
-  //   NOTION_TOKEN           a Notion connection with access to Quest log; reads, and
-//                          updates the one 🌍 callout (needs "Update content")
   //   QUEST_ENGINE_TOKEN     the Quest Engine's ADMIN_TOKEN, for GET /ledger
   //   HEALTHCHECKS_API_KEY   the healthchecks.io project's read-only API key
   //   OPENAI_API_KEY         only needed when ADMIN_AI is "1"

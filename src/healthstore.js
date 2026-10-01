@@ -1,7 +1,9 @@
-// Where a moved area's tables live (docs/d1-migration.md): in Notion until
-// the area is switched, then in D1. HEALTH_STORE ("notion" or "d1") picks it
-// for step 1's tables, JOURNAL_STORE for step 2's (journal, to-dos, quests). Both stores answer the same calls with pages in
-// Notion's shape, so the code and the ported rules reading them don't change:
+// A copy of the Quest Engine's src/store.js (rdecaste/quest-engine), apart
+// from choosing the store; the tables (src/areas.js) are a copy too. The
+// tables are in D1 since 1 Oct 2026 (its docs/d1-migration.md). The store
+// answers in Notion's shape, so the code reading pages didn't change
+// (notionStore answers the same calls from Notion, for the Quest Engine's
+// copy and check tools only):
 //   query(table, body)            the first page_size rows (100)
 //   queryAll(table, body)         every row
 //   get(table, id)
@@ -14,13 +16,18 @@
 // In D1, `body` is translated to SQL for the filters this code uses: and/or;
 // date equals, on_or_after, on_or_before, before, after (a date-only value is
 // compared with the row's own local date, as Notion does); title, rich_text,
-// select, status and url equals; select and status does_not_equal;
-// multi_select contains; number equals; any property is_empty /
-// is_not_empty; checkbox equals; relation contains. Anything else throws, so an untranslated
+// select, status and url equals; title and rich_text contains; select and
+// status does_not_equal;
+// multi_select contains; number equals, does_not_equal, greater_than(_or_
+// equal_to) and less_than(_or_equal_to); any property is_empty /
+// is_not_empty; checkbox equals; relation contains.
+// A table's `rollups` (Notion rollups the code reads) are rebuilt from the
+// related table on every read. A table with `trash` keeps a page sent to the
+// trash as a row marked in_trash: queries leave it out, get still finds it
+// (as Notion does). Anything else throws, so an untranslated
 // filter can never quietly return the wrong rows.
-// A copy of the Quest Engine's src/store.js (rdecaste/quest-engine), with
-// this Worker's Notion client; keep the two the same apart from that. The
-// tables (src/areas.js) are a copy too.
+// The admin dashboard (rdecaste/journal) has a copy as src/healthstore.js,
+// with its own Notion client; keep the two the same apart from that.
 import { TABLES } from './areas.js';
 
 const quote = name => '"' + String(name).replace(/"/g, '""') + '"';
@@ -53,6 +60,11 @@ function propertyOf(type, v) {
     case 'multi_select': return { type, multi_select: (v ? JSON.parse(v) : []).map(name => ({ name })) };
     case 'files': return { type, files: (v ? JSON.parse(v) : []).map(f => ({ name: f.name, type: 'external', external: { url: f.url } })) };
     case 'created_time': return { type, created_time: v || null };
+    case 'people': return { type, people: (v ? JSON.parse(v) : []).map(id => ({ object: 'user', id })) };
+    case 'unique_id': {
+      const m = /^(?:(.*)-)?(\d+)$/.exec(String(v ?? ''));
+      return { type, unique_id: { prefix: m && m[1] ? m[1] : null, number: m ? Number(m[2]) : null } };
+    }
     case 'date': return { type, date: v ? { start: v, end: null, time_zone: null } : null };
     case 'checkbox': return { type, checkbox: !!v };
     case 'url': return { type, url: v || null };
@@ -60,6 +72,13 @@ function propertyOf(type, v) {
     case 'formula': return { type, formula: { type: 'number', number: v ?? null } };
     default: return { type: 'number', number: v ?? null };
   }
+}
+
+// A rollup as Notion shows one ("show original"): the related rows' values.
+function rollupOf(r, json) {
+  const values = json ? JSON.parse(json) : [];
+  const item = v => (r.type === 'select' ? { type: 'select', select: v ? { name: v } : null } : { type: r.type, [r.type]: text(v) });
+  return { type: 'rollup', rollup: { type: 'array', array: values.map(item), function: 'show_original' } };
 }
 
 // A D1 row as the page Notion would return.
@@ -71,10 +90,18 @@ export function pageFromRow(t, row) {
     if (s.page) page[s.page] = row[column] ? JSON.parse(row[column]) : null;
     else properties[s.prop] = propertyOf(typeOf(t, s.prop), row[column]);
   }
+  for (const [prop, r] of Object.entries(t.rollups || {})) properties[prop] = rollupOf(r, row['rollup:' + prop]);
   return {
     object: 'page', id: row.id, created_time: row.created_time, last_edited_time: row.updated_at || row.notion_edited_time,
-    in_trash: false, archived: false, url: null, ...page, parent: { type: 'data_source_id', data_source_id: t.dataSource }, properties
+    in_trash: row.in_trash === 1, archived: false, url: null, ...page, parent: { type: 'data_source_id', data_source_id: t.dataSource }, properties
   };
+}
+
+// The columns a read selects: the row and its rollups.
+function selected(t) {
+  const rollups = Object.entries(t.rollups || {}).map(([prop, r]) =>
+    `(SELECT json_group_array(r.${quote(r.column)}) FROM json_each(t.${quote(r.relation)}) AS je JOIN ${quote(r.table)} AS r ON r.id = je.value) AS ${quote('rollup:' + prop)}`);
+  return ['t.*', ...rollups].join(', ');
 }
 
 // A date as Notion stores it: a plain date stays as it is; a moment keeps the
@@ -102,8 +129,9 @@ export function rowFromProperties(t, properties) {
     else if (type === 'select') row[column] = (value.select && value.select.name) || null;
     else if (type === 'status') row[column] = (value.status && value.status.name) || null;
     else if (type === 'multi_select') row[column] = value.multi_select && value.multi_select.length ? JSON.stringify(value.multi_select.map(o => o.name)) : null;
+    else if (type === 'people') row[column] = value.people && value.people.length ? JSON.stringify(value.people.map(u => u.id)) : null;
     else if (type === 'files') row[column] = value.files && value.files.length ? JSON.stringify(value.files.map(f => ({ name: f.name, url: (f.external || f.file || {}).url }))) : null;
-    else if (type === 'created_time') throw new Error(`${t.table}: "${prop}" is set when the row is made`);
+    else if (type === 'created_time' || type === 'unique_id') throw new Error(`${t.table}: "${prop}" is set when the row is made`);
     else if (type === 'date') row[column] = notionDate(value.date && value.date.start);
     else if (type === 'checkbox') row[column] = value.checkbox ? 1 : 0;
     else if (type === 'url') row[column] = value.url || null;
@@ -135,11 +163,19 @@ function condition(t, f, params) {
     return v.length === 10 ? `substr(${column}, 1, 10) ${DATE_OPS[op]} ?` : `julianday(${column}) ${DATE_OPS[op]} julianday(?)`;
   }
   if (['title', 'rich_text', 'select', 'url', 'status'].includes(kind) && 'equals' in c) { params.push(c.equals); return `${column} = ?`; }
+  // Notion's contains ignores case.
+  if (['title', 'rich_text'].includes(kind) && 'contains' in c) { params.push(String(c.contains).toLowerCase()); return `instr(lower(${column}), ?) > 0`; }
   // As in Notion, an empty value doesn't equal anything.
   if (['select', 'status'].includes(kind) && 'does_not_equal' in c) { params.push(c.does_not_equal); return `(${column} IS NULL OR ${column} != ?)`; }
   if (kind === 'multi_select' && c.contains) { params.push(c.contains); return `EXISTS (SELECT 1 FROM json_each(${column}) WHERE json_each.value = ?)`; }
   if (kind === 'checkbox' && 'equals' in c) { params.push(c.equals ? 1 : 0); return `${column} = ?`; }
-  if (kind === 'number' && 'equals' in c) { params.push(c.equals); return `${column} = ?`; }
+  const NUMBER_OPS = { equals: '=', does_not_equal: '!=', greater_than: '>', less_than: '<', greater_than_or_equal_to: '>=', less_than_or_equal_to: '<=' };
+  const numberOp = kind === 'number' && Object.keys(c).find(k => NUMBER_OPS[k]);
+  if (numberOp) {
+    params.push(c[numberOp]);
+    // As in Notion, an empty number matches none of these but does_not_equal.
+    return numberOp === 'does_not_equal' ? `(${column} IS NULL OR ${column} != ?)` : `${column} ${NUMBER_OPS[numberOp]} ?`;
+  }
   if (kind === 'relation' && c.contains) {
     params.push(String(c.contains).replace(/-/g, ''));
     return `EXISTS (SELECT 1 FROM json_each(${column}) WHERE replace(json_each.value, '-', '') = ?)`;
@@ -160,8 +196,8 @@ function orderBy(t, sorts) {
 
 export function selectSql(t, body = {}, limit = null) {
   const params = [];
-  const where = body.filter ? condition(t, body.filter, params) : '1';
-  let sql = `SELECT * FROM ${quote(t.table)} WHERE ${where} ORDER BY ${orderBy(t, body.sorts)}`;
+  const where = (body.filter ? condition(t, body.filter, params) : '1') + (t.trash ? ' AND in_trash IS NOT 1' : '');
+  let sql = `SELECT ${selected(t)} FROM ${quote(t.table)} AS t WHERE ${where} ORDER BY ${orderBy(t, body.sorts)}`;
   if (limit) { sql += ' LIMIT ?'; params.push(limit); }
   return { sql, params };
 }
@@ -176,7 +212,7 @@ export function d1Store(db, now = () => new Date()) {
   };
   const get = async (name, id) => {
     const t = tableOf(name);
-    const row = await db.prepare(`SELECT * FROM ${quote(t.table)} WHERE id = ?`).bind(dashed(id)).first();
+    const row = await db.prepare(`SELECT ${selected(t)} FROM ${quote(t.table)} AS t WHERE id = ?`).bind(dashed(id)).first();
     return row ? pageFromRow(t, row) : null;
   };
   return {
@@ -207,7 +243,12 @@ export function d1Store(db, now = () => new Date()) {
     },
     async remove(name, id) {
       const t = tableOf(name);
+      if (t.trash) {
+        await db.prepare(`UPDATE ${quote(t.table)} SET in_trash = 1, updated_at = ? WHERE id = ?`).bind(now().toISOString(), dashed(id)).run();
+        return get(name, id);
+      }
       await db.prepare(`DELETE FROM ${quote(t.table)} WHERE id = ?`).bind(dashed(id)).run();
+      return null;
     }
   };
 }
@@ -216,7 +257,7 @@ export function notionStore(notion) {
   const ds = name => tableOf(name).dataSource;
   return {
     kind: 'notion',
-    query: (name, body = {}) => notion.query(ds(name), body).then(r => r.results || []),
+    query: (name, body = {}) => notion.query(ds(name), body),
     async queryAll(name, body = {}) {
       const pages = [];
       let cursor;
@@ -227,23 +268,18 @@ export function notionStore(notion) {
       } while (cursor);
       return pages;
     },
-    get: (name, id) => notion.call('GET', `/pages/${id}`),
-    create: (name, properties) => notion.call('POST', '/pages', { parent: { type: 'data_source_id', data_source_id: ds(name) }, properties }),
-    // In Notion, E-bike € is still a formula: plain columns are D1's alone.
-    update: (name, id, properties) => notion.call('PATCH', `/pages/${id}`, { properties }),
-    remove: (name, id) => notion.call('PATCH', `/pages/${id}`, { in_trash: true })
+    get: (name, id) => notion.getPage(id),
+    create: (name, properties) => notion.createPage({ parent: { type: 'data_source_id', data_source_id: ds(name) }, properties }),
+    update: (name, id, properties) => notion.updatePage(id, { properties }),
+    remove: (name, id) => notion.updatePage(id, { in_trash: true })
   };
 }
 
-// The store for an area's tables, by its flag (the same settings as the
-// Quest Engine's): HEALTH_STORE for the health and work tables,
-// JOURNAL_STORE for the journal, to-dos and quests.
-function areaStore(env, notion, flag) {
-  if (env[flag] === 'd1') {
-    if (!env.DB) throw new Error(`${flag} is "d1" but the D1 database (DB) is not bound`);
-    return d1Store(env.DB);
-  }
-  return notionStore(notion);
+// The store for the health and work tables and for the journal, to-dos and
+// quests: D1 (the same database as the Quest Engine's).
+function areaStore(env) {
+  if (!(env && env.DB)) throw new Error('The D1 database (DB) is not bound');
+  return d1Store(env.DB);
 }
-export const healthStore = (env, notion) => areaStore(env, notion, 'HEALTH_STORE');
-export const journalStore = (env, notion) => areaStore(env, notion, 'JOURNAL_STORE');
+export const healthStore = env => areaStore(env);
+export const journalStore = env => areaStore(env);

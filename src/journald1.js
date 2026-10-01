@@ -1,9 +1,9 @@
-// The journal page with the journal in D1 (JOURNAL_STORE "d1"; the Quest
-// Engine's docs/d1-migration.md, step 2). A day is a `journal` row: its
-// answers are columns, its focus to-dos rows of `journal_focus`, its quest
-// notes rows of `journal_quest_notes`. The page gets the same data as from a
-// Notion page (src/journal.js), with `slot`s that only mark D1: a save writes
-// columns and rows, so there are no block ids to keep.
+// The journal page's data and saves (the Quest Engine's docs/d1-migration.md,
+// step 2). A day is a `journal` row: its answers are columns, its focus
+// to-dos rows of `journal_focus`, its quest notes rows of
+// `journal_quest_notes`. The page still gets each box with a `slot` (from
+// when it wrote Notion blocks); it only marks D1, since a save writes columns
+// and rows.
 import { cached, remember } from './cache.js';
 import { eveningQuestion } from './eveningq.js';
 import {
@@ -63,9 +63,9 @@ async function handoff(env, row) {
   return out;
 }
 
-export async function loadJournalD1(env, n, { now = Date.now() } = {}) {
-  const js = journalStore(env, n);
-  const health = healthStore(env, n);
+export async function loadJournalD1(env, { now = Date.now() } = {}) {
+  const js = journalStore(env);
+  const health = healthStore(env);
   const db = env.DB;
   const errors = [];
   const safe = (p, label) => p.catch(e => { errors.push(`${label}: ${e.message || e}`); return null; });
@@ -156,8 +156,8 @@ async function questNote(db, js, pageId, key) {
 // day's row and its focus and note rows. Every write stamps the row's
 // updated_at (through the store), so a catch-up copy from Notion never
 // overwrites it.
-export async function saveJournalD1(env, n, body) {
-  const js = journalStore(env, n);
+export async function saveJournalD1(env, body) {
+  const js = journalStore(env);
   const db = env.DB;
   const pageId = body && body.page;
   if (!isId(pageId)) throw Object.assign(new Error('No journal page'), { code: 'bad_request' });
@@ -231,7 +231,7 @@ export async function saveJournalD1(env, n, body) {
     });
   }
 
-  if (body.work) out.work = await attempt('work', () => writeWork(healthStore(env, n), body.work));
+  if (body.work) out.work = await attempt('work', () => writeWork(healthStore(env), body.work));
   if (body.win) out.win = await attempt('winif', () => syncWin(js, row.id, { text: String(body.win.text ?? '').slice(0, 20000), did: DID.includes(body.win.did) ? body.win.did : '', day: body.win.day }));
 
   return { ok: 1, slots: out, failed, at };
