@@ -82,15 +82,21 @@ export default {
         const fresh = searchParams.get('fresh') === '1';
         // The daily summary and the Quest log line are triggered here too, in
         // case their timer missed. An open that finds the summary due waits for
-        // it so the bullets show at once.
-        const dash = await loadDashboard(env, { fresh });
-        let dueNow = false;
-        if (summaryDue(env, dash)) {
-          const summary = await writeSummary(env, dash).catch(e => { console.error('summary', e && e.stack || e); return null; });
-          if (summary) { dash.summary = summary; dueNow = true; }
-        }
-        ctx.waitUntil(store(env).get('questlog_day').then(day => questLogDue(day, dash) ? writeBufferLine(env, dash) : null).catch(e => console.error('questlog', e && e.stack || e)));
-        return new Response(todayHtml(await loadToday(env, { fresh: fresh || dueNow, dashboard: dash })), { headers: PAGE_HEADERS });
+        // it so the bullets show at once. The Quest log page itself is read
+        // while the dashboard data loads.
+        const dashboard = loadDashboard(env, { fresh }).then(async dash => {
+          if (summaryDue(env, dash)) {
+            const summary = await writeSummary(env, dash).catch(e => { console.error('summary', e && e.stack || e); return null; });
+            if (summary) { dash.summary = summary; dash.summary_written = true; }
+          }
+          ctx.waitUntil(store(env).get('questlog_day').then(day => questLogDue(day, dash) ? writeBufferLine(env, dash) : null).catch(e => console.error('questlog', e && e.stack || e)));
+          return dash;
+        });
+        let today = await loadToday(env, { fresh, dashboard });
+        // A page kept from before today's summary was written is built again.
+        const dash = await dashboard.catch(() => null);
+        if (dash && dash.summary_written && today.briefing?.summary?.text !== dash.summary.text) today = await loadToday(env, { fresh: true, dashboard: dash });
+        return new Response(todayHtml(today), { headers: PAGE_HEADERS });
       }
       if (pathname === '/journal') {
         if (!signedIn) return redirect('/login?next=/journal');

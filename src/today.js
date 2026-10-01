@@ -9,9 +9,9 @@
 import { Notion } from './notion.js';
 import { QUEST_LOG } from './config.js';
 import { loadDashboard } from './load.js';
+import { cached, remember } from './cache.js';
 
 const CACHE_SECONDS = 300;
-const CACHE_KEY = 'https://admin-dashboard.internal/questlog';
 const CLOUD = 'https://res.cloudinary.com/a3xk0plk';
 const MARK = '💬';
 
@@ -20,15 +20,24 @@ const MARK = '💬';
 const OPEN = new Set(['column_list', 'column', 'callout']);
 
 // Every block in page order as { block, parent }, opening columns and callouts.
+// The page is read a level at a time, each level's boxes at once.
 export async function walkPage(n, pageId, maxDepth = 5) {
+  const kids = { [pageId]: await n.children(pageId) };
+  let level = kids[pageId];
+  for (let depth = 0; depth < maxDepth && level.length; depth++) {
+    const open = level.filter(b => b.has_children && OPEN.has(b.type));
+    const lists = await Promise.all(open.map(b => n.children(b.id)));
+    open.forEach((b, i) => { kids[b.id] = lists[i]; });
+    level = lists.flat();
+  }
   const out = [];
-  const visit = async (parent, depth) => {
-    for (const block of await n.children(parent)) {
+  const visit = parent => {
+    for (const block of kids[parent] || []) {
       out.push({ block, parent });
-      if (block.has_children && OPEN.has(block.type) && depth < maxDepth) await visit(block.id, depth + 1);
+      visit(block.id);
     }
   };
-  await visit(pageId, 0);
+  visit(pageId);
   return out;
 }
 
@@ -169,11 +178,12 @@ export function briefingView(dash) {
 
 // ---- Everything the page shows ----
 
+// `dashboard` may be a promise, so the Notion page and the Quest Engine are
+// read while the dashboard data is still loading.
 export async function loadToday(env, { now = Date.now(), fresh = false, dashboard = null } = {}) {
-  const cache = globalThis.caches && caches.default;
-  if (cache && !fresh) {
-    const hit = await cache.match(CACHE_KEY);
-    if (hit) return hit.json();
+  if (!fresh) {
+    const hit = await cached(env, 'questlog', CACHE_SECONDS);
+    if (hit) return hit;
   }
   const errors = [];
   const safe = (p, label) => p.catch(e => { errors.push(`${label}: ${e.message || e}`); return null; });
@@ -183,7 +193,7 @@ export async function loadToday(env, { now = Date.now(), fresh = false, dashboar
     safe(engine(env, '/mainquest'), 'Main quest'),
     safe(engine(env, '/hero'), 'Hero'),
     safe(engine(env, '/questboard'), 'Questboard'),
-    dashboard ? Promise.resolve(dashboard) : safe(loadDashboard(env, { now }), 'Dashboard')
+    dashboard ? safe(Promise.resolve(dashboard), 'Dashboard') : safe(loadDashboard(env, { now }), 'Dashboard')
   ]);
   const log = flat ? readQuestLog(flat) : { spark: '', journal: null, main_quest: null, notes: {}, training: null, todo: null };
   const data = {
@@ -195,6 +205,6 @@ export async function loadToday(env, { now = Date.now(), fresh = false, dashboar
     briefing: briefingView(dash),
     errors: errors.concat((dash && dash.errors) || [])
   };
-  if (cache) await cache.put(CACHE_KEY, new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${CACHE_SECONDS}` } }));
+  await remember(env, 'questlog', data);
   return data;
 }

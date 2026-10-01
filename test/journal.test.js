@@ -263,6 +263,27 @@ test('journal page: loads today, yesterday’s hand-off, to-dos and the streak',
   assert.deepEqual(none.errors, []);
 });
 
+test('journal page: a second open reads the page with the row lookup, and yesterday comes from the cache', async () => {
+  const { fake } = setup();
+  const YDAY = '3ea24147-f877-8155-a95f-c53bafd83165';
+  journalFixture(fake, YDAY);
+  fake.pages[PAGE].properties.Date = { date: { start: '2026-09-30' } };
+  fake.queries[JOURNAL.journal] = body => [fake.pages[body.filter.date.equals === '2026-09-30' ? PAGE : YDAY]];
+  fake.queries[JOURNAL.todos] = () => [];
+  fake.queries[JOURNAL.quests] = () => [];
+  const kept = new Map();
+  const storeEnv = { ...env, STORE: { idFromName: () => 'main', get: () => ({ get: async k => kept.get(k) ?? null, put: async (k, v) => { kept.set(k, structuredClone(v)); } }) } };
+  const now = Date.parse('2026-09-30T06:00:00Z');
+  const first = await fake.use(() => loadJournal(storeEnv, { now }));
+  assert.deepEqual(kept.get('cache:journal-ids:2026-09-30').data, { page: PAGE, before: YDAY });
+  fake.calls.length = 0;
+  const second = await fake.use(() => loadJournal(storeEnv, { now }));
+  assert.deepEqual(second, first);
+  // Yesterday's page is not read again; today's is read once.
+  assert.ok(!fake.calls.some(c => c.path.startsWith(`/blocks/${YDAY}`)));
+  assert.equal(fake.calls.filter(c => c.path.startsWith(`/blocks/${PAGE}/children`)).length, 1);
+});
+
 test('journal page: renders, keeps the data safe inside the page, and the script parses', () => {
   const d = {
     day: '2026-09-30', page: PAGE, title: '30 September 2026', url: 'https://www.notion.so/x', errors: [], run: 21,
