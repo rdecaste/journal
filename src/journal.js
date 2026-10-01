@@ -476,9 +476,9 @@ async function linkTodo(n, id, pageId) {
   await n.call('PATCH', `/pages/${id}`, { properties: { 'Related Journal': { relation: [...ids, pageId].map(x => ({ id: x })) } } });
 }
 // "Today is a win if…" is also a To-Do (Tag "Win if", linked to the day's
-// journal, due that day), so the Quest Engine can count it: the evening's
-// It happened / Partly / Not today set its Status. Status stays the truth, so
-// ticking it off elsewhere shows on the page too.
+// journal, due that day), so the Quest Engine can count it. The boss page
+// ticks it off: the page only writes the text, and sets Status only when the
+// row is made (Not started) or when a save names an answer outright.
 export const WIN = { tag: 'Win if', status: { 'It happened': 'Done', Partly: 'In progress', 'Not today': 'Not started', '': 'Not started' } };
 export const isWin = row => !!(prop(row, 'Tag') && prop(row, 'Tag').select && prop(row, 'Tag').select.name === WIN.tag);
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -490,7 +490,8 @@ export async function syncWin(n, pageId, { text = '', did = '', day = null } = {
   const row = (found.results || [])[0] || null;
   const t = String(text).trim().slice(0, 2000);
   if (!t) { if (row) await n.call('PATCH', `/pages/${row.id}`, { in_trash: true }); return null; }
-  const properties = { Task: { title: textRuns(t) }, Status: { status: { name: WIN.status[did] || 'Not started' } } };
+  const properties = { Task: { title: textRuns(t) } };
+  if (did || !row) properties.Status = { status: { name: WIN.status[did] || 'Not started' } };
   if (row) { await n.call('PATCH', `/pages/${row.id}`, { properties }); return row.id; }
   const when = DAY.test(day || '') ? { Due: { date: { start: day } }, 'Source Date': { date: { start: day } } } : {};
   const made = await n.call('POST', '/pages', { parent: { type: 'data_source_id', data_source_id: JOURNAL.todos }, properties: {

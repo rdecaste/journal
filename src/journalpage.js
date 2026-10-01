@@ -94,17 +94,7 @@ textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400
 .entry.active .more{opacity:1;color:var(--ki)}
 .evening .entry.active .more{color:var(--night)}
 .more:hover{opacity:1}
-/* Hand-offs between the two halves, the recaps and the endings. */
-.handoff{display:flex;flex-direction:column;gap:8px}
-.entry .handoff{margin-top:8px;gap:10px}
-.didrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.dl{font-size:13.5px;font-weight:500;color:var(--muted)}
-.handoff blockquote{margin:0;font-family:var(--serif);font-size:18px;line-height:1.55;padding-left:14px;border-left:2px solid color-mix(in srgb,var(--ki) 60%,transparent);white-space:pre-wrap}
-.evening .handoff blockquote{border-color:color-mix(in srgb,var(--night) 50%,transparent)}
-.handoff .soft{margin:0;font-family:var(--serif);font-style:italic;font-size:17px;line-height:1.5;color:var(--muted)}
-.did{display:flex;gap:6px;flex-wrap:wrap}
-.did button{font-size:14px;font-weight:500;min-height:36px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:transparent;cursor:pointer}
-.did button[aria-pressed="true"]{background:var(--night);color:var(--paper);border-color:var(--night)}
+/* The recaps and the endings. */
 .recap{display:flex;flex-direction:column;gap:6px;padding:16px 20px;border-radius:18px;background:var(--ki-soft)}
 .recap p{margin:0;font-family:var(--serif);font-size:17px;line-height:1.5;white-space:pre-wrap}
 .recap b{font-size:13.5px;font-weight:500;color:var(--muted);margin-right:8px}
@@ -241,11 +231,11 @@ export function journalHtml(d) {
   </section>
 
   <h2>🌙 Evening</h2>
-  <p class="later" id="e-later" hidden>Opens here tonight, starting with your “win if”. <button type="button" class="link" id="open-evening">Write now ›</button></p>
+  <p class="later" id="e-later" hidden>Opens here tonight. <button type="button" class="link" id="open-evening">Write now ›</button></p>
   <div id="e-recap" hidden></div>
   <div id="e-open" class="evening" style="display:flex;flex-direction:column;gap:22px">
     <section class="sheet" aria-label="Evening">
-      ${d.sections.reflection ? entry('reflection', { after: '<div class="handoff" id="lookback" hidden></div>' }) : '<div class="handoff" id="lookback" hidden></div>'}
+      ${d.sections.reflection ? entry('reflection') : ''}
       ${entry('park', { small: true })}
       ${d.sections.tomorrow ? entry('tomorrow', { small: true }) : ''}
       ${d.work ? '<div class="entry small" data-entry="work"><div class="label">🚗 Commute</div><div id="work"></div></div>' : ''}
@@ -307,8 +297,6 @@ const SCRIPT = String.raw`
   (D.quests || []).forEach(function (q) { V['q:' + q.id] = q.text || ''; S.quests[q.id] = q.slot; });
   var F = {};
   Object.keys(D.focus || {}).forEach(function (g) { F[g] = D.focus[g].items.length ? D.focus[g].items : [{ t: '', c: false }]; S.focus[g] = D.focus[g].slot; });
-  // Ticked off elsewhere (the To-Do's Status) shows in "The win" too.
-  if (D.win) V.did = { Done: 'It happened', 'In progress': 'Partly' }[D.win.status] || (V.did === 'Not today' ? 'Not today' : '');
   if (D.work) V.work = { am: D.work.am || '', pm: D.work.pm || '', commute: D.work.commute || '' };
   var checkin = D.checkin || (D.success ? 'win' : null);
   V.mq = checkin || '';
@@ -355,7 +343,7 @@ const SCRIPT = String.raw`
       else if (k.indexOf('f:') === 0) b.focus[k.slice(2)] = { slot: S.focus[k.slice(2)], items: F[k.slice(2)] };
       else if (k === 'work' && D.work) b.work = { id: D.work.id, am: V.work.am, pm: V.work.pm, commute: V.work.commute };
       // The win is also a To-Do for the Quest Engine; its Status follows "The win".
-      if (k === 'winif' || k === 'did') b.win = { text: V.winif || '', did: V.did || '', day: D.day };
+      if (k === 'winif') b.win = { text: V.winif || '', day: D.day };
     });
     if (success !== null) b.success = success;
     return b;
@@ -437,20 +425,11 @@ const SCRIPT = String.raw`
     b.addEventListener('click', function () { UI['n_' + id] = ((UI['n_' + id] || 0) + 1) % Q[id].length; saveUI(); $(id + '-q').textContent = Q[id][UI['n_' + id]]; });
   });
 
-  // ---- The evening look-back and the folded morning ----
-  function lookback() {
-    var w = (V.winif || '').trim();
-    // Under the Reflection box: whether the morning's "win if" happened.
-    var h = '';
-    if (w) h += '<div class="didrow"><span class="dl">The win</span><div class="did">' +
-      ['It happened', 'Partly', 'Not today'].map(function (o) { return '<button type="button" data-did="' + o + '" aria-pressed="' + (V.did === o) + '">' + o + '</button>'; }).join('') + '</div></div>';
-    $('lookback').innerHTML = h; $('lookback').hidden = !h;
-    Array.prototype.forEach.call(document.querySelectorAll('[data-did]'), function (b) { b.addEventListener('click', function () { change('did', V.did === b.getAttribute('data-did') ? '' : b.getAttribute('data-did'), true); lookback(); }); });
-  }
+  // ---- The folded morning ----
   function recap() {
     var bits = [['Headspace', V.headspace], ['Looking forward', V.forward], ['Win if', V.winif]]
       .filter(function (b) { return b[1] && String(b[1]).trim(); });
-    $('m-recap').innerHTML = '<div class="recap">' + (UI.bye ? '<p class="bye" style="margin-bottom:6px">Have a good day, Roy. Tonight starts with your “win if”.</p>' : '') +
+    $('m-recap').innerHTML = '<div class="recap">' + (UI.bye ? '<p class="bye" style="margin-bottom:6px">Have a good day, Roy.</p>' : '') +
       (bits.length ? bits.map(function (b) { return '<p><b>' + b[0] + '</b>' + esc(b[1]) + '</p>'; }).join('') : '<p class="later" style="font-size:17px">Nothing written this morning.</p>') +
       '<button type="button" class="link" id="edit-m">' + (bits.length ? 'Open the morning ›' : 'Write it now ›') + '</button></div>';
     $('edit-m').addEventListener('click', function () { UI.mopen = true; UI.bye = false; saveUI(); layout(); });
@@ -531,7 +510,7 @@ const SCRIPT = String.raw`
     $('m-open').hidden = folded; $('m-recap').hidden = !folded;
     var eOpen = evening || UI.eopen, eClosed = eOpen && UI.edone;
     $('e-open').hidden = !eOpen || eClosed; $('e-later').hidden = eOpen; $('e-recap').hidden = !eClosed;
-    recap(); lookback(); if (eClosed) eveningRecap(); growAll();
+    recap(); if (eClosed) eveningRecap(); growAll();
     if (eOpen && !eClosed && !D.evening_q && !asked) askEvening();
   }
   $('open-evening').addEventListener('click', function () { UI.eopen = true; saveUI(); layout(); });
