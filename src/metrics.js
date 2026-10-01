@@ -1,4 +1,4 @@
-// The dashboard's judgements, as pure functions of Notion rows and the Quest
+// The dashboard's judgements, as pure functions of D1 rows (in Notion's page shape) and the Quest
 // Engine's state, so they can be tested without the network.
 //
 // Every area ends in a status: 'ok' (healthy), 'watch' (worth watching) or
@@ -18,7 +18,7 @@ const weekday = day => new Date(day + 'T00:00:00Z').getUTCDay(); // 0 Sunday
 const mondayOf = day => addDays(day, -((weekday(day) + 6) % 7));
 const flag = (level, title, why, link) => ({ level, title, why, ...(link ? { link } : {}) });
 
-// ---- Notion property readers ----
+// ---- Property readers (rows come in Notion's page shape) ----
 const prop = (page, name) => (page && page.properties && page.properties[name]) || {};
 const sel = (page, name) => (prop(page, name).select && prop(page, name).select.name) || '';
 const dateOf = (page, name) => (prop(page, name).date && prop(page, name).date.start) || '';
@@ -444,10 +444,9 @@ const amsterdamMinutes = now => { const [h, m] = amsterdam(now, { hour: '2-digit
 // status: the Quest Engine's GET /status (null when it cannot be reached);
 // checks: healthchecks.io checks (null when unavailable); ledger: the Quest
 // Engine's GET /ledger; latest: newest Workouts and Body Metrics rows
-// ({ created }). The Quest Engine's switches come from its status.
+// ({ created }). Every job runs on the Quest Engine (its Make-era on/off
+// switches are gone since 1 Oct 2026).
 export function system({ status, checks, ledger, latest }, now = Date.now()) {
-  const on = key => (status && status[key] ? '1' : '0');
-  const env = { JOURNAL_ENABLED: on('journal_enabled'), NIGHTLY_ENABLED: on('nightly_enabled'), VAULT_ENABLED: on('vault_enabled'), FAMILY_ENABLED: on('family_enabled') };
   const today = amsterdamDay(now);
   const minutes = amsterdamMinutes(now);
   const check = slug => (checks || []).find(c => c.slug === slug) || null;
@@ -456,7 +455,7 @@ export function system({ status, checks, ledger, latest }, now = Date.now()) {
   const add = (p) => processes.push({ ...p, level: p.level || 'ok' });
   const s = status || {};
 
-  // The boss card is rebuilt from Notion when opened and checked once an hour
+  // The boss card is rebuilt from D1 when opened and checked once an hour
   // by the timer (quest-engine PR #12). checked_at moves on every check, even
   // when nothing changed; built_at only when the card changed (older Engines
   // only send built_at).
@@ -465,45 +464,42 @@ export function system({ status, checks, ledger, latest }, now = Date.now()) {
   const late = checked > ENGINE.attentionHours ? 'attention' : checked > ENGINE.watchHours ? 'watch' : 'ok';
   add({ key: 'engine', name: 'Quest Engine', detail: 'Cloudflare Worker: 2-minute timer; boss card rebuilt when opened and checked hourly', last_ok: checkedAt || null,
     level: !status ? 'attention' : worst(late, fromCheck(check('heartbeat')) || 'ok'),
-    problem: !status ? 'The Quest Engine did not answer GET /status. Check the Cloudflare dashboard (quest-engine → Observability).' : late !== 'ok' ? `Boss card last checked against Notion ${Math.round(checked * 60)} minutes ago; the hourly check may have stopped.` : check('heartbeat') && check('heartbeat').status === 'down' ? 'healthchecks.io has not heard the hourly heartbeat.' : '' });
+    problem: !status ? 'The Quest Engine did not answer GET /status. Check the Cloudflare dashboard (quest-engine → Observability).' : late !== 'ok' ? `Boss card last checked ${Math.round(checked * 60)} minutes ago; the hourly check may have stopped.` : check('heartbeat') && check('heartbeat').status === 'down' ? 'healthchecks.io has not heard the hourly heartbeat.' : '' });
 
   // Journal chain (03:00) and the quest steps inside it.
   const chain = s.journal_chain || {};
   const chainToday = chain.day === today;
   const chainOverdue = minutes >= 4 * 60 && !(chainToday && chain.complete);
-  add({ key: 'journal', name: 'Journal automation', detail: 'Digest and morning setup, 03:00', last_ok: chainToday && chain.complete ? chain.at : (chain.complete ? chain.at : null), enabled: env.JOURNAL_ENABLED === '1',
-    level: env.JOURNAL_ENABLED !== '1' ? 'ok' : worst(chainOverdue ? 'attention' : 'ok', fromCheck(check('journal')) || 'ok'),
-    problem: env.JOURNAL_ENABLED === '1' && chainOverdue ? `Today's journal chain has not completed${chainToday ? ': ' + Object.entries(chain.done || {}).map(([k, v]) => `${k} ${v}`).join(', ') : ''}. Check POST /journal dry=1 and the Observability logs.` : '' });
+  add({ key: 'journal', name: 'Journal automation', detail: 'Digest and morning setup, 03:00', last_ok: chainToday && chain.complete ? chain.at : (chain.complete ? chain.at : null), enabled: true,
+    level: worst(chainOverdue ? 'attention' : 'ok', fromCheck(check('journal')) || 'ok'),
+    problem: chainOverdue ? `Today's journal chain has not completed${chainToday ? ': ' + Object.entries(chain.done || {}).map(([k, v]) => `${k} ${v}`).join(', ') : ''}. Check POST /journal dry=1 and the Observability logs.` : '' });
   const questDone = chainToday && chain.done && (chain.done.digest === 'skipped' || (chain.done.match && chain.done.questboard));
-  add({ key: 'quests', name: 'Quest processing', detail: 'Quest match and Questboard, after the digest', last_ok: questDone ? chain.at : null, enabled: env.JOURNAL_ENABLED === '1',
-    level: env.JOURNAL_ENABLED === '1' && minutes >= 4 * 60 && !questDone ? 'attention' : 'ok',
-    problem: env.JOURNAL_ENABLED === '1' && minutes >= 4 * 60 && !questDone ? 'Quest match or Questboard did not run today (they wait for a successful digest).' : '' });
+  add({ key: 'quests', name: 'Quest processing', detail: 'Quest match and Questboard, after the digest', last_ok: questDone ? chain.at : null, enabled: true,
+    level: minutes >= 4 * 60 && !questDone ? 'attention' : 'ok',
+    problem: minutes >= 4 * 60 && !questDone ? 'Quest match or Questboard did not run today (they wait for a successful digest).' : '' });
 
   // Nightly run (04:00): progression, recovery, boss spawn, hero card.
   const nightly = s.nightly || {};
   const nightlyToday = nightly.at && amsterdamDay(Date.parse(nightly.at)) === today;
   const nightlyOverdue = minutes >= 5 * 60 && !nightlyToday;
-  add({ key: 'boss', name: 'Boss system and Main Quest', detail: 'Nightly run 04:00: level, recovery, boss spawn, hero card', last_ok: nightly.at || null, enabled: env.NIGHTLY_ENABLED === '1',
-    level: env.NIGHTLY_ENABLED !== '1' ? 'ok' : worst(nightlyOverdue ? 'attention' : 'ok', fromCheck(check('nightly')) || 'ok'),
-    problem: env.NIGHTLY_ENABLED === '1' && nightlyOverdue ? "Today's 04:00 run has not finished. Check POST /nightly dry=1 and the logs." : '' });
+  add({ key: 'boss', name: 'Boss system and Main Quest', detail: 'Nightly run 04:00: level, recovery, boss spawn, hero card', last_ok: nightly.at || null, enabled: true,
+    level: worst(nightlyOverdue ? 'attention' : 'ok', fromCheck(check('nightly')) || 'ok'),
+    problem: nightlyOverdue ? "Today's 04:00 run has not finished. Check POST /nightly dry=1 and the logs." : '' });
 
   // VaultQuest (Mondays).
   const vault = s.vault_monday || {};
   const vaultAge = hoursSince(vault.at, now) / 24;
-  add({ key: 'vault', name: 'VaultQuest', detail: 'Monday evaluation after 04:00', last_ok: vault.at || null, enabled: env.VAULT_ENABLED === '1',
-    level: env.VAULT_ENABLED === '1' && vaultAge > 8 ? 'watch' : worst('ok', fromCheck(check('monday')) || 'ok'),
-    problem: env.VAULT_ENABLED === '1' && vaultAge > 8 ? 'The Monday evaluation has not run for over a week.' : '' });
+  add({ key: 'vault', name: 'VaultQuest', detail: 'Monday evaluation after 04:00', last_ok: vault.at || null, enabled: true,
+    level: vaultAge > 8 ? 'watch' : worst('ok', fromCheck(check('monday')) || 'ok'),
+    problem: vaultAge > 8 ? 'The Monday evaluation has not run for over a week.' : '' });
 
   // Family Dashboard (05:30–07:00).
   const family = s.family_jobs || {};
   const familyToday = family.at && amsterdamDay(Date.parse(family.at)) === today;
   const familyErrors = Object.entries((family.report) || {}).filter(([, r]) => r && r.error).map(([k, r]) => `${k}: ${r.error}`);
-  // family_from: the first morning the Quest Engine runs them (Make runs them before that).
-  const familyFrom = status && status.family_from;
-  const familyOn = env.FAMILY_ENABLED === '1' && !(familyFrom && today < familyFrom);
-  add({ key: 'family', name: 'Family Dashboard', detail: familyOn ? 'Chores, rollover, metrics, boss and image, 05:30–07:00' : env.FAMILY_ENABLED === '1' ? `Moves to the Quest Engine on ${familyFrom}; Make runs it until then` : 'Not on the Quest Engine (FAMILY_ENABLED off)', last_ok: family.at || null, enabled: familyOn,
-    level: !familyOn ? 'ok' : worst(familyErrors.length ? 'watch' : 'ok', minutes >= 8 * 60 && !familyToday ? 'attention' : 'ok', fromCheck(check('family-morning')) || 'ok'),
-    problem: familyOn ? (familyErrors.join('; ') || (minutes >= 8 * 60 && !familyToday ? "This morning's family jobs have not run." : '')) : '' });
+  add({ key: 'family', name: 'Family Dashboard', detail: 'Chores, rollover, metrics, boss and image, 05:30–07:00', last_ok: family.at || null, enabled: true,
+    level: worst(familyErrors.length ? 'watch' : 'ok', minutes >= 8 * 60 && !familyToday ? 'attention' : 'ok', fromCheck(check('family-morning')) || 'ok'),
+    problem: familyErrors.join('; ') || (minutes >= 8 * 60 && !familyToday ? "This morning's family jobs have not run." : '') });
 
   // Image and video Workflows.
   const visuals = check('visuals');
@@ -518,12 +514,12 @@ export function system({ status, checks, ledger, latest }, now = Date.now()) {
     note: s.vault_published ? `Vault card last published ${Math.round(vaultPub)} h ago` : '' });
 
   // The Strava and Withings syncs (in the Quest Engine since 30 Sep; Make
-  // before), judged by their newest Notion row and their healthchecks.io check.
+  // before), judged by their newest row and their healthchecks.io check.
   for (const [key, name, cfg, row] of [['strava', 'Workout / Strava sync', SYNCS.strava, latest && latest.workout], ['withings', 'Health / Withings sync', SYNCS.withings, latest && latest.metric]]) {
     const age = row && row.created ? hoursSince(row.created, now) / 24 : Infinity;
     const stale = age > cfg.attentionDays ? 'attention' : age > cfg.watchDays ? 'watch' : 'ok';
     const failing = check(key) && check(key).status === 'down';
-    add({ key, name, detail: `Quest Engine (was Make ${cfg.wasMake}); judged by the newest Notion row and the ${key} check`, last_ok: row && row.created || null,
+    add({ key, name, detail: `Quest Engine (was Make ${cfg.wasMake}); judged by the newest row and the ${key} check`, last_ok: row && row.created || null,
       level: worst(stale, fromCheck(check(key)) || 'ok'),
       problem: failing ? `healthchecks.io reports the ${key} sync failing. See GET /status (${key}) and the Quest Engine logs.`
         : stale === 'ok' ? '' : `No new ${key === 'strava' ? 'workout' : 'measurement'} for ${Number.isFinite(age) ? Math.floor(age) + ' days' : 'a long time'}. If you ${key === 'strava' ? 'trained' : 'weighed in'} since, the Quest Engine's ${key} sync has stopped.` });
