@@ -30,6 +30,9 @@
     // switch, then "d1" (src/journald1.js for the journal page; switched 1 Oct 2026 13:59 UTC). Always the
     // same as the Quest Engine's JOURNAL_STORE.
     "JOURNAL_STORE": "d1",
+    // Whether the 🌍 line is still written on the Notion Quest log page:
+    // "1" until step 5's switch, then "0". The same as the Quest Engine's.
+    "NOTION_QUEST_LOG": "1",
     "CHAT_MODEL": "gpt-6-astra"
   }
   // Secrets (set with `npx wrangler secret put <NAME>`, never committed):

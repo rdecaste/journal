@@ -7,9 +7,10 @@ watching or Needs attention, with the reasons. It runs as its own Cloudflare
 Worker, separate from the Quest Engine.
 
 The Worker also serves Roy's landing page, the **Quest log page** at `/`
-(`src/today.js` data, `src/todaypage.js` page): the Quest log from Notion
-(Morning Spark with today's journal link, 💬 notes, training and to-do
-numbers), the hero and active quests from the Quest Engine (through the
+(`src/today.js` data, `src/todaypage.js` page): the morning runs' texts
+from the Quest Engine's `GET /questlog` (Morning Spark with today's journal
+link, 💬 notes, training and to-do numbers; read off the Notion Quest log
+page until 1 Oct 2026), the hero and active quests from the Quest Engine (through the
 `QUEST_ENGINE` service binding; a quest card opens its Notion page), the
 cross-border numbers with today's work location, and one "Today's briefing"
 card: the AI summary bullets, then one state chip per area linking to its tab
@@ -35,7 +36,8 @@ Full description and change log: the Notion page "🧭 Admin Dashboard".
 | Quick Links | `src/config.js` |
 
 It writes two things: at 07:00 Amsterdam it rewrites the 🌍 callout on the
-Notion Quest log with the buffer line (`src/questlog.js`), and the journal page
+Notion Quest log with the buffer line (`src/questlog.js`; only while
+`NOTION_QUEST_LOG` is "1"), and the journal page
 writes Roy's words into the day's Journal row (plus Success, and Done / the
 journal link on a To-Dos row he ticks or picks). Targets, thresholds, links and the unit prices behind the
 cost estimate are in `src/config.js`. The drift rules are in

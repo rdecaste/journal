@@ -7,6 +7,11 @@ import { Notion } from './notion.js';
 import { QUEST_LOG } from './config.js';
 import { store } from './usage.js';
 
+// Only while the Notion Quest log page is kept (NOTION_QUEST_LOG, the same
+// setting as the Quest Engine's; step 5 of its docs/d1-migration.md): "0"
+// stops this write.
+export const notionQuestLog = env => !(env && env.NOTION_QUEST_LOG === '0');
+
 const fmt = n => (n === null || n === undefined ? '–' : String(Math.round(n)));
 
 // The callout's rich text, in the same shape as the other "Today at a glance"

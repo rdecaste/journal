@@ -1,46 +1,30 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { walkPage, readQuestLog, heroView, questsView, crossView, briefingView, workDay } from '../src/today.js';
+import { questLogView, heroView, questsView, crossView, briefingView, workDay } from '../src/today.js';
 import { todayHtml } from '../src/todaypage.js';
 import { loginHtml } from '../src/page.js';
 
-const run = (text, extra = {}) => ({ type: 'text', plain_text: text, text: { content: text }, ...extra });
-const block = (id, type, texts = [], extra = {}) => ({ id, type, [type]: { rich_text: texts, ...extra } });
-const callout = (id, emoji, texts) => block(id, 'callout', texts, { icon: { type: 'emoji', emoji } });
-const at = (b, parent) => ({ block: b, parent });
+// GET /questlog as the Quest Engine answers it.
+const questLog = {
+  ok: 1, day: '2026-09-29',
+  spark: 'Hey Roy, a thought.\n\nGrtz, ChatGPT ✌️',
+  journal: { title: '29 September 2026', url: 'https://admindashboard.quest-engine.workers.dev/journal' },
+  main_quest: { title: 'Break the PMO Cycle', url: null },
+  notes: { main_quest: 'Keep it calm.', cross_border: 'Plenty of room.', training: 'Mind the blister.', todo: '', attention: 'Focus on the half marathon.' },
+  notes_day: '2026-09-29',
+  training: { hours: 0.8, target: 6 },
+  todo: { open: '50+', oldest_days: 49 }
+};
 
-// The Quest log as the walk returns it (29 Sep 2026 layout).
-const flat = [
-  at(block('cols', 'column_list'), 'page'),
-  at(block('c1', 'column'), 'cols'),
-  at(callout('spark', '✨', [run('Morning Spark\n'), run('Hey Roy, a thought.\n\nGrtz, ChatGPT ✌️')]), 'c1'),
-  at(callout('jbox', '📓', [run('Today’s journal')]), 'c1'),
-  at(block('jlink', 'paragraph', [{ type: 'mention', plain_text: '29 September 2026', href: 'https://www.notion.so/abc' }]), 'jbox'),
-  at(block('c2', 'column'), 'cols'),
-  at(callout('main', '⚔️', [run('Main quest', { href: 'https://www.notion.so/mq' }), run('\nBreak the PMO Cycle · '), run('Visual', { href: 'https://x' })]), 'c2'),
-  at(block('hcols', 'column_list'), 'main'),
-  at(block('hc2', 'column'), 'hcols'),
-  at(block('stats', 'paragraph', [run('Level 5')]), 'hc2'),
-  at(block('mnote', 'paragraph', [run('💬 Keep it calm.')]), 'hc2'),
-  at(block('h1', 'heading_2', [run('☀️ Today at a glance')]), 'page'),
-  at(callout('cross', '🌍', [run('Cross-border\n62% Belgium · 13 NL days spare')]), 'g1'),
-  at(block('cnote', 'paragraph', [run('💬 Plenty of room.')]), 'cross'),
-  at(callout('train', '🏋️', [run('Training this week'), run('\n0.8 of 6 h')]), 'g2'),
-  at(block('tnote', 'paragraph', [run('💬 Mind the blister.')]), 'train'),
-  at(callout('todo', '✅', [run('To-dos'), run('\n50+ open · oldest waiting 49 days')]), 'g3'),
-  at(block('h2', 'heading_2', [run('🎯 Active quests')]), 'page'),
-  at(block('anote', 'paragraph', [run('💬 Focus on the half marathon.')]), 'page'),
-  at(block('db', 'child_database'), 'page')
-];
-
-test('questlog page: reads the Quest log texts, boxes and notes', () => {
-  const q = readQuestLog(flat);
+test('questlog page: the morning runs\' texts and numbers from the Quest Engine', () => {
+  const q = questLogView(questLog);
   assert.equal(q.spark, 'Hey Roy, a thought.\n\nGrtz, ChatGPT ✌️');
-  assert.deepEqual(q.journal, { title: '29 September 2026', url: 'https://www.notion.so/abc' });
-  assert.deepEqual(q.main_quest, { title: 'Break the PMO Cycle', url: 'https://www.notion.so/mq' });
-  assert.deepEqual(q.notes, { main_quest: 'Keep it calm.', cross_border: 'Plenty of room.', training: 'Mind the blister.', todo: '', attention: 'Focus on the half marathon.' });
+  assert.deepEqual(q.journal, questLog.journal);
+  assert.deepEqual(q.main_quest, { title: 'Break the PMO Cycle', url: null });
+  assert.deepEqual(q.notes, questLog.notes);
   assert.deepEqual(q.training, { hours: 0.8, target: 6 });
   assert.deepEqual(q.todo, { open: '50+', oldest_days: 49 });
+  assert.deepEqual(questLogView(null), { spark: '', journal: null, main_quest: null, notes: {}, training: null, todo: null });
 });
 
 test('questlog page: hero, quests and cross-border views', () => {
@@ -65,7 +49,7 @@ test('questlog page: hero, quests and cross-border views', () => {
 });
 
 test('questlog page: renders full and empty data, escapes text', () => {
-  const q = readQuestLog(flat);
+  const q = questLogView(questLog);
   const html = todayHtml({ built_at: '2026-09-29T05:00:00Z', today: '2026-09-29', ...q,
     hero: heroView({ level: 5, current_hp: 283, max_hp: 315, xp_to_next_stage: 3911 }, { records: { current_run: 20 } }),
     quests: questsView([{ id: 'h', questTitle: '<Half> & Co', questAttention: 'Focus', questPhase: 'Build' }], '2026-09-29'),
@@ -135,17 +119,3 @@ test('login can return to the dashboard at /admin', () => {
   assert.match(loginHtml('', '/admin'), /name="next" value="\/admin"/);
 });
 
-test('quest log: the page walk reads each level at once and keeps page order', async () => {
-  const kids = {
-    root: [{ id: 'a', type: 'column_list', has_children: true }, { id: 'h', type: 'heading_2', has_children: false }],
-    a: [{ id: 'c1', type: 'column', has_children: true }, { id: 'c2', type: 'column', has_children: true }],
-    c1: [{ id: 'x', type: 'callout', has_children: true }],
-    c2: [{ id: 'y', type: 'paragraph', has_children: false }],
-    x: [{ id: 'z', type: 'paragraph', has_children: false }]
-  };
-  let inFlight = 0, most = 0;
-  const n = { children: async id => { inFlight++; most = Math.max(most, inFlight); await new Promise(r => setTimeout(r, 5)); inFlight--; return kids[id] || []; } };
-  const flat = await walkPage(n, 'root');
-  assert.deepEqual(flat.map(x => `${x.parent}>${x.block.id}`), ['root>a', 'a>c1', 'c1>x', 'x>z', 'a>c2', 'c2>y', 'root>h']);
-  assert.equal(most, 2);
-});

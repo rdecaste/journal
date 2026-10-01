@@ -1,13 +1,10 @@
 // The Quest log as a clean page of its own (GET /questlog, Roy 29 Sep 2026):
-// the Notion Quest log's texts (Morning Spark, today's journal, the 💬 notes,
-// the training and to-do boxes, which the Quest Engine's 03:00 run keeps
-// current), the hero and the active quests from the Quest Engine, and the
+// the morning runs' texts (Morning Spark, today's journal, the 💬 notes, the
+// training and to-do numbers, kept by the Quest Engine's 03:00 run), the hero and the active quests from the Quest Engine, and the
 // cross-border numbers the dashboard already computes. Since 29 Sep it also
 // carries the dashboard's old Overview: the AI summary, what drifts (flags),
 // today's work location and whether the automations run. Read only.
 
-import { Notion } from './notion.js';
-import { QUEST_LOG } from './config.js';
 import { loadDashboard } from './load.js';
 import { cached, remember } from './cache.js';
 
@@ -15,92 +12,27 @@ const CACHE_SECONDS = 300;
 const CLOUD = 'https://res.cloudinary.com/a3xk0plk';
 const MARK = '💬';
 
-// ---- The Notion page ----
+// ---- The morning runs' texts ----
 
-const OPEN = new Set(['column_list', 'column', 'callout']);
-
-// Every block in page order as { block, parent }, opening columns and callouts.
-// The page is read a level at a time, each level's boxes at once.
-export async function walkPage(n, pageId, maxDepth = 5) {
-  const kids = { [pageId]: await n.children(pageId) };
-  let level = kids[pageId];
-  for (let depth = 0; depth < maxDepth && level.length; depth++) {
-    const open = level.filter(b => b.has_children && OPEN.has(b.type));
-    const lists = await Promise.all(open.map(b => n.children(b.id)));
-    open.forEach((b, i) => { kids[b.id] = lists[i]; });
-    level = lists.flat();
-  }
-  const out = [];
-  const visit = parent => {
-    for (const block of kids[parent] || []) {
-      out.push({ block, parent });
-      visit(block.id);
-    }
-  };
-  visit(pageId);
-  return out;
-}
-
-const runs = b => (b && b[b.type] && b[b.type].rich_text) || [];
-const plain = b => runs(b).map(r => r.plain_text ?? r.text?.content ?? '').join('');
-const iconOf = b => (b && b[b.type] && b[b.type].icon && b[b.type].icon.emoji) || '';
-const isNote = b => b.type === 'paragraph' && plain(b).trim().startsWith(MARK);
-const noteText = b => (b ? plain(b).trim().replace(/^💬\s*/u, '') : '');
-const norm = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
-const num = s => (s === undefined ? null : Number(s));
-
-export function readQuestLog(flat) {
-  const callout = emoji => (flat.find(x => x.block.type === 'callout' && iconOf(x.block) === emoji) || {}).block || null;
-  const under = id => {
-    const inside = new Set([id]);
-    return flat.filter(x => inside.has(x.parent) && inside.add(x.block.id)).map(x => x.block);
-  };
-  const noteIn = box => (box ? noteText(under(box.id).find(isNote)) : '');
-
-  const spark = callout('✨');
-  const sparkText = plain(spark).replace(/^\s*Morning Spark\s*\n?/i, '').trim();
-
-  const journalBox = callout('📓');
-  const link = journalBox ? under(journalBox.id).find(b => b.type === 'paragraph' && !isNote(b)) : null;
-  const mention = runs(link).find(r => r.href) || null;
-  const journal = mention ? { title: (mention.plain_text || '').trim() || 'Today’s journal', url: mention.href } : null;
-
-  // ⚔️ reads "Main quest" (linked to the quest page), then "<title> · Visual".
-  const main = callout('⚔️');
-  const mainLines = plain(main).split('\n');
-  const mainLink = runs(main).find(r => r.href && /main quest/i.test(r.plain_text || '')) || null;
-  const mainQuest = { title: (mainLines[1] || '').split(' · ')[0].trim(), url: mainLink ? mainLink.href : null };
-
-  const training = /([\d.]+)\s*of\s*([\d.]+)\s*h/.exec(plain(callout('🏋️')));
-  const todo = plain(callout('✅'));
-  const open = /(\d+\+?)\s*open/.exec(todo);
-  const oldest = /oldest waiting (\d+) days/.exec(todo);
-
-  // The quests note: the first 💬 line after the "Active quests" heading.
-  let attention = '';
-  const h = flat.findIndex(x => x.block.type === 'heading_2' && norm(plain(x.block)).includes('ACTIVE QUESTS'));
-  if (h >= 0) {
-    for (let j = h + 1; j < flat.length; j++) {
-      if (flat[j].parent !== flat[h].parent) continue;
-      if (/^heading_/.test(flat[j].block.type)) break;
-      if (isNote(flat[j].block)) { attention = noteText(flat[j].block); break; }
-    }
-  }
-
+// From the Quest Engine (GET /questlog): the Morning Spark, today's journal,
+// the main quest, the 💬 notes and the training and to-do numbers. Until step
+// 5 of the D1 move (1 Oct 2026) they were read off the Notion Quest log page,
+// in the same shape.
+export function questLogView(r) {
   return {
-    spark: sparkText,
-    journal,
-    main_quest: mainQuest,
-    notes: { main_quest: noteIn(callout('⚔️')), cross_border: noteIn(callout('🌍')), training: noteIn(callout('🏋️')), todo: noteIn(callout('✅')), attention },
-    training: training ? { hours: num(training[1]), target: num(training[2]) } : null,
-    todo: open ? { open: open[1], oldest_days: oldest ? num(oldest[1]) : null } : null
+    spark: (r && r.spark) || '',
+    journal: (r && r.journal) || null,
+    main_quest: (r && r.main_quest) || null,
+    notes: (r && r.notes) || {},
+    training: (r && r.training) || null,
+    todo: (r && r.todo) || null
   };
 }
 
 // ---- The Quest Engine ----
 
-async function engine(env, path) {
-  const request = new Request(`${env.QUEST_ENGINE_URL}${path}`, { headers: { Accept: 'application/json' } });
+async function engine(env, path, headers = {}) {
+  const request = new Request(`${env.QUEST_ENGINE_URL}${path}`, { headers: { Accept: 'application/json', ...headers } });
   const r = await (env.QUEST_ENGINE ? env.QUEST_ENGINE.fetch(request) : fetch(request));
   if (!r.ok) throw new Error(`Quest Engine ${path} answered ${r.status}`);
   return r.json();
@@ -178,8 +110,8 @@ export function briefingView(dash) {
 
 // ---- Everything the page shows ----
 
-// `dashboard` may be a promise, so the Notion page and the Quest Engine are
-// read while the dashboard data is still loading.
+// `dashboard` may be a promise, so the Quest Engine is read while the
+// dashboard data is still loading.
 export async function loadToday(env, { now = Date.now(), fresh = false, dashboard = null } = {}) {
   if (!fresh) {
     const hit = await cached(env, 'questlog', CACHE_SECONDS);
@@ -188,14 +120,14 @@ export async function loadToday(env, { now = Date.now(), fresh = false, dashboar
   const errors = [];
   const safe = (p, label) => p.catch(e => { errors.push(`${label}: ${e.message || e}`); return null; });
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Amsterdam' }).format(new Date(now));
-  const [flat, state, hero, board, dash] = await Promise.all([
-    safe(walkPage(new Notion(env.NOTION_TOKEN), QUEST_LOG.page), 'Quest log'),
+  const [questLog, state, hero, board, dash] = await Promise.all([
+    safe(engine(env, '/questlog', { 'X-Admin-Token': env.QUEST_ENGINE_TOKEN || '' }), 'Quest log'),
     safe(engine(env, '/mainquest'), 'Main quest'),
     safe(engine(env, '/hero'), 'Hero'),
     safe(engine(env, '/questboard'), 'Questboard'),
     dashboard ? safe(Promise.resolve(dashboard), 'Dashboard') : safe(loadDashboard(env, { now }), 'Dashboard')
   ]);
-  const log = flat ? readQuestLog(flat) : { spark: '', journal: null, main_quest: null, notes: {}, training: null, todo: null };
+  const log = questLogView(questLog);
   const data = {
     built_at: new Date(now).toISOString(), today,
     ...log,
