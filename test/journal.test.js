@@ -302,3 +302,29 @@ test('journal page: renders, keeps the data safe inside the page, and the script
   assert.ok(!html.includes('Next move'));
   assert.ok(journalHtml({ day: '2026-09-30', page: null }).includes('isn’t there yet'));
 });
+
+test('evening question: written once from the whole morning, again only when the morning changed', async () => {
+  const { writeEveningQuestion, eveningQuestion, morningFacts } = await import('../src/eveningq.js');
+  assert.equal(morningFacts({ headspace: ' ', focus: [''] }), null);
+  const kept = new Map();
+  const env = { ADMIN_AI: '1', OPENAI_API_KEY: 'k', CHAT_MODEL: 'm', STORE: { idFromName: () => 'main', get: () => ({ get: async k => kept.get(k) ?? null, put: async (k, v) => { kept.set(k, structuredClone(v)); } }) } };
+  const sent = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url, init) => { sent.push(JSON.parse(init.body)); return Response.json({ choices: [{ message: { content: '“You set out calm. How did it go?”' } }], usage: { prompt_tokens: 10, completion_tokens: 5 } }); };
+  try {
+    const m = { headspace: 'Calm', forward: 'Dinner', winif: 'I call the gate company', focus: ['Call', ''] };
+    const now = Date.parse('2026-09-30T06:00:00Z');
+    const q = await writeEveningQuestion(env, '2026-09-30', m, { now });
+    assert.equal(q.text, 'You set out calm. How did it go?');
+    const facts = JSON.parse(sent[0].messages[1].content);
+    assert.deepEqual(facts, { headspace: 'Calm', looking_forward_to: 'Dinner', today_is_a_win_if: 'I call the gate company', focus: ['Call'] });
+    await writeEveningQuestion(env, '2026-09-30', m, { now: now + 3600e3 });
+    assert.equal(sent.length, 1);
+    await writeEveningQuestion(env, '2026-09-30', { ...m, forward: 'Dinner with Anna' }, { now: now + 3600e3 });
+    assert.equal(sent.length, 2);
+    assert.equal((await eveningQuestion(env, '2026-09-30')).n, 2);
+    assert.equal(await eveningQuestion(env, '2026-10-01'), null);
+    assert.equal(kept.get('usage').days['2026-09-30'].chat_calls, 2);
+    assert.equal(await writeEveningQuestion({ ...env, ADMIN_AI: '0' }, '2026-09-30', m), null);
+  } finally { globalThis.fetch = real; }
+});

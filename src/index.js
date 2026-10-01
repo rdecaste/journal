@@ -9,6 +9,9 @@
 //                  write, morning and evening (signed in; src/journal.js)
 //   POST /journal/save  writes what changed on the journal page into the day's
 //                  Notion journal (signed in; JSON)
+//   POST /journal/evening-question  writes the evening's Reflection question
+//                  from the morning (signed in; JSON { headspace, forward, winif,
+//                  focus }; one OpenAI call, only when the morning changed)
 //   Signed out, each page sends you to the login and back afterwards.
 //   GET  /login    the login page; POST /login with the password
 //   POST /logout   signs out
@@ -27,7 +30,8 @@ import { loadDashboard } from './load.js';
 import { dashboardHtml, loginHtml } from './page.js';
 import { loadToday } from './today.js';
 import { todayHtml } from './todaypage.js';
-import { loadJournal, saveJournal } from './journal.js';
+import { loadJournal, saveJournal, journalDay } from './journal.js';
+import { writeEveningQuestion, aiOn } from './eveningq.js';
 import { journalHtml } from './journalpage.js';
 import { summaryDue, writeSummary, isSummaryHour } from './summary.js';
 import { writeBufferLine, questLogDue, isQuestLogHour } from './questlog.js';
@@ -113,6 +117,19 @@ export default {
           // Notion refuses writes until the connection has "Update content".
           if (/Notion 403/.test(message)) return json({ ok: 0, code: 'no_write', message }, 403);
           return json({ ok: 0, code: e.code || 'server_error', message }, e.code === 'bad_request' ? 400 : 500);
+        }
+      }
+      if (pathname === '/journal/evening-question' && request.method === 'POST') {
+        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+        if (!aiOn(env)) return json({ ok: 0, code: 'ai_off' }, 400);
+        const body = await request.json().catch(() => null);
+        if (!body || typeof body !== 'object') return json({ ok: 0, code: 'bad_request' }, 400);
+        try {
+          const q = await writeEveningQuestion(env, journalDay(), body);
+          return json({ ok: 1, q: q ? q.text : null });
+        } catch (e) {
+          console.error('evening question', e && e.stack || e);
+          return json({ ok: 0, code: 'server_error', message: String(e.message || e) }, 500);
         }
       }
       if (pathname === '/admin') return signedIn ? new Response(dashboardHtml(), { headers: PAGE_HEADERS }) : redirect('/login?next=/admin');

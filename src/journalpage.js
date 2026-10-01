@@ -117,7 +117,10 @@ textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400
 .dot{color:var(--muted);margin:0 4px}
 /* Hand-offs between the two halves, the recaps and the endings. */
 .handoff{display:flex;flex-direction:column;gap:8px}
-.entry .handoff{margin-bottom:10px}
+.entry .handoff{margin-top:8px;gap:10px}
+.didrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.dl{font-size:13.5px;font-weight:500;color:var(--muted)}
+.handoff>.dl{margin-bottom:-6px}
 .handoff blockquote{margin:0;font-family:var(--serif);font-size:18px;line-height:1.55;padding-left:14px;border-left:2px solid color-mix(in srgb,var(--ki) 60%,transparent);white-space:pre-wrap}
 .evening .handoff blockquote{border-color:color-mix(in srgb,var(--night) 50%,transparent)}
 .handoff .soft{margin:0;font-family:var(--serif);font-style:italic;font-size:17px;line-height:1.5;color:var(--muted)}
@@ -184,13 +187,14 @@ textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400
 `;
 
 // One writing box; the script fills in the question and the nudges.
-const entry = (id, { small = false, evening = false, lead = '' } = {}) => {
+const entry = (id, { small = false, evening = false, after = '' } = {}) => {
   const p = PROMPTS[id];
   return `<div class="entry${small ? ' small' : ''}" data-entry="${id}">
         <div class="label">${p.icon} ${esc(p.name)}</div>
         <button type="button" class="more" data-box="${id}" aria-label="Another question">↻ another</button>
-        ${lead}<p class="q" id="${id}-q"></p>
+        <p class="q" id="${id}-q"></p>
         <textarea id="${id}" aria-labelledby="${id}-q" rows="2" placeholder="${esc(p.starters[0] || '')}"></textarea>
+        ${after}
         ${p.hint ? `<p class="hint">${esc(p.hint)}</p>` : ''}
       </div>`;
 };
@@ -254,7 +258,7 @@ export function journalHtml(d) {
   <div id="e-recap" hidden></div>
   <div id="e-open" class="evening" style="display:flex;flex-direction:column;gap:22px">
     <section class="sheet" aria-label="Looking back">
-      ${d.sections.reflection ? entry('reflection', { lead: '<div class="handoff" id="lookback" hidden></div>' }) : '<div class="handoff" id="lookback" hidden></div>'}
+      ${d.sections.reflection ? entry('reflection', { after: '<div class="handoff" id="lookback" hidden></div>' }) : '<div class="handoff" id="lookback" hidden></div>'}
     </section>
     <section class="sheet" aria-label="Before you sleep">
       ${entry('park', { small: true })}
@@ -425,6 +429,7 @@ const SCRIPT = String.raw`
   var Q = {};
   Object.keys(P).forEach(function (id) {
     var first = D.sections[id] && D.sections[id].q, list = (first ? [first] : []).concat(P[id].more);
+    if (id === 'reflection' && D.evening_q) list.unshift(D.evening_q);
     Q[id] = list;
     var q = $(id + '-q'); if (q) q.textContent = list[(UI['n_' + id] || 0) % list.length];
   });
@@ -508,11 +513,11 @@ const SCRIPT = String.raw`
   })();
   function lookback() {
     var w = (V.winif || '').trim(), items = focusItems();
-    // The morning's "win if" and focus lead into the Reflection question rather than a block of their own.
+    // Under the Reflection box: whether the morning's "win if" happened, and the focus to tick off.
     var h = '';
-    if (w) h += '<p class="q">This morning you said today is a win if “' + esc(w.replace(/^…\s*/, '').replace(/[.…\s]+$/, '')) + '”. Did it happen?</p><div class="did">' +
-      ['It happened', 'Partly', 'Not today'].map(function (o) { return '<button type="button" data-did="' + o + '" aria-pressed="' + (V.did === o) + '">' + o + '</button>'; }).join('') + '</div>';
-    if (items.length) h += '<p class="q">' + (w ? 'And your focus for today:' : 'Your focus for today:') + '</p><div class="ticks">' + items.map(function (f, i) { var c = f.it.c; return '<label class="line' + (c ? ' done' : '') + '"><input type="checkbox" data-k="' + i + '"' + (c ? ' checked' : '') + '><input type="text" value="' + esc(f.it.t) + '" readonly tabindex="-1" aria-label="' + esc(f.it.t) + '"></label>'; }).join('') + '</div>';
+    if (w) h += '<div class="didrow"><span class="dl">The win</span><div class="did">' +
+      ['It happened', 'Partly', 'Not today'].map(function (o) { return '<button type="button" data-did="' + o + '" aria-pressed="' + (V.did === o) + '">' + o + '</button>'; }).join('') + '</div></div>';
+    if (items.length) h += '<span class="dl">Focus</span><div class="ticks">' + items.map(function (f, i) { var c = f.it.c; return '<label class="line' + (c ? ' done' : '') + '"><input type="checkbox" data-k="' + i + '"' + (c ? ' checked' : '') + '><input type="text" value="' + esc(f.it.t) + '" readonly tabindex="-1" aria-label="' + esc(f.it.t) + '"></label>'; }).join('') + '</div>';
     $('lookback').innerHTML = h; $('lookback').hidden = !h;
     Array.prototype.forEach.call(document.querySelectorAll('[data-did]'), function (b) { b.addEventListener('click', function () { change('did', V.did === b.getAttribute('data-did') ? '' : b.getAttribute('data-did'), true); lookback(); }); });
     Array.prototype.forEach.call(document.querySelectorAll('[data-k]'), function (b) { b.addEventListener('change', function () { var f = items[+b.getAttribute('data-k')]; tick(f.g, f.it, b.checked); drawGroup(f.g); lookback(); }); });
@@ -571,10 +576,27 @@ const SCRIPT = String.raw`
     var eOpen = evening || UI.eopen, eClosed = eOpen && UI.edone;
     $('e-open').hidden = !eOpen || eClosed; $('e-later').hidden = eOpen; $('e-recap').hidden = !eClosed;
     recap(); lookback(); if (eClosed) eveningRecap(); growAll();
+    if (eOpen && !eClosed && !D.evening_q && !asked) askEvening();
   }
   $('open-evening').addEventListener('click', function () { UI.eopen = true; saveUI(); layout(); });
+  // The evening's Reflection question, written from the whole morning (one small AI call;
+  // the server only asks again when the morning changed).
+  var asked = false;
+  function askEvening() {
+    var m = { headspace: V.headspace || '', forward: V.forward || '', winif: V.winif || '', focus: focusItems().map(function (f) { return f.it.t; }) };
+    if (!(m.headspace.trim() || m.forward.trim() || m.winif.trim() || m.focus.length)) return;
+    asked = true;
+    fetch('/journal/evening-question', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(m), credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || !j.ok || !j.q || !Q.reflection) return;
+        if (D.evening_q && Q.reflection[0] === D.evening_q) Q.reflection.shift();
+        D.evening_q = j.q; Q.reflection.unshift(j.q);
+        var el = $('reflection-q'); if (el && !(UI.n_reflection > 0)) el.textContent = j.q;
+      }).catch(function () {});
+  }
   $('m-done').addEventListener('click', function () {
-    UI.mdone = true; UI.mopen = false; UI.bye = true; saveUI(); flush(); layout();
+    UI.mdone = true; UI.mopen = false; UI.bye = true; saveUI(); flush(); layout(); askEvening();
     $('m-recap').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   });
   $('e-done').addEventListener('click', function () {

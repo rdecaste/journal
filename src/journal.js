@@ -23,6 +23,7 @@
 
 import { Notion } from './notion.js';
 import { cached, remember } from './cache.js';
+import { eveningQuestion } from './eveningq.js';
 
 export const JOURNAL = {
   journal: '9e98784e-e304-4cee-9a50-e492580b1d86',
@@ -325,6 +326,7 @@ export async function loadJournal(env, { now = Date.now() } = {}) {
   const treeFor = id => later(readTree(n, id));
   const linkedFor = id => later(n.query(JOURNAL.todos, { filter: { property: 'Related Journal', relation: { contains: id } }, page_size: 50 }).then(r => r.results || []));
   const early = known.page ? { id: known.page, tree: treeFor(known.page), linked: linkedFor(known.page) } : null;
+  const eveningP = eveningQuestion(env, day).catch(e => { console.warn('Evening question:', e.message || e); return null; });
   const lastP = safe(known.before ? handoff(env, n, known.before) : beforeP.then(b => handoff(env, n, b && b.id)), 'Yesterday’s journal');
 
   const [page, before, open, hero, asked, quests] = await Promise.all([
@@ -354,12 +356,13 @@ export async function loadJournal(env, { now = Date.now() } = {}) {
   const reads = early && sameId(early.id, page.id) ? early : { tree: treeFor(page.id), linked: linkedFor(page.id) };
 
   const sleepId = relIds(page, 'Sleep')[0];
-  const [tree, last, linked, sleep, workouts] = await Promise.all([
+  const [tree, last, linked, sleep, workouts, evening] = await Promise.all([
     reads.tree(),
     lastP,
     safe(reads.linked(), 'To-Dos'),
     sleepId ? safe(n.call('GET', `/pages/${sleepId}`), 'Sleep') : null,
-    Promise.all(relIds(page, 'Workouts').slice(0, 3).map(id => safe(n.call('GET', `/pages/${id}`), 'Workout')))
+    Promise.all(relIds(page, 'Workouts').slice(0, 3).map(id => safe(n.call('GET', `/pages/${id}`), 'Workout'))),
+    eveningP
   ]);
   const j = readJournal(tree);
   j.quests = mergeQuests(j.quests, quests);
@@ -388,6 +391,7 @@ export async function loadJournal(env, { now = Date.now() } = {}) {
     last,
     suggestions: todoSuggestions(open || [], { yesterday: before && before.id, taken }),
     sub: subLines({ sleepHours: hours, workouts: names }),
+    evening_q: evening ? evening.text : null,
     ...j
   };
 }
