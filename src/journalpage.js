@@ -3,9 +3,9 @@
 // Morning above Evening, then the main quest and the quests, open all day.
 // In the evening the morning folds into a short recap, and each half ends
 // with a button that hands a line to the next. Drawn by a small script from
-// the data below; writing goes to Notion when Roy taps Done for this morning,
-// Close the day, Save quests, Save note or a main quest button, and a copy
-// stays in the browser until Notion has it.
+// the data below; writing goes to the day's journal row in D1 when Roy taps
+// Done for this morning, Close the day, Save quests, Save note or a main quest
+// button, and a copy stays in the browser until the save is through.
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // JSON inside a <script> element: no "</script>" or "<!--" can end it early.
@@ -279,7 +279,7 @@ export function journalHtml(d) {
 
   <canvas id="burst" aria-hidden="true"></canvas>
   ${d.errors && d.errors.length ? `<p class="hint">Some parts could not load: ${esc(d.errors.join('; '))}</p>` : ''}
-  <p class="foot">${d.url ? `Saves to <a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.title || 'your journal')} in Notion</a>` : `Saves ${esc(d.title || 'your journal')}`} when you tap Done, Close the day or Save.</p>
+  <p class="foot">Saves ${esc(d.title || 'your journal')} when you tap Done, Close the day or Save.</p>
 </div>
 <script type="application/json" id="data">${safeJson(d)}</script>
 <script>${SCRIPT}</script>
@@ -296,7 +296,7 @@ const SCRIPT = String.raw`
   var hhmm = function (d) { return new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Amsterdam', hour: '2-digit', minute: '2-digit' }).format(d || new Date()); };
   var dayOf = function (d) { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Amsterdam' }).format(d); };
 
-  // ---- What the page holds, and where each piece lives in Notion ----
+  // ---- What the page holds ----
   var V = {}, S = { sections: {}, extras: {}, quests: {}, focus: {} };
   Object.keys(D.sections || {}).forEach(function (k) { var s = D.sections[k]; if (s) { V[k] = s.text || ''; S.sections[k] = s.slot; } });
   Object.keys(D.extras || {}).forEach(function (k) { var x = D.extras[k]; V[k] = x ? x.text || '' : ''; S.extras[k] = x ? x.slot : null; });
@@ -309,7 +309,7 @@ const SCRIPT = String.raw`
   var SECTION = { headspace: 1, forward: 1, reflection: 1, tomorrow: 1 };
   var EXTRA = { winif: 1, did: 1, park: 1, mq: 1, mqnote: 1 };
 
-  // A copy in the browser until Notion has it; the page's own switches per day.
+  // A copy in the browser until the save is through; the page's own switches per day.
   var KEY = 'journal:' + D.page, UIKEY = 'journal-ui:' + D.day;
   var store = function (k, v) { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
   var load = function (k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
@@ -369,7 +369,7 @@ const SCRIPT = String.raw`
       .then(function (j) {
         ['sections', 'extras', 'quests', 'focus'].forEach(function (g) { Object.keys(j.slots[g] || {}).forEach(function (k) { S[g][k] = j.slots[g][k]; }); });
         Object.keys(sent).forEach(function (k) { if (k.indexOf('q:') === 0) stamp(k.slice(2), new Date()); });
-        // A piece Notion refused stays here for the next save; the rest is in.
+        // A piece the save refused stays here for the next save; the rest is in.
         var missed = (j.failed || []).filter(function (f) { return f.code !== 'bad_request'; });
         missed.forEach(function (f) {
           if (f.key === 'success') { if (success === null) success = ok; }
@@ -387,7 +387,6 @@ const SCRIPT = String.raw`
         todoOps = ops.concat(todoOps); if (success === null) success = ok;
         keepDraft();
         if (e && e.code === 'signed_out') { status('Signed out. Your writing is kept here; sign in again to save.', true); settle(false); return; }
-        if (e && e.code === 'no_write') { status('Notion won’t let the page write yet. Your writing is kept here.', true); settle(false); return; }
         console.warn('journal save failed', e);
         failures++;
         // A couple of quiet tries, then it waits for the next button.
@@ -469,7 +468,7 @@ const SCRIPT = String.raw`
     if (!D.work || !$('work')) return;
     var w = V.work;
     var pick = function (k, label, list, value) {
-      var opts = list.slice(); if (value && opts.indexOf(value) < 0) opts.push(value);   // keeps what Notion already has
+      var opts = list.slice(); if (value && opts.indexOf(value) < 0) opts.push(value);   // keeps what the row already has
       return '<label class="wsel"><span class="wk">' + label + '</span><select data-w="' + k + '"><option value="">–</option>' +
         opts.map(function (o) { return '<option value="' + esc(o) + '"' + (o === value ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select></label>';
     };

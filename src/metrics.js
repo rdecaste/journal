@@ -129,7 +129,7 @@ export function crossBorder(rows, today, cfg = CROSS_BORDER) {
   else if (buffer !== null && buffer < cfg.bufferAttention) flags.push(flag('attention', 'Cross-border buffer almost gone', `Only ${buffer} NL days left before Belgium drops to ${cfg.beMinimum}%.`));
   else if (buffer !== null && buffer < cfg.bufferWatch) flags.push(flag('watch', 'Cross-border buffer is thin', `${buffer} NL days left before Belgium drops to ${cfg.beMinimum}%.`));
   if (projection && projection.year_end_be_share <= cfg.beMinimum) flags.push(flag('watch', 'Heading toward the line by year end', `At the last ${cfg.trendWeeks} weeks' pattern (${projection.recent_be_share}% BE), the year ends at ${projection.year_end_be_share}% Belgium.`));
-  if (missing.length) flags.push(flag(missing.length > 3 ? 'attention' : 'watch', `${missing.length} work day${missing.length === 1 ? '' : 's'} not classified`, `Missing AM/PM in the Work Location Log: ${missing.slice(0, 5).map(m => m.date).join(', ')}${missing.length > 5 ? '…' : ''}.`, missing[0].url || undefined));
+  if (missing.length) flags.push(flag(missing.length > 3 ? 'attention' : 'watch', `${missing.length} work day${missing.length === 1 ? '' : 's'} not classified`, `Missing AM/PM in the Work Location Log: ${missing.slice(0, 5).map(m => m.date).join(', ')}${missing.length > 5 ? '…' : ''}.`, missing[0].url || D1_CONSOLE));
 
   const todayRow = byDate.get(today);
   return {

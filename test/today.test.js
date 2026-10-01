@@ -43,7 +43,7 @@ test('questlog page: hero, quests and cross-border views', () => {
   assert.equal(qs[0].days_left, 52);
   assert.equal(qs[0].phase, 1);
   assert.equal(qs[2].done, true);
-  assert.equal(qs[0].url, 'https://app.notion.com/p/h');
+  assert.equal(qs[0].url, 'https://questboard.quest-engine.workers.dev/');
   assert.deepEqual(crossView({ ytd: { be_share: 61.8 }, minimum: 50, buffer_days: 12.5, be_days_needed: 0, missing: [] }), { be_share: 61.8, minimum: 50, buffer_days: 12.5, be_days_needed: 0, missing: 0, today: null });
   assert.equal(crossView(null), null);
 });
@@ -58,10 +58,12 @@ test('questlog page: renders full and empty data, escapes text', () => {
   assert.match(html, /🔥 20 days in a row/);
   assert.match(html, /283 \/ 315/);
   assert.match(html, /&lt;Half&gt; &amp; Co/);
-  assert.match(html, /<a href="https:\/\/app\.notion\.com\/p\/h" target="_blank" rel="noopener" class="quest focus">[\s\S]*?<\/a>/);
+  assert.match(html, /<a href="https:\/\/questboard\.quest-engine\.workers\.dev\/" target="_blank" rel="noopener" class="quest focus">[\s\S]*?<\/a>/);
   assert.match(html, /1 work day to fill in/);
   assert.match(html, /Oldest waiting 49 days, since 11 Aug/);
   assert.match(html, /Break the PMO Cycle/);
+  // Since the D1 move nothing on the page opens Notion's frozen copy.
+  assert.doesNotMatch(html, /notion\.(com|so)/);
   const empty = todayHtml({ built_at: '2026-09-29T05:00:00Z', today: '2026-09-29', spark: '', journal: null, main_quest: null, notes: {}, training: null, todo: null, hero: null, quests: [], cross: null, errors: ['Hero: down'] });
   assert.match(empty, /Some parts could not load: Hero: down/);
   assert.match(empty, /No active quests/);

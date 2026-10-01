@@ -350,6 +350,13 @@ test('system: a failing strava or withings check flags the sync even with a rece
   assert.equal(s.processes.find(p => p.key === 'withings').level, 'ok');
 });
 
+test('the dashboard opens Notion only for the two pages labelled (Notion) (1 Oct 2026: the data is in D1)', async () => {
+  const { dashboardHtml } = await import('../src/page.js');
+  const notion = new Set([...dashboardHtml().matchAll(/https:\/\/app\.notion\.com\/p\/\w+/g)].map(m => m[0]));
+  assert.equal(notion.size, 2);
+  assert.equal((dashboardHtml().match(/\(Notion\) ↗/g) || []).length, 2);
+});
+
 test('the dashboard page\'s script parses and defines every constant it uses (1 Oct 2026: D1_CONSOLE was used but not handed to the browser)', async () => {
   const { dashboardHtml } = await import('../src/page.js');
   const vm = await import('node:vm');

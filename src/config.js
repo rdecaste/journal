@@ -2,7 +2,9 @@
 // links and the unit prices behind the cost estimate. Everything the
 // dashboard judges against is here, so a target changes in one place.
 
-// Notion data sources it reads (never writes).
+// The tables' old Notion data source ids. D1 rows still carry theirs as
+// parent.data_source_id (src/healthstore.js), so a write checks it has the
+// right kind of row.
 export const DATA_SOURCES = {
   workLocation: 'd9b2d597-947a-4cf9-863e-482f5f84f84c',
   workouts: 'd1a9346d-eef4-4458-8d91-f0a877bd0140',
@@ -126,22 +128,14 @@ const notion = id => `https://app.notion.com/p/${id}`;
 const card = name => `https://${name}.quest-engine.workers.dev/`;
 
 // The data lives in D1 since 1 Oct 2026: its tables are browsed and edited in
-// the Cloudflare dashboard (D1 → quest → Data Studio). The Notion pages below
-// are other pages, or Notion's frozen copy.
+// the Cloudflare dashboard (D1 → quest → Data Studio). Notion is a frozen,
+// read-only copy; only the two pages below are still linked, as reading.
 export const D1_CONSOLE = 'https://dash.cloudflare.com/5976b96a95f8d424a229294bb45ee3ef/workers/d1/databases/94e5f5c7-b24f-4a3c-808c-a85345a27f7f';
 const doc = (repo, file) => `https://github.com/rdecaste/${repo}/blob/main/docs/${file}`;
 export const QUEST_ENGINE_DOC = doc('quest-engine', 'quest-engine.md');
 
 export const NOTION = {
-  questLog: notion('d835f903d4754c9bbf52100097824752'),
-  questEngine: notion('3e824147f877813889c9cb966890e21b'),
   crossBorder: notion('3c724147f87780e2a083d83acd133385'),
-  borderDashboard: notion('3c724147f87781e9ade2e65497f977c6'),
-  workLocation: notion('3b24f6ff11b04379959f0e0b2effe42f'),
-  bodyMetrics: notion('c04d532ae0904d24a657f19979f2df57'),
-  workouts: notion('ec4d7e3ef61c4269988d68d228207c8b'),
-  sleepRecovery: notion('bd1a2a982c6c49b29001b6efc94b96a1'),
-  healthJourney: notion('3cd24147f877818cafcfd18407ac1200'),
   familyFinance: notion('357ede89a3b34661a8c535f3e9c71a13')
 };
 
@@ -156,10 +150,10 @@ export const LINKS = [
   { group: 'Family', items: [
     { name: 'Family Dashboard', url: card('family') },
     { name: 'Parent Admin', url: card('family') + 'parent' },
-    { name: 'Family Finance HQ', url: NOTION.familyFinance }
+    { name: 'Family Finance HQ (Notion)', url: NOTION.familyFinance }
   ] },
   { group: 'Admin', items: [
-    { name: 'Cross-border working', url: NOTION.crossBorder },
+    { name: 'Cross-border working (Notion)', url: NOTION.crossBorder },
     { name: 'Data (D1 Data Studio)', url: D1_CONSOLE }
   ] },
   { group: 'Infrastructure', items: [

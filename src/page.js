@@ -3,7 +3,7 @@
 // The page fetches /data and draws everything in the browser; nothing here
 // holds personal data.
 
-import { LINKS, NOTION, D1_CONSOLE, QUEST_ENGINE_DOC } from './config.js';
+import { LINKS, D1_CONSOLE, QUEST_ENGINE_DOC } from './config.js';
 
 const STYLE = `
 :root{color-scheme:light;--page:#f9f9f7;--surface:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;--grid:#e1e0d9;--axis:#c3c2b7;--ring:rgba(11,11,11,.10);
@@ -176,7 +176,6 @@ const tag = l => '<span class="tag ' + l + '"><span class="dot"></span>' + LABEL
 const fmt = (n, d = 1) => n === null || n === undefined || Number.isNaN(n) ? '–' : Number(n).toLocaleString('en-GB', { maximumFractionDigits: d, minimumFractionDigits: 0 });
 const ago = iso => { if (!iso) return 'never'; const m = (Date.now() - Date.parse(iso)) / 60000; if (m < 2) return 'just now'; if (m < 90) return Math.round(m) + ' min ago'; const h = m / 60; if (h < 36) return Math.round(h) + ' h ago'; return Math.round(h / 24) + ' days ago'; };
 const day = s => s ? new Date(s.slice(0, 10) + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '–';
-const NOTION = ${JSON.stringify(NOTION)};
 // The data is in D1 (Data Studio) and the docs in GitHub since 1 Oct 2026.
 const D1_CONSOLE = ${JSON.stringify(D1_CONSOLE)};
 const QUEST_ENGINE_DOC = ${JSON.stringify(QUEST_ENGINE_DOC)};
@@ -263,8 +262,8 @@ function renderCross(c) {
     '<div class="card"><h3>Commute</h3><dl class="kv"><dt>E-bike compensation, this month</dt><dd>€ ' + fmt(M.ebike, 2) + '</dd><dt>E-bike compensation, since ' + day(c.start) + '</dt><dd>€ ' + fmt(Y.ebike, 2) + '</dd></dl></div></div>';
   html += '<h2>By month</h2><div class="card scroll"><div class="legend"><span><i style="background:var(--s1)"></i>Belgium</span><span><i style="background:var(--s2)"></i>Netherlands</span></div><table><thead><tr><th>Month</th><th>Split</th><th class="num">BE</th><th class="num">NL</th><th class="num">Travel</th><th class="num">Holiday</th><th class="num">Unclassified</th><th class="num">BE %</th><th class="num">E-bike €</th></tr></thead><tbody>' +
     c.months.map(m => '<tr><td>' + esc(m.month) + '</td><td>' + (m.be + m.nl ? '<div class="split" data-tip="' + fmt(m.be_share) + '% Belgium"><span style="width:' + m.be_share + '%;background:var(--s1)"></span><span style="flex:1;background:var(--s2)"></span></div>' : '') + '</td><td class="num">' + fmt(m.be) + '</td><td class="num">' + fmt(m.nl) + '</td><td class="num">' + fmt(m.travel) + '</td><td class="num">' + fmt(m.holiday) + '</td><td class="num">' + fmt(m.unclassified) + '</td><td class="num">' + fmt(m.be_share) + '</td><td class="num">' + fmt(m.ebike, 2) + '</td></tr>').join('') + '</tbody></table></div>';
-  html += '<h2>Missing or unclassified days</h2>' + (c.missing.length ? '<div class="card scroll"><table><thead><tr><th>Date</th><th>AM</th><th>PM</th><th></th></tr></thead><tbody>' + c.missing.map(m => '<tr><td>' + day(m.date) + '</td><td>' + esc(m.am || '—') + '</td><td>' + esc(m.pm || '—') + '</td><td class="num">' + (m.url ? '<a class="src" href="' + esc(m.url) + '" target="_blank" rel="noopener">Fix ↗</a>' : '<span class="muted">no row</span>') + '</td></tr>').join('') + '</tbody></table></div>' : '<p class="calm">Every past work day is classified.</p>');
-  return html + '<p><a class="src" href="' + D1_CONSOLE + '" target="_blank" rel="noopener">Work Location Log (D1) ↗</a> · <a class="src" href="' + NOTION.borderDashboard + '" target="_blank" rel="noopener">Border Worker Dashboard ↗</a></p>';
+  html += '<h2>Missing or unclassified days</h2>' + (c.missing.length ? '<div class="card scroll"><table><thead><tr><th>Date</th><th>AM</th><th>PM</th><th></th></tr></thead><tbody>' + c.missing.map(m => '<tr><td>' + day(m.date) + '</td><td>' + esc(m.am || '—') + '</td><td>' + esc(m.pm || '—') + '</td><td class="num">' + (!m.no_row ? '<a class="src" href="' + esc(m.url || D1_CONSOLE) + '" target="_blank" rel="noopener">Fix ↗</a>' : '<span class="muted">no row</span>') + '</td></tr>').join('') + '</tbody></table></div>' : '<p class="calm">Every past work day is classified.</p>');
+  return html + '<p><a class="src" href="' + D1_CONSOLE + '" target="_blank" rel="noopener">Work Location Log (D1) ↗</a></p>';
 }
 
 // ---- Health (Recovery today, quests, form, training, body) ----

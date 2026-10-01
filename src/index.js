@@ -5,10 +5,10 @@
 //                  iPad and phone (signed in; ?fresh=1 skips the 5-minute
 //                  cache); /questlog is the same page
 //   GET  /admin    the admin dashboard (signed in)
-//   GET  /journal  the journal page: today's Notion journal as a calm place to
-//                  write, morning and evening (signed in; src/journal.js)
+//   GET  /journal  the journal page: today's journal row (D1) as a calm place
+//                  to write, morning and evening (signed in; src/journald1.js)
 //   POST /journal/save  writes what changed on the journal page into the day's
-//                  Notion journal (signed in; JSON)
+//                  journal row in D1 (signed in; JSON)
 //   POST /journal/evening-question  writes the evening's Reflection question
 //                  from the morning (signed in; JSON { headspace, forward, winif };
 //                  one OpenAI call, only when the morning changed)
@@ -18,13 +18,14 @@
 //   GET  /data     everything the page shows, as JSON (signed in)
 //   POST /summary  rewrite today's AI summary now (signed in; one OpenAI call)
 //
-// It reads Notion (Work Location Log, Workouts, Body Metrics, Sleep & Recovery,
-// the Health Journey's quests), the Quest
-// Engine's GET /status and GET /ledger, and healthchecks.io. It writes the
-// cross-border buffer line in the 🌍 callout on the Quest log page (each
-// morning at 07:00 Amsterdam time by cron, or the first time the dashboard
-// opens after that if the cron missed it), and what Roy writes on the journal
-// page into that day's Journal row and its To-Dos.
+// All data is in the Quest Engine's D1 database `quest` (binding DB) since
+// 1 Oct 2026; Notion is a read-only backup this Worker never calls. It reads
+// Work Location Log, Workouts, Body Metrics, Sleep & Recovery, Quests,
+// Journal and To-Dos from D1; the Quest Engine (service binding QUEST_ENGINE)
+// for GET /status, /ledger, /questlog, /mainquest, /hero, /questboard and
+// /journal/questions; and healthchecks.io. It writes only what Roy saves on
+// the journal page: that day's journal row, its focus and quest notes, its
+// To-Dos ("Win if") and the day's Work Location Log row, all in D1.
 import { isSignedIn, sessionCookie, clearCookie, sameText } from './auth.js';
 import { loadDashboard } from './load.js';
 import { dashboardHtml, loginHtml } from './page.js';
@@ -111,8 +112,6 @@ export default {
         } catch (e) {
           console.error('journal save', e && e.stack || e);
           const message = String(e.message || e);
-          // Notion refuses writes until the connection has "Update content".
-          if (/Notion 403/.test(message)) return json({ ok: 0, code: 'no_write', message }, 403);
           return json({ ok: 0, code: e.code || 'server_error', message }, e.code === 'bad_request' ? 400 : 500);
         }
       }

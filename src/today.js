@@ -11,6 +11,7 @@ import { cached, remember } from './cache.js';
 const CACHE_SECONDS = 300;
 const CLOUD = 'https://res.cloudinary.com/a3xk0plk';
 const MARK = '💬';
+const QUESTBOARD = 'https://questboard.quest-engine.workers.dev/';
 
 // ---- The morning runs' texts ----
 
@@ -69,7 +70,8 @@ export function questsView(cards, today) {
     days_left: c.completedAt ? null : daysTo(c.targetDate),
     done: !!c.completedAt,
     image: `${CLOUD}/image/upload/c_fill,g_auto,w_640,h_360,f_auto,q_auto/Quest-Board/${c.id}`,
-    url: c.id ? `https://app.notion.com/p/${String(c.id).replace(/-/g, '')}` : null
+    // The quest opens on the Quest Dashboard card (its Notion page is a frozen copy since 1 Oct 2026).
+    url: QUESTBOARD
   }));
 }
 

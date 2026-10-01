@@ -6,6 +6,7 @@
 // whether the automations run.
 
 import { PHASES } from './today.js';
+import { D1_CONSOLE } from './config.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = n => (n === null || n === undefined || !isFinite(n) ? '–' : Math.round(n).toLocaleString('en-GB'));
@@ -22,11 +23,13 @@ const LINKS = [
   ['🐉 Hero card', 'https://mainquest.quest-engine.workers.dev/'],
   ['📺 Family Dashboard', 'https://family.quest-engine.workers.dev/'],
   ['🧭 Admin Dashboard', '/admin'],
-  ['🌴 Quest log in Notion', 'https://app.notion.com/p/d835f903d4754c9bbf52100097824752']
+  ['🗄️ Data (D1)', D1_CONSOLE]
 ];
-const WORKOUTS = 'https://app.notion.com/p/ec4d7e3ef61c4269988d68d228207c8b';
-const TODOS = 'https://app.notion.com/p/d66b4d380e884ddbba4b403b3998aa28';
-const MAIN_QUEST = 'https://app.notion.com/p/3d124147f87781f0ac99d85d9ec4aede';
+// Since the D1 move (1 Oct 2026) the data opens in D1 Data Studio and the
+// main quest on the hero card; Notion is a frozen copy.
+const WORKOUTS = D1_CONSOLE;
+const TODOS = D1_CONSOLE;
+const MAIN_QUEST = 'https://mainquest.quest-engine.workers.dev/';
 
 const STYLE = `
 /* Layout: today's story on the left, the hero card on the right, then three
