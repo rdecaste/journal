@@ -122,7 +122,8 @@ export const PRICES = {
 };
 
 const notion = id => `https://app.notion.com/p/${id}`;
-const pages = name => `https://rdecaste.github.io/${name}/`;
+// The cards, on Cloudflare since 1 Oct 2026 (the old github.io addresses forward).
+const card = name => `https://${name}.quest-engine.workers.dev/`;
 
 // The data lives in D1 since 1 Oct 2026: its tables are browsed and edited in
 // the Cloudflare dashboard (D1 → quest → Data Studio). The Notion pages below
@@ -146,15 +147,15 @@ export const NOTION = {
 
 export const LINKS = [
   { group: 'Personal', items: [
-    { name: 'Quest Dashboard', url: pages('Questboard') },
-    { name: 'Boss Dashboard', url: pages('Boss') },
-    { name: 'Main Quest', url: pages('MainQuest') },
-    { name: 'VaultQuest', url: pages('VaultQuest') },
+    { name: 'Quest Dashboard', url: card('questboard') },
+    { name: 'Boss Dashboard', url: card('boss') },
+    { name: 'Main Quest', url: card('mainquest') },
+    { name: 'VaultQuest', url: card('vaultquest') },
     { name: 'Quest Log', url: '/' }
   ] },
   { group: 'Family', items: [
-    { name: 'Family Dashboard', url: pages('FamilyDashboard') },
-    { name: 'Parent Admin', url: pages('FamilyDashboard') + 'parent.html' },
+    { name: 'Family Dashboard', url: card('family') },
+    { name: 'Parent Admin', url: card('family') + 'parent' },
     { name: 'Family Finance HQ', url: NOTION.familyFinance }
   ] },
   { group: 'Admin', items: [
