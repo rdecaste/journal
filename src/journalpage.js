@@ -37,11 +37,8 @@ const STYLE = `
   --night:#2b3550; --night-soft:#e9ebf4; --rule:#e6e9ef;
   --ok:#2e8f5c; --ok-soft:#e3f3ea; --warn-soft:#fbe7e5;
   --write:#f4f7fd; --write-night:#f3f4f9; --write-quest:#f7f8fa;
-  --hero-bg:#141a24; --hero-ink:#f2f4f8; --hero-muted:#a9b3c3; --hero-track:#2a3342; --hero-gold:#f0b53c;
-  --display:"Bricolage Grotesque","Avenir Next",system-ui,sans-serif;
-  --body:"Figtree",-apple-system,"Segoe UI",system-ui,sans-serif;
-  --hud:"Chakra Petch",ui-monospace,"SF Mono",Menlo,monospace;
-  --serif:"Newsreader",Georgia,"Times New Roman",serif;
+  --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --paper:var(--surface); color-scheme:light;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
@@ -49,161 +46,139 @@ const STYLE = `
   --gold:#f0b53c; --gold-soft:#2c2414; --ki:#5b93ea; --ki-soft:#1a2638; --warn:#f0645a;
   --night:#aab6e0; --night-soft:#1b2033; --rule:#232b38;
   --ok:#4cbf85; --ok-soft:#142a20; --warn-soft:#321a19;
-  --write:#1b2331; --write-night:#1d2131; --write-quest:#1a1f29;
-  --hero-bg:#0a0e14; --hero-track:#252d3a; color-scheme:dark}}
+  --write:#1b2331; --write-night:#1d2131; --write-quest:#1a1f29; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0e1219; --surface:#171d27; --ink:#e8ecf2; --muted:#95a1b2; --line:#283141; --track:#262f3d;
   --gold:#f0b53c; --gold-soft:#2c2414; --ki:#5b93ea; --ki-soft:#1a2638; --warn:#f0645a;
   --night:#aab6e0; --night-soft:#1b2033; --rule:#232b38;
   --ok:#4cbf85; --ok-soft:#142a20; --warn-soft:#321a19;
-  --write:#1b2331; --write-night:#1d2131; --write-quest:#1a1f29;
-  --hero-bg:#0a0e14; --hero-track:#252d3a; color-scheme:dark}
+  --write:#1b2331; --write-night:#1d2131; --write-quest:#1a1f29; color-scheme:dark}
+/* Type (Roy, 1 Oct: calm and easy on the eyes). Two faces only: Source Serif 4 (close to
+   Notion's serif) for everything read or written, the system sans for small controls and
+   notes. The page asks in serif italic, Roy writes in upright serif, titles are semibold.
+   No capitals with letter-spacing, and few sizes. */
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0}
-body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;position:relative}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;position:relative}
 .page{max-width:700px;margin:0 auto;padding-inline:max(16px,env(safe-area-inset-left));padding-block:max(20px,env(safe-area-inset-top)) max(48px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:22px;position:relative;z-index:1}
 button,input,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--ki);outline-offset:3px;border-radius:6px}
 .top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
-.back{font-size:14px;font-weight:600;color:var(--muted);text-decoration:none;min-height:32px;display:inline-flex;align-items:center}
+.back{font-size:15px;font-weight:500;color:var(--muted);text-decoration:none;min-height:32px;display:inline-flex;align-items:center}
 .saved{font-size:12.5px;color:var(--muted);min-height:1.2em}
 .saved.bad{color:var(--warn);font-weight:600}
 .hello{display:flex;flex-direction:column;gap:6px;padding-top:4px}
-.date{font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
-#theme-name{font-weight:500;letter-spacing:.06em;opacity:.75}
-h1{font-family:var(--display);font-weight:800;font-size:38px;line-height:1.05;margin:0;letter-spacing:-.02em;text-wrap:balance}
-.sub{margin:0;font-family:var(--serif);font-style:italic;font-size:19px;color:var(--muted);line-height:1.4}
-h2{font-family:var(--display);font-weight:600;font-size:19px;margin:10px 0 -8px;letter-spacing:-.01em;color:var(--muted)}
+.date{font-size:13.5px;font-weight:500;color:var(--muted)}
+h1{font-family:var(--serif);font-weight:600;font-size:36px;line-height:1.12;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{margin:0;font-family:var(--serif);font-style:italic;font-size:18px;line-height:1.5;color:var(--muted)}
+h2{font-family:var(--serif);font-weight:600;font-size:22px;margin:14px 0 -6px;color:var(--ink)}
 .sheet{background:var(--paper);border-radius:22px;padding:24px 24px 22px;display:flex;flex-direction:column;gap:30px;box-shadow:0 1px 2px rgba(20,26,36,.04)}
-.entry{display:flex;flex-direction:column;gap:8px}
-.label{font-size:12.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ki)}
-.evening .label{color:var(--night)}
-.q{margin:0;font-family:var(--serif);font-style:italic;font-size:19px;line-height:1.35;color:var(--muted);text-wrap:pretty}
-.small .q{font-size:17px}
-/* Roy's writing: upright, full ink, on a tinted panel with an edge in the half's colour,
-   so it never reads as part of the question when scrolling. */
-textarea{width:100%;display:block;border:0;border-left:3px solid var(--ki);border-radius:0 12px 12px 0;resize:none;overflow:hidden;
-  background-color:var(--write);color:var(--ink);font-weight:500;
-  font-size:17px;line-height:30px;padding:0 14px;min-height:90px;
-  background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 29px,var(--rule) 29px,var(--rule) 30px);background-attachment:local}
-.small textarea{min-height:60px}
-.evening textarea{border-left-color:var(--night);background-color:var(--write-night)}
-.quests textarea{border-left-color:var(--gold);background-color:var(--write-quest)}
-textarea:focus{outline:none}
-.entry.active>.label{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:2px}
-.deeper{margin:0;font-family:var(--serif);font-style:italic;font-size:17px;color:var(--muted);padding-left:12px;border-left:2px solid var(--rule)}
-.hint{margin:0;font-size:13px;color:var(--muted)}
+.entry{display:flex;flex-direction:column;gap:8px;position:relative}
+.label{font-family:var(--serif);font-size:18px;font-weight:600;line-height:1.35;color:var(--ink)}
+.q{margin:0;font-family:var(--serif);font-style:italic;font-size:18px;line-height:1.5;color:var(--muted);text-wrap:pretty}
+/* Roy's writing: upright serif in full ink in a plain box: a soft fill and a hairline border
+   that takes the half's colour while he writes. No ruled lines; two lines tall when empty,
+   growing as he types. */
+textarea{width:100%;display:block;resize:none;overflow:hidden;border:1px solid var(--rule);border-radius:14px;
+  background-color:var(--write);color:var(--ink);font-family:var(--serif);font-weight:400;
+  font-size:18px;line-height:1.6;padding:12px 16px;min-height:calc(3.2em + 26px);transition:border-color .2s}
+.evening textarea{background-color:var(--write-night)}
+textarea:focus{outline:none;border-color:color-mix(in srgb,var(--ki) 55%,transparent)}
+.evening textarea:focus{border-color:color-mix(in srgb,var(--night) 60%,transparent)}
+textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--muted);opacity:.6}
+.deeper{margin:0;font-family:var(--serif);font-style:italic;font-size:17px;line-height:1.5;color:var(--muted);padding-left:12px;border-left:2px solid var(--rule)}
+.hint{margin:0;font-size:13.5px;color:var(--muted)}
 /* Nudges that never move the page: "↻ another" beside the label (brighter in the box
    you're writing in) and a starter as grey text in an empty box. */
-.entry{position:relative}
-.more{position:absolute;top:-3px;right:0;border:0;background:none;cursor:pointer;font-size:13px;color:var(--muted);padding:2px 0;opacity:.6;transition:opacity .2s,color .2s}
+.more{position:absolute;top:0;right:0;border:0;background:none;cursor:pointer;font-size:13.5px;color:var(--muted);padding:2px 0;opacity:.6;transition:opacity .2s,color .2s}
 .entry.active .more{opacity:1;color:var(--ki)}
 .evening .entry.active .more{color:var(--night)}
 .more:hover{opacity:1}
-textarea::placeholder{color:var(--muted);opacity:.55;font-weight:400;font-style:italic;font-family:var(--serif)}
-.fgroup{display:flex;flex-direction:column;gap:2px}
-.flabel{font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-top:10px}
-.fgroup:first-of-type .flabel{margin-top:0}
 /* Today's focus: one row per group, the label in a narrow column and its lines beside it. */
+.fgroup{display:flex;flex-direction:column;gap:2px}
+.flabel{font-size:14px;font-weight:500;color:var(--muted);margin-top:10px}
+.fgroup:first-of-type .flabel{margin-top:0}
 .fcols{display:flex;flex-direction:column;gap:4px}
-.fcols .fgroup{display:grid;grid-template-columns:104px minmax(0,1fr);column-gap:14px;align-items:start}
+.fcols .fgroup{display:grid;grid-template-columns:120px minmax(0,1fr);column-gap:14px;align-items:start}
 .fcols .flabel{margin-top:0;padding-top:13px;line-height:1.3}
-.line{display:flex;align-items:center;gap:12px;min-height:40px;border-bottom:1px solid var(--rule)}
-.line input[type=checkbox]{width:20px;height:20px;accent-color:var(--gold);flex:none;margin:0}
-.line input[type=text]{flex:1;min-width:0;border:0;background:transparent;font-size:17px;padding:8px 0}
+.line{display:flex;align-items:center;gap:12px;min-height:40px}
+.line input[type=checkbox]{width:20px;height:20px;accent-color:var(--ki);flex:none;margin:0}
+.evening .line input[type=checkbox]{accent-color:var(--night)}
+.line input[type=text]{flex:1;min-width:0;border:0;background:transparent;font-family:var(--serif);font-size:18px;padding:8px 0}
 .line input[type=text]:focus{outline:none}
 .line.done input[type=text]{text-decoration:line-through;color:var(--muted)}
 /* Focus lines wrap instead of cutting off a long item. */
 .rows .line{align-items:flex-start}
-.rows .line input[type=checkbox]{margin-top:10px}
-.line textarea{flex:1;min-width:0;min-height:0;border:0;border-radius:0;background:none;padding:8px 0;font-size:16px;line-height:1.4;font-weight:400;color:var(--ink)}
-.line textarea::placeholder{font-family:var(--body);font-style:normal;color:var(--muted);opacity:.7}
+.rows .line input[type=checkbox]{margin-top:11px}
+.line textarea{flex:1;min-width:0;min-height:0;border:0;border-radius:0;background:none;padding:8px 0;font-size:18px;line-height:1.45;color:var(--ink)}
 .line.done textarea{text-decoration:line-through;color:var(--muted)}
-.sugg{margin:10px 0 0;font-size:13.5px;line-height:1.7;color:var(--muted)}
-.todo{border:0;background:none;padding:0;font-size:13.5px;color:var(--ink);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;cursor:pointer}
+.sugg{margin:10px 0 0;font-size:14px;line-height:1.7;color:var(--muted)}
+.todo{border:0;background:none;padding:0;font-size:14px;color:var(--ink);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;cursor:pointer}
 .dot{color:var(--muted);margin:0 4px}
+/* Hand-offs between the two halves, the recaps and the endings. */
 .handoff{display:flex;flex-direction:column;gap:8px}
-.handoff blockquote{margin:0;font-family:var(--serif);font-size:19px;line-height:1.45;padding-left:14px;border-left:2px solid var(--ki);white-space:pre-wrap}
-.evening .handoff blockquote{border-color:var(--night)}
-.handoff .soft{margin:0;font-family:var(--serif);font-style:italic;font-size:18px;color:var(--muted)}
+.handoff blockquote{margin:0;font-family:var(--serif);font-size:18px;line-height:1.55;padding-left:14px;border-left:2px solid color-mix(in srgb,var(--ki) 60%,transparent);white-space:pre-wrap}
+.evening .handoff blockquote{border-color:color-mix(in srgb,var(--night) 50%,transparent)}
+.handoff .soft{margin:0;font-family:var(--serif);font-style:italic;font-size:17px;line-height:1.5;color:var(--muted)}
 .did{display:flex;gap:6px;flex-wrap:wrap}
-.did button{font-size:14px;font-weight:600;min-height:36px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:transparent;cursor:pointer}
+.did button{font-size:14px;font-weight:500;min-height:36px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:transparent;cursor:pointer}
 .did button[aria-pressed="true"]{background:var(--night);color:var(--paper);border-color:var(--night)}
 .recap{display:flex;flex-direction:column;gap:6px;padding:16px 20px;border-radius:18px;background:var(--ki-soft)}
-.recap p{margin:0;font-family:var(--serif);font-size:17px;line-height:1.45;white-space:pre-wrap}
-.recap b{font-family:var(--body);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ki);font-weight:600;margin-right:6px}
+.recap p{margin:0;font-family:var(--serif);font-size:17px;line-height:1.5;white-space:pre-wrap}
+.recap b{font-size:13.5px;font-weight:500;color:var(--muted);margin-right:8px}
 .recap.night{background:var(--night-soft)}
-.recap.night b{color:var(--night)}
 .recap.night .link{color:var(--night)}
-.link{border:0;background:none;padding:4px 0;color:var(--ki);font-size:14px;cursor:pointer;align-self:flex-start;min-height:32px}
-.later{margin:0;color:var(--muted);font-family:var(--serif);font-style:italic;font-size:18px}
+.link{border:0;background:none;padding:4px 0;color:var(--ki);font-family:var(--sans);font-style:normal;font-size:14px;font-weight:500;cursor:pointer;align-self:flex-start;min-height:32px}
+.later{margin:0;color:var(--muted);font-family:var(--serif);font-style:italic;font-size:17px;line-height:1.5}
 .end{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding-top:4px}
 .endbtn{font-size:15px;font-weight:600;min-height:44px;padding:0 20px;border-radius:999px;border:0;cursor:pointer;background:var(--ink);color:var(--paper)}
-.bye{margin:0;font-family:var(--serif);font-style:italic;font-size:18px;color:var(--muted)}
+.bye{margin:0;font-family:var(--serif);font-style:italic;font-size:17px;line-height:1.5;color:var(--muted)}
 .close{align-items:center;padding:6px 0 0}
-.checkin{background:var(--hero-bg);color:var(--hero-ink);border-radius:22px;padding:22px 24px;display:flex;flex-direction:column;gap:14px;position:relative;transition:box-shadow .3s}
+/* Main quest: a page card with a warm gold wash (light by day, dark at night). */
+.checkin{background:linear-gradient(180deg,var(--gold-soft),var(--paper) 75%);color:var(--ink);border-radius:22px;padding:22px 24px;display:flex;flex-direction:column;gap:14px;position:relative;box-shadow:0 1px 2px rgba(20,26,36,.04);transition:box-shadow .3s}
 .ci-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
-.checkin h3{font-family:var(--display);font-weight:600;font-size:21px;margin:2px 0 0}
-.lvl{font-family:var(--hud);font-weight:600;font-size:15px;color:var(--hero-gold);white-space:nowrap}
+.checkin h3{font-family:var(--serif);font-weight:600;font-size:22px;line-height:1.3;margin:2px 0 0}
+.lvl{font-weight:600;font-size:15px;color:var(--gold);white-space:nowrap;font-variant-numeric:tabular-nums}
 .ci-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.ci{text-align:left;cursor:pointer;border-radius:16px;padding:14px 16px;border:1px solid var(--hero-track);background:transparent;color:var(--hero-ink);display:flex;flex-direction:column;gap:2px;min-height:70px}
-.ci b{font-size:16px}
-.ci span{font-size:13.5px;color:var(--hero-muted)}
-.ci.win[aria-pressed="true"]{background:#1f5c3d;border-color:#4cbf85}
-.ci.lose[aria-pressed="true"]{background:#5c2420;border-color:#f0645a}
-.checkin .q{font-size:17px;color:var(--hero-muted)}
-.checkin textarea{border-left-color:var(--hero-gold);background-color:rgba(255,255,255,.05);background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 29px,var(--hero-track) 29px,var(--hero-track) 30px);color:var(--hero-ink);min-height:60px}
-.after{display:flex;flex-direction:column;gap:8px;animation:rise-in .35s ease-out}
-@keyframes rise-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-.ci-out{font-size:14px;color:var(--hero-muted);margin:0;min-height:1.2em}
-.quiet{background:transparent;box-shadow:none;border:1px dashed var(--line)}
-.qintro{margin:-6px 0 -8px}
-.quests .label{color:var(--muted)}
-.stamp{margin:0;font-size:12.5px;color:var(--muted)}
-/* Main quest follows the page (light by day, dark at night): a page card with a warm gold wash. */
-.checkin{--hero-ink:var(--ink);--hero-muted:var(--muted);--hero-track:var(--line);--hero-gold:var(--gold);
-  background:linear-gradient(180deg,var(--gold-soft),var(--paper) 75%);color:var(--ink);box-shadow:0 1px 2px rgba(20,26,36,.04)}
+.ci{text-align:left;cursor:pointer;border-radius:16px;padding:14px 16px;border:1px solid var(--line);background:transparent;color:var(--ink);display:flex;flex-direction:column;gap:2px;min-height:70px}
+.ci b{font-size:15.5px;font-weight:600}
+.ci span{font-size:13.5px;color:var(--muted)}
 .ci.win[aria-pressed="true"]{background:var(--ok-soft);border-color:var(--ok)}
 .ci.lose[aria-pressed="true"]{background:var(--warn-soft);border-color:var(--warn)}
-.checkin textarea{background-color:var(--write-quest)}
-/* Quests: one card per active quest. */
+.after{display:flex;flex-direction:column;gap:8px;animation:rise-in .35s ease-out}
+@keyframes rise-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.ci-out{margin:0;min-height:1.2em;font-family:var(--serif);font-style:italic;font-size:17px;color:var(--muted)}
+/* Quests: one card per active quest, a quick update rather than a journal page: the title,
+   the question and a small plain box. The main quest's note uses the same box. */
 .quests{display:flex;flex-direction:column;gap:12px}
-.quests .qintro{margin:0 0 2px}
-.qcard{background:var(--paper);border-radius:18px;padding:18px 20px 16px;box-shadow:0 1px 2px rgba(20,26,36,.04)}
-.quests .qcard .label{color:var(--gold)}
-@media (max-width:480px){.qcard{padding:16px 18px 14px}}
-/* Quest cards are quick updates, not journal pages: a title, the question, a small plain box. */
-.qcard{gap:6px}
-.quests .qcard .label{font-family:var(--display);font-size:17px;font-weight:700;letter-spacing:-.01em;text-transform:none;color:var(--ink);text-decoration:none}
-.qcard .q{font-family:var(--body);font-style:normal;font-size:15px;line-height:1.4;color:var(--muted);margin-bottom:4px}
-.quests .qcard textarea{border:1px solid var(--rule);border-radius:12px;background-image:none;background-color:var(--write-quest);
-  font-size:16px;font-weight:400;line-height:1.45;padding:10px 12px;min-height:68px;transition:border-color .2s}
-.quests .qcard textarea:focus{border-color:var(--gold)}
-.quests .qcard textarea::placeholder{font-family:var(--body);font-style:normal}
-/* The main quest's note: the same small plain box as the quest cards. */
-.checkin .after .q{font-family:var(--body);font-style:normal;font-size:15px;line-height:1.4;color:var(--muted);margin-bottom:4px}
-.checkin .after textarea{border:1px solid var(--rule);border-radius:12px;background-image:none;background-color:var(--write-quest);
-  font-size:16px;font-weight:400;line-height:1.45;padding:10px 12px;min-height:68px;transition:border-color .2s}
-.checkin .after textarea:focus{border-color:var(--gold)}
-.checkin .after textarea::placeholder{font-family:var(--body);font-style:normal}
+.qintro{margin:0 0 2px}
+.qcard{background:var(--paper);border-radius:18px;padding:18px 20px 16px;gap:6px;box-shadow:0 1px 2px rgba(20,26,36,.04)}
+.qcard .q,.checkin .q{font-size:17px;margin-bottom:4px}
+.qcard textarea,.checkin textarea{background-color:var(--write-quest)}
+.qcard textarea:focus,.checkin textarea:focus{border-color:color-mix(in srgb,var(--gold) 60%,transparent)}
+.stamp{margin:0;font-size:13.5px;color:var(--muted)}
+/* Daily theme: layered hills behind the header. */
 .scene{position:absolute;inset:0 0 auto 0;height:360px;z-index:0;pointer-events:none;overflow:hidden;
   -webkit-mask-image:linear-gradient(to bottom,#000 55%,transparent);mask-image:linear-gradient(to bottom,#000 55%,transparent)}
 .scene svg{width:100%;height:100%;display:block}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .scene{opacity:.28}}
 :root[data-theme="dark"] .scene{opacity:.28}
-.foot{font-size:12.5px;color:var(--muted);text-align:center;margin:8px 0 0}
+.foot{font-size:13px;color:var(--muted);text-align:center;margin:8px 0 0}
 .foot a{color:inherit}
 .empty{display:flex;flex-direction:column;gap:10px}
+/* Success: a gold burst from the button, the card flares, the streak ticks up. */
 #burst{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:50}
 .checkin.flare{animation:flare 1.4s ease-out}
 @keyframes flare{0%{box-shadow:0 0 0 0 rgba(240,181,60,.9)}25%{box-shadow:0 0 0 6px rgba(240,181,60,.8),0 0 60px 20px rgba(240,181,60,.45)}100%{box-shadow:0 0 0 0 rgba(240,181,60,0)}}
 .lvl .days{display:inline-block}
 .lvl .days.pop{animation:pop .7s cubic-bezier(.3,1.6,.5,1)}
-@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.6);color:#fff;text-shadow:0 0 12px #f0b53c}100%{transform:scale(1)}}
-.plus{position:absolute;right:20px;top:14px;font-family:var(--hud);font-weight:600;font-size:18px;color:var(--hero-gold);pointer-events:none;animation:rise 1.3s ease-out forwards}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.6);text-shadow:0 0 12px #f0b53c}100%{transform:scale(1)}}
+.plus{position:absolute;right:20px;top:14px;font-weight:600;font-size:18px;color:var(--gold);pointer-events:none;animation:rise 1.3s ease-out forwards}
 @keyframes rise{0%{opacity:0;transform:translateY(8px)}20%{opacity:1}100%{opacity:0;transform:translateY(-34px)}}
-@media (max-width:480px){.fcols .fgroup{grid-template-columns:84px minmax(0,1fr);column-gap:10px} .fcols .line{gap:9px} .line textarea{font-size:15.5px} .scene{height:300px} .sheet{padding:20px 18px 18px;border-radius:18px} h1{font-size:32px} .q{font-size:18px} .small .q{font-size:16.5px}}
+@media (max-width:480px){.sheet{padding:20px 18px 18px;border-radius:18px} .qcard{padding:16px 18px 14px} .scene{height:300px}
+  h1{font-size:31px} h2{font-size:21px} .label{font-size:17.5px} .q,textarea{font-size:17.5px} .qcard .q,.checkin .q{font-size:16.5px}
+  .fcols .fgroup{grid-template-columns:112px minmax(0,1fr);column-gap:10px} .fcols .line{gap:9px} .flabel{font-size:13.5px} .line textarea,.line input[type=text]{font-size:17px}}
 @media (max-width:360px){.ci-btns{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important} .after,.checkin.flare,.lvl .days.pop,.plus{animation:none}}
 `;
@@ -215,7 +190,7 @@ const entry = (id, { small = false, evening = false } = {}) => {
         <div class="label">${p.icon} ${esc(p.name)}</div>
         <button type="button" class="more" data-box="${id}" aria-label="Another question">↻ another</button>
         <p class="q" id="${id}-q"></p>
-        <textarea id="${id}" aria-labelledby="${id}-q" rows="${small ? 2 : 3}" placeholder="${esc(p.starters[0] || '')}"></textarea>
+        <textarea id="${id}" aria-labelledby="${id}-q" rows="2" placeholder="${esc(p.starters[0] || '')}"></textarea>
         ${p.deeper ? `<p class="deeper" id="${id}-d" hidden>${esc(p.deeper)}</p>` : ''}
         ${p.hint ? `<p class="hint">${esc(p.hint)}</p>` : ''}
       </div>`;
@@ -230,7 +205,7 @@ const head = title => `<!doctype html>
 <meta name="theme-color" content="#eef1f5" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0e1219" media="(prefers-color-scheme: dark)">
 <title>${esc(title)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Chakra+Petch:wght@600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
 <style>${STYLE}</style></head>`;
 
 export function journalHtml(d) {
@@ -424,7 +399,7 @@ const SCRIPT = String.raw`
   if (Object.keys(dirty).length || todoOps.length || success !== null) { status('Not saved yet'); setTimeout(flush, 500); }
 
   // ---- Writing boxes ----
-  var grow = function (el) { if (!el.offsetParent) return; el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight, 30) + 'px'; };
+  var grow = function (el) { if (!el.offsetParent) return; el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight + el.offsetHeight - el.clientHeight, 30) + 'px'; };
   var growAll = function () { Array.prototype.forEach.call(document.querySelectorAll('textarea'), grow); };
   var deeper = function (el) { var d = $(el.id + '-d'); if (d) d.hidden = el.value.trim().length < 40; };
   Object.keys(P).concat(['mqnote']).forEach(function (id) {
