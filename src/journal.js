@@ -549,6 +549,17 @@ export async function saveJournal(env, body) {
   const pageId = body && body.page;
   if (!isId(pageId)) throw Object.assign(new Error('No journal page'), { code: 'bad_request' });
   const out = { sections: {}, extras: {}, quests: {}, focus: {} };
+  // One piece failing (say the win's To-Do) never holds up the rest: it is
+  // reported in \`failed\` under the page's own key and the page keeps it.
+  const failed = [];
+  const attempt = async (key, write) => {
+    try { return await write(); }
+    catch (e) {
+      if (/Notion 401|Notion 403/.test(String(e.message))) throw e;
+      console.error('journal save', key, e && e.stack || e);
+      failed.push({ key, code: e.code || 'server_error', message: String(e.message || e).slice(0, 300) });
+    }
+  };
   let fresh = null;
   const reread = async () => (fresh = fresh || readJournal(await readTree(n, pageId)));
   const retry = async (write, slot, find) => {
@@ -563,7 +574,8 @@ export async function saveJournal(env, body) {
 
   for (const [key, v] of Object.entries(body.sections || {})) {
     if (!SECTIONS[key]) continue;
-    out.sections[key] = await retry(s => writeText(n, s, limit(v.text)), v.slot, j => j.sections[key] && j.sections[key].slot);
+    const r = await attempt(key, () => retry(s => writeText(n, s, limit(v.text)), v.slot, j => j.sections[key] && j.sections[key].slot));
+    if (r) out.sections[key] = r;
   }
 
   const extras = Object.entries(body.extras || {}).filter(([k]) => EXTRAS[k]);
@@ -573,13 +585,15 @@ export async function saveJournal(env, body) {
       let text = limit(v.text);
       if (key === 'did' && text && !DID.includes(text)) continue;
       if (key === 'mq') text = CHECKIN[text] || '';
-      let slot = v.slot;
-      if (!slot) {
-        fields = fields || await ensureExtras(n, pageId);
-        slot = fields[key] && fields[key].slot;
-      }
-      if (!slot) continue;
-      out.extras[key] = await retry(s => writeText(n, s, text), slot, j => j.extras[key] && j.extras[key].slot);
+      const r = await attempt(key, async () => {
+        let slot = v.slot;
+        if (!slot) {
+          fields = fields || await ensureExtras(n, pageId);
+          slot = fields[key] && fields[key].slot;
+        }
+        return slot ? retry(s => writeText(n, s, text), slot, j => j.extras[key] && j.extras[key].slot) : null;
+      });
+      if (r) out.extras[key] = r;
     }
     // A new ✍️ callout: the page gets every box's place in it.
     if (fields) for (const [key, f] of Object.entries(fields)) if (!out.extras[key]) out.extras[key] = f.slot;
@@ -591,32 +605,37 @@ export async function saveJournal(env, body) {
     const text = limit(v.text);
     if (later && !validSlot(v.slot)) {
       if (!text.trim()) continue;
-      out.quests[id] = await writeText(n, await questBox(n, pageId, later[1]), text);
+      const r = await attempt('q:' + id, async () => writeText(n, await questBox(n, pageId, later[1]), text));
+      if (r) out.quests[id] = r;
       fresh = null;
       continue;
     }
     const box = later ? v.slot.parent : id;
-    out.quests[id] = await retry(s => writeText(n, s, text), v.slot, j => (j.quests.find(q => q.id === box) || {}).slot);
+    const r = await attempt('q:' + id, () => retry(s => writeText(n, s, text), v.slot, j => (j.quests.find(q => q.id === box) || {}).slot));
+    if (r) out.quests[id] = r;
   }
 
   for (const [key, v] of Object.entries(body.focus || {})) {
     if (!GROUPS[key] || !Array.isArray(v.items)) continue;
     const items = v.items.slice(0, 30).map(it => ({ t: limit(it.t).slice(0, 500), c: !!it.c }));
-    out.focus[key] = await retry(s => writeFocus(n, s, items), v.slot, j => j.focus && j.focus[key] && j.focus[key].slot);
+    const r = await attempt('f:' + key, () => retry(s => writeFocus(n, s, items), v.slot, j => j.focus && j.focus[key] && j.focus[key].slot));
+    if (r) out.focus[key] = r;
   }
 
   for (const op of Array.isArray(body.todos) ? body.todos.slice(0, 20) : []) {
     if (!isId(op.id)) continue;
-    if (op.link) await linkTodo(n, op.id, pageId);
-    if (typeof op.done === 'boolean') await setTodoDone(n, op.id, op.done);
+    await attempt('todo:' + op.id, async () => {
+      if (op.link) await linkTodo(n, op.id, pageId);
+      if (typeof op.done === 'boolean') await setTodoDone(n, op.id, op.done);
+    });
   }
 
-  if (body.work) out.work = await writeWork(n, body.work);
-  if (body.win) out.win = await syncWin(n, pageId, { text: limit(body.win.text), did: DID.includes(body.win.did) ? body.win.did : '', day: body.win.day });
+  if (body.work) out.work = await attempt('work', () => writeWork(n, body.work));
+  if (body.win) out.win = await attempt('winif', () => syncWin(n, pageId, { text: limit(body.win.text), did: DID.includes(body.win.did) ? body.win.did : '', day: body.win.day }));
 
-  if (typeof body.success === 'boolean') await n.call('PATCH', `/pages/${pageId}`, { properties: { Success: { checkbox: body.success } } });
+  if (typeof body.success === 'boolean') await attempt('success', () => n.call('PATCH', `/pages/${pageId}`, { properties: { Success: { checkbox: body.success } } }));
 
-  return { ok: 1, slots: out, at: new Date().toISOString() };
+  return { ok: 1, slots: out, failed, at: new Date().toISOString() };
 }
 
 export { DID, CHECKIN };

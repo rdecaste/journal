@@ -3,8 +3,9 @@
 // Morning above Evening, then the main quest and the quests, open all day.
 // In the evening the morning folds into a short recap, and each half ends
 // with a button that hands a line to the next. Drawn by a small script from
-// the data below; writing saves itself to Notion a moment after you stop
-// typing, and a copy stays in the browser until Notion has it.
+// the data below; writing goes to Notion when Roy taps Done for this morning,
+// Close the day, Save quests, Save note or a main quest button, and a copy
+// stays in the browser until Notion has it.
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // JSON inside a <script> element: no "</script>" or "<!--" can end it early.
@@ -106,6 +107,9 @@ textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400
 .endbtn{font-size:15px;font-weight:600;min-height:44px;padding:0 20px;border-radius:999px;border:0;cursor:pointer;background:var(--ink);color:var(--paper)}
 .bye{margin:0;font-family:var(--serif);font-style:italic;font-size:17px;line-height:1.5;color:var(--muted)}
 .close{align-items:center;padding:6px 0 0}
+.savebtn{font-size:14px;font-weight:600;min-height:40px;padding:0 18px;border-radius:999px;border:1px solid var(--line);cursor:pointer;background:var(--paper);color:var(--ink)}
+.saveline{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.saveline .note{font-size:13.5px;color:var(--muted)}
 /* Main quest: a page card with a warm gold wash (light by day, dark at night). */
 .checkin{background:linear-gradient(180deg,var(--gold-soft),var(--paper) 75%);color:var(--ink);border-radius:22px;padding:22px 24px;display:flex;flex-direction:column;gap:14px;position:relative;box-shadow:0 1px 2px rgba(20,26,36,.04);transition:box-shadow .3s}
 .ci-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
@@ -256,6 +260,7 @@ export function journalHtml(d) {
     <div class="after" id="after" hidden>
       <p class="q" id="mqnote-q"></p>
       <textarea id="mqnote" aria-labelledby="mqnote-q" rows="2" placeholder="A sentence or two…"></textarea>
+      <div class="saveline"><button type="button" class="savebtn" id="mq-save">Save note</button><span class="note" id="mq-save-note"></span></div>
     </div>
     <p class="ci-out" id="ci-out" aria-live="polite"></p>
   </section>
@@ -269,11 +274,12 @@ export function journalHtml(d) {
         <textarea id="quest${i}" data-quest="${esc(q.id)}" aria-labelledby="quest${i}-q" rows="2" placeholder="A sentence or two…"></textarea>
         <p class="stamp" id="quest${i}-at" hidden></p>
       </div>`).join('')}
+    <div class="saveline"><button type="button" class="savebtn" id="q-save">Save quests</button><span class="note" id="q-save-note"></span></div>
   </section>` : ''}
 
   <canvas id="burst" aria-hidden="true"></canvas>
   ${d.errors && d.errors.length ? `<p class="hint">Some parts could not load: ${esc(d.errors.join('; '))}</p>` : ''}
-  <p class="foot">Saves to <a href="${esc(d.url || '#')}" target="_blank" rel="noopener">${esc(d.title || 'your journal')} in Notion</a> as you write.</p>
+  <p class="foot">Saves to <a href="${esc(d.url || '#')}" target="_blank" rel="noopener">${esc(d.title || 'your journal')} in Notion</a> when you tap Done, Close the day or Save.</p>
 </div>
 <script type="application/json" id="data">${safeJson(d)}</script>
 <script>${SCRIPT}</script>
@@ -326,13 +332,15 @@ const SCRIPT = String.raw`
     store(KEY, any ? { dirty: dirty, V: V, F: F, todoOps: todoOps, success: success } : null);
   };
 
-  // ---- Saving: a moment after you stop typing, one save at a time ----
-  var timer = null, busy = false, again = false, failures = 0;
+  // ---- Saving: only on Done for this morning, Close the day, Save quests,
+  // Save note and the main quest taps. Until then the writing is kept in this
+  // browser, so nothing is lost if the page closes. ----
+  var timer = null, busy = false, again = false, failures = 0, after = [];
   var status = function (text, bad) { var el = $('saved'); el.textContent = text; el.className = 'saved' + (bad ? ' bad' : ''); };
   function change(key, value, now) {
     if (value !== undefined) V[key] = value;
-    dirty[key] = 1; keepDraft(); status('Not saved yet');
-    clearTimeout(timer); timer = setTimeout(flush, now ? 0 : 1200);
+    dirty[key] = 1; keepDraft(); status('');
+    if (now) flush();
   }
   function body() {
     var b = { page: D.page, sections: {}, extras: {}, quests: {}, focus: {}, todos: todoOps.slice() };
@@ -348,37 +356,57 @@ const SCRIPT = String.raw`
     if (success !== null) b.success = success;
     return b;
   }
-  function flush(keepalive) {
+  function flush(done) {
     clearTimeout(timer);
+    if (typeof done === 'function') after.push(done);
     if (busy) { again = true; return; }
-    if (!Object.keys(dirty).length && !todoOps.length && success === null) return;
+    if (!Object.keys(dirty).length && !todoOps.length && success === null) { settle(true); return; }
     var sent = dirty, ops = todoOps, ok = success, b = body();
     dirty = {}; todoOps = []; success = null;
     busy = true; status('Saving…');
-    fetch('/journal/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b), credentials: 'same-origin', keepalive: !!keepalive })
+    fetch('/journal/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b), credentials: 'same-origin' })
       .then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.ok) throw j; return j; }); })
       .then(function (j) {
         ['sections', 'extras', 'quests', 'focus'].forEach(function (g) { Object.keys(j.slots[g] || {}).forEach(function (k) { S[g][k] = j.slots[g][k]; }); });
         Object.keys(sent).forEach(function (k) { if (k.indexOf('q:') === 0) stamp(k.slice(2), new Date()); });
+        // A piece Notion refused stays here for the next save; the rest is in.
+        var missed = (j.failed || []).filter(function (f) { return f.code !== 'bad_request'; });
+        missed.forEach(function (f) {
+          if (f.key === 'success') { if (success === null) success = ok; }
+          else if (f.key.indexOf('todo:') === 0) todoOps = ops.filter(function (o) { return 'todo:' + o.id === f.key; }).concat(todoOps);
+          else dirty[f.key] = 1;
+        });
+        if (missed.length) console.warn('journal save: not saved', missed);
         failures = 0; busy = false; keepDraft();
-        status('Saved ' + hhmm());
-        if (again || Object.keys(dirty).length) { again = false; flush(); }
+        status(missed.length ? 'Saved ' + hhmm() + ', except ' + missed.map(function (f) { return NAMES[f.key] || 'a quest'; }).join(', ') + ' (' + missed[0].message + ')' : 'Saved ' + hhmm(), !!missed.length);
+        if (again) { again = false; flush(); } else settle(!missed.length);
       })
       .catch(function (e) {
         busy = false; again = false;
         Object.keys(sent).forEach(function (k) { dirty[k] = 1; });
         todoOps = ops.concat(todoOps); if (success === null) success = ok;
         keepDraft();
-        if (e && e.code === 'signed_out') { status('Signed out. Your writing is kept here; sign in again to save.', true); return; }
-        if (e && e.code === 'no_write') { status('Notion won’t let the page write yet. Your writing is kept here.', true); return; }
+        if (e && e.code === 'signed_out') { status('Signed out. Your writing is kept here; sign in again to save.', true); settle(false); return; }
+        if (e && e.code === 'no_write') { status('Notion won’t let the page write yet. Your writing is kept here.', true); settle(false); return; }
+        console.warn('journal save failed', e);
         failures++;
-        status('Not saved yet, trying again…', failures > 2);
-        timer = setTimeout(flush, Math.min(30000, 2000 * failures));
+        // A couple of quiet tries, then it waits for the next button.
+        if (failures < 3) { status('Saving…'); timer = setTimeout(flush, 2000 * failures); return; }
+        failures = 0;
+        status('Not saved. Your writing is kept here; tap the button again.' + (e && e.message ? ' (' + e.message + ')' : ''), true);
+        settle(false);
       });
   }
-  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flush(true); });
-  window.addEventListener('pagehide', function () { flush(true); });
-  if (Object.keys(dirty).length || todoOps.length || success !== null) { status('Not saved yet'); setTimeout(flush, 500); }
+  function settle(ok) { var fns = after; after = []; fns.forEach(function (f) { f(ok); }); }
+  var NAMES = { headspace: 'Headspace', forward: 'Looking forward', winif: 'the win', reflection: 'Reflection', park: 'Park it', tomorrow: 'For tomorrow', work: 'the commute', mq: 'the main quest', mqnote: 'the main quest note', success: 'the main quest', did: 'the win' };
+  // A small button that saves, and says so beside it.
+  function saveButton(id) {
+    var b = $(id); if (!b) return;
+    b.addEventListener('click', function () {
+      var note = $(id + '-note'); b.disabled = true; note.textContent = 'Saving…';
+      flush(function (ok) { b.disabled = false; note.textContent = ok ? 'Saved ' + hhmm() : 'Not saved yet'; });
+    });
+  }
 
   // ---- Writing boxes ----
   var grow = function (el) { if (!el.offsetParent) return; el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight + el.offsetHeight - el.clientHeight, 30) + 'px'; };
@@ -387,7 +415,6 @@ const SCRIPT = String.raw`
     var el = $(id); if (!el) return;
     el.value = V[id] || '';
     el.addEventListener('input', function () { change(id, el.value); grow(el); });
-    el.addEventListener('blur', function () { if (dirty[id]) flush(); });
   });
   function stamp(id, when) {
     var i = (D.quests || []).map(function (q) { return q.id; }).indexOf(id), el = $('quest' + i + '-at');
@@ -400,7 +427,6 @@ const SCRIPT = String.raw`
     var el = $('quest' + i), key = 'q:' + q.id;
     el.value = V[key] || '';
     el.addEventListener('input', function () { change(key, el.value); grow(el); });
-    el.addEventListener('blur', function () { if (dirty[key]) flush(); });
     stamp(q.id, q.at ? new Date(q.at) : null);
   });
   window.addEventListener('resize', growAll);
@@ -461,7 +487,7 @@ const SCRIPT = String.raw`
         if (w.am && NO_RIDE[w.am] && NO_RIDE[w.pm]) w.commute = 'N/A';
         else if (w.commute === 'N/A') w.commute = '';
       }
-      change('work', undefined, true); drawWork();
+      change('work'); drawWork();
     }); });
   }
   drawWork();
@@ -610,5 +636,6 @@ const SCRIPT = String.raw`
   win.addEventListener('click', function () { var on = checkin !== 'win'; check(on ? 'win' : null, true); if (on) celebrate(); });
   lose.addEventListener('click', function () { check(checkin === 'lose' ? null : 'lose', true); });
   check(checkin, false);
+  saveButton('mq-save'); saveButton('q-save');
 })();
 `.replace('__PROMPTS__', () => JSON.stringify(Object.fromEntries(Object.entries(PROMPTS).map(([k, v]) => [k, { more: v.more }]))));

@@ -217,7 +217,8 @@ test('journal page: a quest made active today gets its box on the first save', a
   assert.equal(j.quests[2].text, 'Tiles here');
   // Only pages from the Quests database.
   fake.pages[PAGE].parent = { type: 'workspace' };
-  await assert.rejects(fake.use(() => saveJournal(env, { page: PAGE, quests: { [`new:${PAGE}`]: { slot: null, text: 'x' } } })), e => e.code === 'bad_request');
+  const bad = await fake.use(() => saveJournal(env, { page: PAGE, quests: { [`new:${PAGE}`]: { slot: null, text: 'x' } } }));
+  assert.deepEqual(bad.failed.map(f => [f.key, f.code]), [[`q:new:${PAGE}`, 'bad_request']]);
 });
 
 test('journal page: loads today, yesterday’s hand-off, to-dos and the streak', async () => {
@@ -350,8 +351,12 @@ test('journal page: the evening commute reads and writes today’s Work Location
   assert.deepEqual([fake.pages[ROW].properties.AM, fake.pages[ROW].properties.PM], [sel(null), sel('🇧🇪 Ghent')]);
 
   // Only a Work Location Log row can be written this way.
-  await assert.rejects(fake.use(() => saveJournal(env, { page: PAGE, work: { id: OTHER, am: '🇳🇱 Home' } })), /Not a Work Location Log row/);
-  await assert.rejects(fake.use(() => saveJournal(env, { page: PAGE, work: { id: 'x' } })), /No Work Location Log row/);
+  // A piece that fails is reported, and the rest of the save still goes through.
+  const other = await fake.use(() => saveJournal(env, { page: PAGE, work: { id: OTHER, am: '🇳🇱 Home' }, sections: { headspace: { slot: null, text: 'Calm' } } }));
+  assert.match(other.failed[0].message, /Not a Work Location Log row/);
+  assert.equal(other.failed.length, 1);
+  const none2 = await fake.use(() => saveJournal(env, { page: PAGE, work: { id: 'x' } }));
+  assert.match(none2.failed[0].message, /No Work Location Log row/);
 
   // No row for the day: no commute entry.
   fake.queries[DATA_SOURCES.workLocation] = () => [];
