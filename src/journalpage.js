@@ -91,8 +91,12 @@ textarea:focus{outline:none}
 .entry.active>.label{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:2px}
 .deeper{margin:0;font-family:var(--serif);font-style:italic;font-size:17px;color:var(--muted);padding-left:12px;border-left:2px solid var(--rule)}
 .hint{margin:0;font-size:13px;color:var(--muted)}
-.tools{display:none;flex-wrap:wrap;gap:6px}
-.entry.active .tools{display:flex}
+/* The nudges keep their row when hidden, so tapping into a box never moves the page;
+   one row that scrolls sideways on a narrow screen. */
+.tools{display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;scrollbar-width:none;opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s}
+.tools::-webkit-scrollbar{display:none}
+.tools>*{flex:none;white-space:nowrap}
+.entry.active .tools{opacity:1;visibility:visible}
 .chip,.more{font-size:13.5px;min-height:32px;padding:0 12px;border-radius:999px;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--muted)}
 .more{border-color:transparent;padding-left:0;color:var(--ki)}
 .evening .more{color:var(--night)}
