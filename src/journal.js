@@ -24,6 +24,7 @@
 import { Notion } from './notion.js';
 import { cached, remember } from './cache.js';
 import { eveningQuestion } from './eveningq.js';
+import { DATA_SOURCES } from './config.js';
 
 export const JOURNAL = {
   journal: '9e98784e-e304-4cee-9a50-e492580b1d86',
@@ -43,6 +44,11 @@ export const SECTIONS = { headspace: 'Headspace', forward: 'Looking forward to',
 export const EXTRAS = { winif: 'Today is a win if…', did: 'Did it happen?', park: 'Park it', mq: 'Main quest', mqnote: 'Main quest note' };
 export const GROUPS = { must: 'Must do', can: 'Can do', cool: 'Something cool' };
 const DID = ['It happened', 'Partly', 'Not today'];
+// The Work Location Log's options: where Roy worked each half-day, and how he got there.
+export const WORK = {
+  places: ['🇳🇱 Home', '🇧🇪 Beerse', '🇧🇪 Ghent', '✈️ Travel', '🏖️ Holiday', '🎉 Public holiday'],
+  rides: ['🚲 E-bike', '🚗 Car', '✈️ Plane', 'N/A']
+};
 const CHECKIN = { win: '✅ Success', lose: '⚠️ Relapse' };
 
 const ID = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
@@ -265,6 +271,10 @@ export function mergeQuests(boxes, active) {
   return [...kept, ...added];
 }
 
+// Today's row in the Work Location Log (one row per calendar day, made ahead).
+const selName = (p, name) => (prop(p, name) && prop(p, name).select && prop(p, name).select.name) || '';
+const workFor = (n, day) => n.query(DATA_SOURCES.workLocation, { filter: { property: 'Date', date: { equals: day } }, page_size: 1 })
+  .then(r => { const p = (r.results || [])[0]; return p ? { id: p.id, am: selName(p, 'AM'), pm: selName(p, 'PM'), commute: selName(p, 'Commute') } : null; });
 const journalFor = (n, day) => n.query(JOURNAL.journal, { filter: { property: 'Date', date: { equals: day } }, page_size: 1 }).then(r => (r.results || [])[0] || null);
 
 // Open to-dos to suggest: carried over from the day before first, then by priority.
@@ -329,7 +339,7 @@ export async function loadJournal(env, { now = Date.now() } = {}) {
   const eveningP = eveningQuestion(env, day).catch(e => { console.warn('Evening question:', e.message || e); return null; });
   const lastP = safe(known.before ? handoff(env, n, known.before) : beforeP.then(b => handoff(env, n, b && b.id)), 'Yesterday’s journal');
 
-  const [page, before, open, hero, asked, quests] = await Promise.all([
+  const [page, before, open, hero, asked, quests, work] = await Promise.all([
     pageP,
     beforeP,
     safe(n.query(JOURNAL.todos, {
@@ -343,9 +353,10 @@ export async function loadJournal(env, { now = Date.now() } = {}) {
     engine(env, '/journal/questions', { 'X-Admin-Token': env.QUEST_ENGINE_TOKEN || '' }).catch(e => { console.warn('Quest questions:', e.message || e); return null; }),
     // Which quests are active now; without it the journal's own boxes show.
     n.query(JOURNAL.quests, { filter: { property: 'Active Quest', checkbox: { equals: true } }, page_size: 100 })
-      .then(r => activeQuests(r.results || [])).catch(e => { console.warn('Quests:', e.message || e); return null; })
+      .then(r => activeQuests(r.results || [])).catch(e => { console.warn('Quests:', e.message || e); return null; }),
+    safe(workFor(n, day), 'Work Location Log')
   ]);
-  const data = { day, hour: amsterdamHour(now), page: null, errors };
+  const data = { day, hour: amsterdamHour(now), page: null, errors, work };
   // The streak as the Hero card last counted it; today counts once Success is ticked.
   data.run = hero && hero.records && typeof hero.records.current_run === 'number' ? hero.records.current_run : null;
   data.run_includes_today = !!(hero && Array.isArray(hero.days) && hero.days.some(x => x && x.date === day && x.movement));
@@ -392,6 +403,7 @@ export async function loadJournal(env, { now = Date.now() } = {}) {
     suggestions: todoSuggestions(open || [], { yesterday: before && before.id, taken }),
     sub: subLines({ sleepHours: hours, workouts: names }),
     evening_q: evening ? evening.text : null,
+    win: (() => { const w = (linked || []).find(isWin); return w ? { id: w.id, status: (prop(w, 'Status') && prop(w, 'Status').status && prop(w, 'Status').status.name) || '' } : null; })(),
     ...j
   };
 }
@@ -463,6 +475,30 @@ async function linkTodo(n, id, pageId) {
   if (ids.includes(pageId)) return;
   await n.call('PATCH', `/pages/${id}`, { properties: { 'Related Journal': { relation: [...ids, pageId].map(x => ({ id: x })) } } });
 }
+// "Today is a win if…" is also a To-Do (Tag "Win if", linked to the day's
+// journal, due that day), so the Quest Engine can count it: the evening's
+// It happened / Partly / Not today set its Status. Status stays the truth, so
+// ticking it off elsewhere shows on the page too.
+export const WIN = { tag: 'Win if', status: { 'It happened': 'Done', Partly: 'In progress', 'Not today': 'Not started', '': 'Not started' } };
+export const isWin = row => !!(prop(row, 'Tag') && prop(row, 'Tag').select && prop(row, 'Tag').select.name === WIN.tag);
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+export async function syncWin(n, pageId, { text = '', did = '', day = null } = {}) {
+  const found = await n.query(JOURNAL.todos, { filter: { and: [
+    { property: 'Related Journal', relation: { contains: pageId } },
+    { property: 'Tag', select: { equals: WIN.tag } }
+  ] }, page_size: 5 });
+  const row = (found.results || [])[0] || null;
+  const t = String(text).trim().slice(0, 2000);
+  if (!t) { if (row) await n.call('PATCH', `/pages/${row.id}`, { in_trash: true }); return null; }
+  const properties = { Task: { title: textRuns(t) }, Status: { status: { name: WIN.status[did] || 'Not started' } } };
+  if (row) { await n.call('PATCH', `/pages/${row.id}`, { properties }); return row.id; }
+  const when = DAY.test(day || '') ? { Due: { date: { start: day } }, 'Source Date': { date: { start: day } } } : {};
+  const made = await n.call('POST', '/pages', { parent: { type: 'data_source_id', data_source_id: JOURNAL.todos }, properties: {
+    ...properties, ...when, Tag: { select: { name: WIN.tag } }, 'Related Journal': { relation: [{ id: pageId }] }
+  } });
+  return made.id;
+}
+
 const setTodoDone = (n, id, done) => n.call('PATCH', `/pages/${id}`, { properties: { Status: { status: { name: done ? 'Done' : 'Not started' } } } });
 
 // A box for a quest made active after the 03:00 setup: found by name if it is
@@ -486,6 +522,23 @@ async function questBox(n, pageId, questId) {
 
 const validSlot = s => s && isId(s.parent) && (s.after == null || isId(s.after)) && (s.label == null || isId(s.label)) && Array.isArray(s.ids) && s.ids.every(isId);
 const limit = s => String(s ?? '').slice(0, 20000);
+
+// The evening's commute entry: AM, PM and Commute on the day's Work Location
+// Log row. An empty value clears the field; a value the page doesn't know is
+// left alone.
+export async function writeWork(n, w) {
+  if (!isId(w.id)) throw Object.assign(new Error('No Work Location Log row'), { code: 'bad_request' });
+  const row = await n.call('GET', `/pages/${w.id}`);
+  if (!sameId(row.parent && row.parent.data_source_id, DATA_SOURCES.workLocation)) throw Object.assign(new Error('Not a Work Location Log row'), { code: 'bad_request' });
+  const properties = {};
+  for (const [key, name, list] of [['am', 'AM', WORK.places], ['pm', 'PM', WORK.places], ['commute', 'Commute', WORK.rides]]) {
+    const v = w[key];
+    if (v === '') properties[name] = { select: null };
+    else if (list.includes(v)) properties[name] = { select: { name: v } };
+  }
+  if (Object.keys(properties).length) await n.call('PATCH', `/pages/${w.id}`, { properties });
+  return 1;
+}
 
 // POST /journal/save. Only what changed is sent; each piece carries the block
 // ids the page was drawn from, so a save is one or two Notion calls. When a
@@ -556,6 +609,9 @@ export async function saveJournal(env, body) {
     if (op.link) await linkTodo(n, op.id, pageId);
     if (typeof op.done === 'boolean') await setTodoDone(n, op.id, op.done);
   }
+
+  if (body.work) out.work = await writeWork(n, body.work);
+  if (body.win) out.win = await syncWin(n, pageId, { text: limit(body.win.text), did: DID.includes(body.win.did) ? body.win.did : '', day: body.win.day });
 
   if (typeof body.success === 'boolean') await n.call('PATCH', `/pages/${pageId}`, { properties: { Success: { checkbox: body.success } } });
 

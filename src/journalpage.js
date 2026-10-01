@@ -160,6 +160,14 @@ textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400
 @media (max-width:480px){.sheet{padding:20px 18px 18px;border-radius:18px} .qcard{padding:16px 18px 14px} .scene{height:300px}
   h1{font-size:31px} h2{font-size:21px} .label{font-size:17.5px} .q,textarea{font-size:17.5px} .qcard .q,.checkin .q{font-size:16.5px}}
 @media (max-width:360px){.ci-btns{grid-template-columns:1fr}}
+.wrow{display:flex;flex-wrap:wrap;gap:12px 16px}
+.wsel{display:flex;flex-direction:column;gap:5px;min-width:130px;flex:1 1 130px;max-width:220px}
+.wk{font-size:13.5px;font-weight:500;color:var(--muted)}
+.wsel select{appearance:none;-webkit-appearance:none;font:inherit;font-family:var(--sans);font-size:16px;color:var(--ink);background-color:var(--write-night);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23888' stroke-width='1.6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;border:1px solid var(--rule);border-radius:12px;padding:9px 34px 9px 12px;min-height:42px;cursor:pointer}
+.wsel select:focus{outline:none;border-color:color-mix(in srgb,var(--night) 60%,transparent)}
+#work .link{color:var(--night);margin-top:6px}
 .folding{overflow:hidden;transition:height .5s cubic-bezier(.4,0,.2,1),opacity .35s ease;opacity:0}
 .risein{animation:rise-in .45s ease both}
 .recap.glow{position:relative;overflow:hidden;isolation:isolate}
@@ -240,6 +248,7 @@ export function journalHtml(d) {
       ${d.sections.reflection ? entry('reflection', { after: '<div class="handoff" id="lookback" hidden></div>' }) : '<div class="handoff" id="lookback" hidden></div>'}
       ${entry('park', { small: true })}
       ${d.sections.tomorrow ? entry('tomorrow', { small: true }) : ''}
+      ${d.work ? '<div class="entry small" data-entry="work"><div class="label">🚗 Commute</div><div id="work"></div></div>' : ''}
     </section>
     <div class="end close"><button type="button" class="endbtn" id="e-done">Close the day</button></div>
   </div>
@@ -298,6 +307,9 @@ const SCRIPT = String.raw`
   (D.quests || []).forEach(function (q) { V['q:' + q.id] = q.text || ''; S.quests[q.id] = q.slot; });
   var F = {};
   Object.keys(D.focus || {}).forEach(function (g) { F[g] = D.focus[g].items.length ? D.focus[g].items : [{ t: '', c: false }]; S.focus[g] = D.focus[g].slot; });
+  // Ticked off elsewhere (the To-Do's Status) shows in "The win" too.
+  if (D.win) V.did = { Done: 'It happened', 'In progress': 'Partly' }[D.win.status] || (V.did === 'Not today' ? 'Not today' : '');
+  if (D.work) V.work = { am: D.work.am || '', pm: D.work.pm || '', commute: D.work.commute || '' };
   var checkin = D.checkin || (D.success ? 'win' : null);
   V.mq = checkin || '';
   var SECTION = { headspace: 1, forward: 1, reflection: 1, tomorrow: 1 };
@@ -341,6 +353,9 @@ const SCRIPT = String.raw`
       else if (EXTRA[k]) b.extras[k] = { slot: S.extras[k], text: V[k] };
       else if (k.indexOf('q:') === 0) b.quests[k.slice(2)] = { slot: S.quests[k.slice(2)], text: V[k] };
       else if (k.indexOf('f:') === 0) b.focus[k.slice(2)] = { slot: S.focus[k.slice(2)], items: F[k.slice(2)] };
+      else if (k === 'work' && D.work) b.work = { id: D.work.id, am: V.work.am, pm: V.work.pm, commute: V.work.commute };
+      // The win is also a To-Do for the Quest Engine; its Status follows "The win".
+      if (k === 'winif' || k === 'did') b.win = { text: V.winif || '', did: V.did || '', day: D.day };
     });
     if (success !== null) b.success = success;
     return b;
@@ -440,6 +455,38 @@ const SCRIPT = String.raw`
       '<button type="button" class="link" id="edit-m">' + (bits.length ? 'Open the morning ›' : 'Write it now ›') + '</button></div>';
     $('edit-m').addEventListener('click', function () { UI.mopen = true; UI.bye = false; saveUI(); layout(); });
   }
+  // ---- Commute: today's Work Location Log row, as two drop-downs ----
+  var PLACES = ['🇳🇱 Home', '🇧🇪 Beerse', '🇧🇪 Ghent', '🏖️ Holiday'];
+  var RIDES = ['🚲 E-bike', '🚗 Car', 'N/A'];
+  var NO_RIDE = { '🇳🇱 Home': 1, '🏖️ Holiday': 1 };
+  var workSplit = false;
+  function drawWork() {
+    if (!D.work || !$('work')) return;
+    var w = V.work;
+    var pick = function (k, label, list, value) {
+      var opts = list.slice(); if (value && opts.indexOf(value) < 0) opts.push(value);   // keeps what Notion already has
+      return '<label class="wsel"><span class="wk">' + label + '</span><select data-w="' + k + '"><option value="">–</option>' +
+        opts.map(function (o) { return '<option value="' + esc(o) + '"' + (o === value ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select></label>';
+    };
+    // One "Where" sets the whole day; a split day shows morning and afternoon.
+    var split = workSplit || w.am !== w.pm;
+    $('work').innerHTML = '<div class="wrow">' + (split ? pick('am', 'Morning', PLACES, w.am) + pick('pm', 'Afternoon', PLACES, w.pm) : pick('day', 'Where', PLACES, w.am)) +
+      pick('commute', 'Getting there', RIDES, w.commute) + '</div>' +
+      (split ? '' : '<button type="button" class="link" id="work-split">Different in the afternoon ›</button>');
+    var sp = $('work-split'); if (sp) sp.addEventListener('click', function () { workSplit = true; drawWork(); });
+    document.querySelectorAll('[data-w]').forEach(function (el) { el.addEventListener('change', function () {
+      var k = el.dataset.w, v = el.value;
+      if (k === 'day') w.am = w.pm = v; else w[k] = v;
+      // Home or a holiday all day means no commute; going to work again asks for one.
+      if (k !== 'commute') {
+        if (w.am && NO_RIDE[w.am] && NO_RIDE[w.pm]) w.commute = 'N/A';
+        else if (w.commute === 'N/A') w.commute = '';
+      }
+      change('work', undefined, true); drawWork();
+    }); });
+  }
+  drawWork();
+
   // The evening folds the same way once the day is closed.
   function eveningRecap() {
     var bits = [['Reflection', V.reflection], ['Park it', V.park], ['For tomorrow', V.tomorrow]]

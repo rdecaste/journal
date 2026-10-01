@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readTree, readJournal, writeText, writeFocus, saveJournal, loadJournal, journalDay, todoSuggestions, subLines, extrasAnchor, activeQuests, mergeQuests, JOURNAL, QUEST_FALLBACK } from '../src/journal.js';
+import { readTree, readJournal, writeText, writeFocus, saveJournal, loadJournal, journalDay, todoSuggestions, subLines, extrasAnchor, activeQuests, mergeQuests, JOURNAL, QUEST_FALLBACK, WIN } from '../src/journal.js';
 import { journalHtml } from '../src/journalpage.js';
 import { Notion } from '../src/notion.js';
+import { DATA_SOURCES } from '../src/config.js';
 import { FakeNotion, journalFixture, run } from './notionfake.js';
 
 const PAGE = '3eb24147-f877-814a-94ba-dc6d77c05990';
@@ -327,4 +328,68 @@ test('evening question: written once from the whole morning, again only when the
     assert.equal(kept.get('usage').days['2026-09-30'].chat_calls, 2);
     assert.equal(await writeEveningQuestion({ ...env, ADMIN_AI: '0' }, '2026-09-30', m), null);
   } finally { globalThis.fetch = real; }
+});
+
+test('journal page: the evening commute reads and writes today’s Work Location Log row', async () => {
+  const { fake } = setup();
+  const ROW = '3ec24147-f877-814a-9236-f12640bcf6aa', OTHER = '3ec24147-f877-814a-9236-f12640bcf6bb';
+  const sel = name => ({ select: name ? { name } : null });
+  fake.page(ROW, { Date: { date: { start: '2026-09-30' } }, AM: sel('🇧🇪 Beerse'), PM: sel('🇧🇪 Beerse'), Commute: sel(null) },
+    { parent: { type: 'data_source_id', data_source_id: DATA_SOURCES.workLocation } });
+  fake.page(OTHER, { Name: { title: [] } }, { parent: { type: 'data_source_id', data_source_id: JOURNAL.todos } });
+  fake.queries[JOURNAL.journal] = () => [fake.pages[PAGE]];
+  fake.queries[DATA_SOURCES.workLocation] = body => body.filter.date.equals === '2026-09-30' ? [fake.pages[ROW]] : [];
+  const d = await fake.use(() => loadJournal(env, { now: Date.parse('2026-09-30T18:00:00Z') }));
+  assert.deepEqual(d.work, { id: ROW, am: '🇧🇪 Beerse', pm: '🇧🇪 Beerse', commute: '' });
+  assert.match(journalHtml(d), /🚗 Commute/);
+
+  // A split day by e-bike; a value the page doesn't know leaves that field alone.
+  await fake.use(() => saveJournal(env, { page: PAGE, work: { id: ROW, am: '🇳🇱 Home', pm: '🇧🇪 Ghent', commute: '🚲 E-bike' } }));
+  assert.deepEqual([fake.pages[ROW].properties.AM, fake.pages[ROW].properties.PM, fake.pages[ROW].properties.Commute], [sel('🇳🇱 Home'), sel('🇧🇪 Ghent'), sel('🚲 E-bike')]);
+  await fake.use(() => saveJournal(env, { page: PAGE, work: { id: ROW, am: '', pm: 'Mars', commute: '🚲 E-bike' } }));
+  assert.deepEqual([fake.pages[ROW].properties.AM, fake.pages[ROW].properties.PM], [sel(null), sel('🇧🇪 Ghent')]);
+
+  // Only a Work Location Log row can be written this way.
+  await assert.rejects(fake.use(() => saveJournal(env, { page: PAGE, work: { id: OTHER, am: '🇳🇱 Home' } })), /Not a Work Location Log row/);
+  await assert.rejects(fake.use(() => saveJournal(env, { page: PAGE, work: { id: 'x' } })), /No Work Location Log row/);
+
+  // No row for the day: no commute entry.
+  fake.queries[DATA_SOURCES.workLocation] = () => [];
+  const none = await fake.use(() => loadJournal(env, { now: Date.parse('2026-09-30T18:00:00Z') }));
+  assert.equal(none.work, null);
+  assert.doesNotMatch(journalHtml(none), /🚗 Commute/);
+});
+
+test('journal page: "Today is a win if…" becomes a To-Do whose Status follows the win', async () => {
+  const { fake } = setup();
+  const winRows = () => Object.values(fake.pages).filter(p => p.properties.Tag && p.properties.Tag.select && p.properties.Tag.select.name === WIN.tag);
+  fake.queries[JOURNAL.todos] = body => {
+    if (body.filter.and) return winRows().filter(p => !p.in_trash && p.properties['Related Journal'].relation.some(r => r.id === body.filter.and[0].relation.contains));
+    return body.filter.property === 'Related Journal' ? winRows().filter(p => !p.in_trash) : [];
+  };
+  fake.queries[JOURNAL.journal] = () => [fake.pages[PAGE]];
+  const save = win => fake.use(() => saveJournal(env, { page: PAGE, win }));
+
+  await save({ text: 'I call the gate company.', did: '', day: '2026-09-30' });
+  assert.equal(winRows().length, 1);
+  const row = winRows()[0];
+  assert.equal(row.properties.Task.title.map(r => r.text.content).join(''), 'I call the gate company.');
+  assert.deepEqual([row.properties.Status.status.name, row.properties.Due.date.start, row.properties['Related Journal'].relation[0].id, row.parent.data_source_id],
+    ['Not started', '2026-09-30', PAGE, JOURNAL.todos]);
+
+  // Edited, then the evening's answer: one row, its Status follows.
+  await save({ text: 'I call the gate company and get a date.', did: 'Partly', day: '2026-09-30' });
+  await save({ text: 'I call the gate company and get a date.', did: 'It happened', day: '2026-09-30' });
+  assert.equal(winRows().length, 1);
+  assert.equal(row.properties.Status.status.name, 'Done');
+  assert.equal(row.properties.Task.title.map(r => r.text.content).join(''), 'I call the gate company and get a date.');
+
+  // The page reads it back; ticked off elsewhere counts the same.
+  const d = await fake.use(() => loadJournal(env, { now: Date.parse('2026-09-30T18:00:00Z') }));
+  assert.deepEqual(d.win, { id: row.id, status: 'Done' });
+
+  // Emptied: the To-Do goes to the trash, nothing new is made.
+  await save({ text: '  ', did: 'It happened', day: '2026-09-30' });
+  assert.equal(row.in_trash, true);
+  assert.equal(winRows().length, 1);
 });
