@@ -3,7 +3,7 @@
 // The page fetches /data and draws everything in the browser; nothing here
 // holds personal data.
 
-import { LINKS, NOTION, D1_CONSOLE } from './config.js';
+import { LINKS, NOTION, D1_CONSOLE, QUEST_ENGINE_DOC } from './config.js';
 
 const STYLE = `
 :root{color-scheme:light;--page:#f9f9f7;--surface:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;--grid:#e1e0d9;--axis:#c3c2b7;--ring:rgba(11,11,11,.10);
@@ -177,6 +177,9 @@ const fmt = (n, d = 1) => n === null || n === undefined || Number.isNaN(n) ? '�
 const ago = iso => { if (!iso) return 'never'; const m = (Date.now() - Date.parse(iso)) / 60000; if (m < 2) return 'just now'; if (m < 90) return Math.round(m) + ' min ago'; const h = m / 60; if (h < 36) return Math.round(h) + ' h ago'; return Math.round(h / 24) + ' days ago'; };
 const day = s => s ? new Date(s.slice(0, 10) + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '–';
 const NOTION = ${JSON.stringify(NOTION)};
+// The data is in D1 (Data Studio) and the docs in GitHub since 1 Oct 2026.
+const D1_CONSOLE = ${JSON.stringify(D1_CONSOLE)};
+const QUEST_ENGINE_DOC = ${JSON.stringify(QUEST_ENGINE_DOC)};
 
 // ---- charts (single series, thin marks, hover tooltips) ----
 function lineChart(points, { ref = null, refLabel = '', unit = '', height = 150, pad = 0.5 } = {}, W = 600) {
@@ -479,7 +482,7 @@ function renderHealth(h) {
     '<li><b>Half marathon runs.</b> A long run is a run of 60 minutes or 10 km; an interval run has intervals, reps, tempo, track or a distance like 400m in its name.</li>' +
     '<li><b>Form.</b> TSB is fitness minus fatigue, day by day from the Strava sync\\'s effort scores. Fresh above 0, neutral to −10, building to −30, overreaching below that.</li>' +
     '<li><b>Watch items.</b> Only things that need you show up here, and they feed the Health dot and the Quest log page.</li></ol></details>';
-  return html + '<p><a class="src" href="' + NOTION.workouts + '" target="_blank" rel="noopener">Workouts ↗</a> · <a class="src" href="' + NOTION.bodyMetrics + '" target="_blank" rel="noopener">Body Metrics ↗</a> · <a class="src" href="' + NOTION.sleepRecovery + '" target="_blank" rel="noopener">Sleep &amp; Recovery ↗</a> · <a class="src" href="' + NOTION.healthJourney + '" target="_blank" rel="noopener">Health Journey ↗</a></p>';
+  return html + '<p><a class="src" href="' + D1_CONSOLE + '" target="_blank" rel="noopener">Workouts, Body Metrics, Sleep &amp; Recovery and quests in D1 ↗</a></p>';
 }
 
 // ---- System health ----
@@ -494,7 +497,7 @@ function renderSystem(s) {
   html += '<h2>Processes</h2><div class="card">' + s.processes.map(p => '<div class="proc"><span class="dot" style="margin-top:7px;background:var(--' + (p.level === 'attention' ? 'crit' : p.level === 'watch' ? 'warnfill' : 'good') + ')" data-tip="' + LABEL[p.level] + '"></span><span class="n">' + esc(p.name) + (p.enabled === false ? ' <span class="muted" style="font-weight:400">(switched off)</span>' : '') + '</span><span class="when" data-tip="' + esc(p.last_ok || '') + '">' + (p.last_ok ? ago(p.last_ok) : '–') + '</span><span class="d">' + esc(p.detail) + (p.note ? ' · ' + esc(p.note) : '') + '</span>' + (p.problem ? '<span class="p">' + esc(p.problem) + '</span>' : '') + '</div>').join('') + '</div>';
   if (s.checks.length) html += '<h2>healthchecks.io</h2><div class="card scroll"><table><thead><tr><th>Check</th><th>State</th><th class="num">Last ping</th></tr></thead><tbody>' + s.checks.map(c => '<tr><td>' + esc(c.name) + '</td><td>' + esc(c.status) + '</td><td class="num">' + ago(c.last_ping) + '</td></tr>').join('') + '</tbody></table></div>';
   if (s.failures.recent.length) html += '<h2>Recent failures</h2><div class="card scroll"><table><tbody>' + s.failures.recent.map(f => '<tr><td>' + ago(f.at) + '</td><td>' + esc(f.slug) + '</td><td>' + esc(f.message) + '</td></tr>').join('') + '</tbody></table></div>';
-  return html + '<p><a class="src" href="https://dash.cloudflare.com/" target="_blank" rel="noopener">Cloudflare ↗</a> · <a class="src" href="https://eu2.make.com/" target="_blank" rel="noopener">Make ↗</a> · <a class="src" href="' + NOTION.questEngine + '" target="_blank" rel="noopener">Quest Engine doc ↗</a></p>';
+  return html + '<p><a class="src" href="https://dash.cloudflare.com/" target="_blank" rel="noopener">Cloudflare ↗</a> · <a class="src" href="https://eu2.make.com/" target="_blank" rel="noopener">Make ↗</a> · <a class="src" href="' + QUEST_ENGINE_DOC + '" target="_blank" rel="noopener">Quest Engine doc ↗</a></p>';
 }
 
 // ---- shell ----

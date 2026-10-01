@@ -349,3 +349,13 @@ test('system: a failing strava or withings check flags the sync even with a rece
   assert.match(strava.problem, /reports the strava sync failing/);
   assert.equal(s.processes.find(p => p.key === 'withings').level, 'ok');
 });
+
+test('the dashboard page\'s script parses and defines every constant it uses (1 Oct 2026: D1_CONSOLE was used but not handed to the browser)', async () => {
+  const { dashboardHtml } = await import('../src/page.js');
+  const vm = await import('node:vm');
+  const script = [...dashboardHtml().matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).join('\n');
+  new vm.Script(script);
+  const defined = new Set([...script.matchAll(/(?:const|let|var|function)\s+([A-Z][A-Z0-9_]+)/g)].map(m => m[1]));
+  const used = [...new Set([...script.replace(/'[^'\n]*'|"[^"\n]*"/g, '').matchAll(/\b([A-Z][A-Z0-9_]{2,})\b/g)].map(m => m[1]))];
+  assert.deepEqual(used.filter(u => !defined.has(u) && !['JSON', 'NaN', 'URL'].includes(u)), []);
+});

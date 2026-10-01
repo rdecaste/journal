@@ -129,6 +129,7 @@ const pages = name => `https://rdecaste.github.io/${name}/`;
 // are other pages, or Notion's frozen copy.
 export const D1_CONSOLE = 'https://dash.cloudflare.com/5976b96a95f8d424a229294bb45ee3ef/workers/d1/databases/94e5f5c7-b24f-4a3c-808c-a85345a27f7f';
 const doc = (repo, file) => `https://github.com/rdecaste/${repo}/blob/main/docs/${file}`;
+export const QUEST_ENGINE_DOC = doc('quest-engine', 'quest-engine.md');
 
 export const NOTION = {
   questLog: notion('d835f903d4754c9bbf52100097824752'),
@@ -161,7 +162,7 @@ export const LINKS = [
     { name: 'Data (D1 Data Studio)', url: D1_CONSOLE }
   ] },
   { group: 'Infrastructure', items: [
-    { name: 'Quest Engine doc', url: doc('quest-engine', 'quest-engine.md') },
+    { name: 'Quest Engine doc', url: QUEST_ENGINE_DOC },
     { name: 'Admin Dashboard doc', url: doc('journal', 'admin-dashboard.md') },
     { name: 'Quest Engine status', url: 'https://quest-engine.quest-engine.workers.dev/status' },
     { name: 'Make', url: 'https://eu2.make.com/' },
