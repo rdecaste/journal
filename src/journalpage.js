@@ -102,12 +102,10 @@ textarea::placeholder{color:var(--muted);opacity:.55;font-weight:400;font-style:
 .fgroup{display:flex;flex-direction:column;gap:2px}
 .flabel{font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-top:10px}
 .fgroup:first-of-type .flabel{margin-top:0}
-/* Today's focus in two columns: Must do on the left, Can do and Something cool on the right. */
-.fcols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:22px;align-items:start}
-.fcols .g-must{grid-row:span 2}
-.fcols .flabel{margin-top:0}
-.fcols .g-cool .flabel{margin-top:14px}
-.fcols .g-must + .g-cool .flabel{margin-top:0}
+/* Today's focus: one row per group, the label in a narrow column and its lines beside it. */
+.fcols{display:flex;flex-direction:column;gap:4px}
+.fcols .fgroup{display:grid;grid-template-columns:104px minmax(0,1fr);column-gap:14px;align-items:start}
+.fcols .flabel{margin-top:0;padding-top:13px;line-height:1.3}
 .line{display:flex;align-items:center;gap:12px;min-height:40px;border-bottom:1px solid var(--rule)}
 .line input[type=checkbox]{width:20px;height:20px;accent-color:var(--gold);flex:none;margin:0}
 .line input[type=text]{flex:1;min-width:0;border:0;background:transparent;font-size:17px;padding:8px 0}
@@ -176,7 +174,7 @@ textarea::placeholder{color:var(--muted);opacity:.55;font-weight:400;font-style:
 @keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.6);color:#fff;text-shadow:0 0 12px #f0b53c}100%{transform:scale(1)}}
 .plus{position:absolute;right:20px;top:14px;font-family:var(--hud);font-weight:600;font-size:18px;color:var(--hero-gold);pointer-events:none;animation:rise 1.3s ease-out forwards}
 @keyframes rise{0%{opacity:0;transform:translateY(8px)}20%{opacity:1}100%{opacity:0;transform:translateY(-34px)}}
-@media (max-width:480px){.fcols{column-gap:16px} .fcols .line{gap:9px} .line textarea{font-size:15.5px} .scene{height:300px} .sheet{padding:20px 18px 18px;border-radius:18px} h1{font-size:32px} .q{font-size:18px} .small .q{font-size:16.5px}}
+@media (max-width:480px){.fcols .fgroup{grid-template-columns:84px minmax(0,1fr);column-gap:10px} .fcols .line{gap:9px} .line textarea{font-size:15.5px} .scene{height:300px} .sheet{padding:20px 18px 18px;border-radius:18px} h1{font-size:32px} .q{font-size:18px} .small .q{font-size:16.5px}}
 @media (max-width:360px){.ci-btns{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important} .after,.checkin.flare,.lvl .days.pop,.plus{animation:none}}
 `;
