@@ -18,16 +18,16 @@ const longDay = day => { const d = new Date(day + 'T12:00:00Z'); return `${DAYS[
 // No AI here: these are fixed.
 export const PROMPTS = {
   headspace: { icon: '🧠', name: 'Headspace', more: ['What’s taking up the most room in your head right now?', 'How are you arriving today, honestly?', 'What would make this morning feel lighter?'],
-    starters: ['Honestly, I feel…', 'What bugs me is…'], deeper: 'What’s one decision you could make today so it stops circling?' },
+    starters: ['Honestly, I feel…', 'What bugs me is…'] },
   winif: { icon: '🎯', name: 'Today is a win if…', more: ['Finish the sentence. One thing, so tonight you can tell whether it happened.', 'What’s the smallest thing that would still make today count?'],
-    starters: ['I…', 'I don’t…'], hint: 'Tonight’s page asks you about this.' },
+    starters: ['I…', 'I don’t…'] },
   forward: { icon: '😄', name: 'Looking forward to', more: ['What small moment today would make you smile if it happened?', 'Who would you like to catch up with today?'], starters: ['I’d like to…'] },
   reflection: { icon: '🌙', name: 'Reflection', more: ['When today did you feel most like yourself?', 'What drained you today, and what gave something back?', 'What surprised you today?'],
-    starters: ['What stood out was…', 'I noticed…'], deeper: 'What would you do the same way tomorrow, and what not?' },
+    starters: ['What stood out was…', 'I noticed…'] },
   park: { icon: '🅿️', name: 'Park it', more: ['What’s still spinning? Write it down and leave it here for tonight.', 'Anything you’re carrying to bed that you can put down now?'],
-    starters: ['Still on my mind:', 'I’ll deal with…'], hint: 'Waits for you at the top of tomorrow morning.' },
+    starters: ['Still on my mind:', 'I’ll deal with…'] },
   tomorrow: { icon: '➡️', name: 'For tomorrow', more: ['What’s one thing you can take off tomorrow’s plate?', 'What would make tomorrow morning easy to start?'],
-    starters: ['Tomorrow I want…'], hint: 'Becomes the first thing you read tomorrow.' }
+    starters: ['Tomorrow I want…'] }
 };
 
 const STYLE = `
@@ -87,7 +87,6 @@ textarea{width:100%;display:block;resize:none;overflow:hidden;border:1px solid v
 textarea:focus{outline:none;border-color:color-mix(in srgb,var(--ki) 55%,transparent)}
 .evening textarea:focus{border-color:color-mix(in srgb,var(--night) 60%,transparent)}
 textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--muted);opacity:.6}
-.deeper{margin:0;font-family:var(--serif);font-style:italic;font-size:17px;line-height:1.5;color:var(--muted);padding-left:12px;border-left:2px solid var(--rule)}
 .hint{margin:0;font-size:13.5px;color:var(--muted)}
 /* Nudges that never move the page: "↻ another" beside the label (brighter in the box
    you're writing in) and a starter as grey text in an empty box. */
@@ -95,29 +94,11 @@ textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400
 .entry.active .more{opacity:1;color:var(--ki)}
 .evening .entry.active .more{color:var(--night)}
 .more:hover{opacity:1}
-/* Today's focus: one row per group, the label in a narrow column and its lines beside it. */
-.fgroup{display:flex;flex-direction:column;gap:2px}
-.flabel{font-size:14px;font-weight:500;color:var(--muted);margin-top:10px}
-.fgroup:first-of-type .flabel{margin-top:0}
-.fcols{display:flex;flex-direction:column;gap:4px}
-.fcols .fgroup{display:grid;grid-template-columns:120px minmax(0,1fr);column-gap:14px;align-items:start}
-.fcols .flabel{margin-top:0;padding-top:13px;line-height:1.3}
-.line{display:flex;align-items:center;gap:12px;min-height:40px}
-.line input[type=checkbox]{width:20px;height:20px;accent-color:var(--ki);flex:none;margin:0}
-.evening .line input[type=checkbox]{accent-color:var(--night)}
-.line input[type=text]{flex:1;min-width:0;border:0;background:transparent;font-family:var(--serif);font-size:18px;padding:8px 0}
-.line input[type=text]:focus{outline:none}
-.line.done input[type=text]{text-decoration:line-through;color:var(--muted)}
-/* Focus lines wrap instead of cutting off a long item. */
-.rows .line{align-items:flex-start}
-.rows .line input[type=checkbox]{margin-top:11px}
-.line textarea{flex:1;min-width:0;min-height:0;border:0;border-radius:0;background:none;padding:8px 0;font-size:18px;line-height:1.45;color:var(--ink)}
-.line.done textarea{text-decoration:line-through;color:var(--muted)}
-.sugg{margin:10px 0 0;font-size:14px;line-height:1.7;color:var(--muted)}
-.todo{border:0;background:none;padding:0;font-size:14px;color:var(--ink);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;cursor:pointer}
-.dot{color:var(--muted);margin:0 4px}
 /* Hand-offs between the two halves, the recaps and the endings. */
 .handoff{display:flex;flex-direction:column;gap:8px}
+.entry .handoff{margin-top:8px;gap:10px}
+.didrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.dl{font-size:13.5px;font-weight:500;color:var(--muted)}
 .handoff blockquote{margin:0;font-family:var(--serif);font-size:18px;line-height:1.55;padding-left:14px;border-left:2px solid color-mix(in srgb,var(--ki) 60%,transparent);white-space:pre-wrap}
 .evening .handoff blockquote{border-color:color-mix(in srgb,var(--night) 50%,transparent)}
 .handoff .soft{margin:0;font-family:var(--serif);font-style:italic;font-size:17px;line-height:1.5;color:var(--muted)}
@@ -177,21 +158,30 @@ textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400
 .plus{position:absolute;right:20px;top:14px;font-weight:600;font-size:18px;color:var(--gold);pointer-events:none;animation:rise 1.3s ease-out forwards}
 @keyframes rise{0%{opacity:0;transform:translateY(8px)}20%{opacity:1}100%{opacity:0;transform:translateY(-34px)}}
 @media (max-width:480px){.sheet{padding:20px 18px 18px;border-radius:18px} .qcard{padding:16px 18px 14px} .scene{height:300px}
-  h1{font-size:31px} h2{font-size:21px} .label{font-size:17.5px} .q,textarea{font-size:17.5px} .qcard .q,.checkin .q{font-size:16.5px}
-  .fcols .fgroup{grid-template-columns:112px minmax(0,1fr);column-gap:10px} .fcols .line{gap:9px} .flabel{font-size:13.5px} .line textarea,.line input[type=text]{font-size:17px}}
+  h1{font-size:31px} h2{font-size:21px} .label{font-size:17.5px} .q,textarea{font-size:17.5px} .qcard .q,.checkin .q{font-size:16.5px}}
 @media (max-width:360px){.ci-btns{grid-template-columns:1fr}}
-@media (prefers-reduced-motion:reduce){*{transition:none!important} .after,.checkin.flare,.lvl .days.pop,.plus{animation:none}}
+.folding{overflow:hidden;transition:height .5s cubic-bezier(.4,0,.2,1),opacity .35s ease;opacity:0}
+.risein{animation:rise-in .45s ease both}
+.recap.glow{position:relative;overflow:hidden;isolation:isolate}
+.recap.glow::before{content:"";position:absolute;inset:-30%;z-index:-1;pointer-events:none;background:radial-gradient(closest-side at 88% 15%,rgba(255,206,110,.6),rgba(255,206,110,0));animation:glow 2.8s ease both}
+.recap.night.glow::before{background:radial-gradient(closest-side at 85% 20%,rgba(150,140,230,.45),rgba(150,140,230,0))}
+.recap .sky{position:absolute;right:18px;top:12px;font-size:20px;line-height:1;pointer-events:none;color:#e9a93a;animation:sunrise 2.4s cubic-bezier(.3,0,.2,1) both}
+.recap.night .sky{color:var(--night);font-size:13px;letter-spacing:6px;animation:twinkle 2.4s ease both}
+@keyframes glow{0%{opacity:0}35%{opacity:1}100%{opacity:.35}}
+@keyframes sunrise{0%{opacity:0;transform:translateY(26px)}50%{opacity:1}100%{opacity:.75;transform:none}}
+@keyframes twinkle{0%{opacity:0}30%{opacity:1}55%{opacity:.35}75%{opacity:1}100%{opacity:.6}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important} .after,.checkin.flare,.lvl .days.pop,.plus,.risein,.recap.glow::before,.recap .sky{animation:none}}
 `;
 
 // One writing box; the script fills in the question and the nudges.
-const entry = (id, { small = false, evening = false } = {}) => {
+const entry = (id, { small = false, evening = false, after = '' } = {}) => {
   const p = PROMPTS[id];
   return `<div class="entry${small ? ' small' : ''}" data-entry="${id}">
         <div class="label">${p.icon} ${esc(p.name)}</div>
         <button type="button" class="more" data-box="${id}" aria-label="Another question">↻ another</button>
         <p class="q" id="${id}-q"></p>
         <textarea id="${id}" aria-labelledby="${id}-q" rows="2" placeholder="${esc(p.starters[0] || '')}"></textarea>
-        ${p.deeper ? `<p class="deeper" id="${id}-d" hidden>${esc(p.deeper)}</p>` : ''}
+        ${after}
         ${p.hint ? `<p class="hint">${esc(p.hint)}</p>` : ''}
       </div>`;
 };
@@ -218,12 +208,6 @@ export function journalHtml(d) {
   <p class="foot"><a href="/journal">Try again</a> · <a href="/admin">Admin</a></p>
 </div></body></html>`;
   }
-  const focus = d.focus ? `<div class="entry" data-entry="focus">
-        <div class="label">🔥 Today’s focus</div>
-        <div class="fcols">${[['must', 'Must do'], ['can', 'Can do'], ['cool', 'Something cool']].filter(([g]) => d.focus[g])
-          .map(([g, label]) => `<div class="fgroup g-${g}"><div class="flabel">${label}</div><div class="rows" data-group="${g}" data-ph="Add…" data-label="${label}"></div></div>`).join('')}</div>
-        <p class="sugg" id="sugg" hidden></p>
-      </div>` : '';
   return `${head('Journal')}
 <body>
 <div class="scene" id="scene" aria-hidden="true"></div>
@@ -242,11 +226,9 @@ export function journalHtml(d) {
   <h2>☀️ Morning</h2>
   <div id="m-recap" hidden></div>
   <section class="sheet morning" id="m-open" aria-label="Morning">
-    <div class="handoff" id="lastnight" hidden></div>
     ${d.sections.headspace ? entry('headspace') : ''}
     ${d.sections.forward ? entry('forward', { small: true }) : ''}
     ${entry('winif', { small: true })}
-    ${focus}
     <div class="end"><button type="button" class="endbtn" id="m-done">Done for this morning</button></div>
   </section>
 
@@ -254,11 +236,8 @@ export function journalHtml(d) {
   <p class="later" id="e-later" hidden>Opens here tonight, starting with your “win if”. <button type="button" class="link" id="open-evening">Write now ›</button></p>
   <div id="e-recap" hidden></div>
   <div id="e-open" class="evening" style="display:flex;flex-direction:column;gap:22px">
-    <section class="sheet" aria-label="Looking back">
-      <div class="handoff" id="lookback"></div>
-      ${d.sections.reflection ? entry('reflection') : ''}
-    </section>
-    <section class="sheet" aria-label="Before you sleep">
+    <section class="sheet" aria-label="Evening">
+      ${d.sections.reflection ? entry('reflection', { after: '<div class="handoff" id="lookback" hidden></div>' }) : '<div class="handoff" id="lookback" hidden></div>'}
       ${entry('park', { small: true })}
       ${d.sections.tomorrow ? entry('tomorrow', { small: true }) : ''}
     </section>
@@ -401,13 +380,11 @@ const SCRIPT = String.raw`
   // ---- Writing boxes ----
   var grow = function (el) { if (!el.offsetParent) return; el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight + el.offsetHeight - el.clientHeight, 30) + 'px'; };
   var growAll = function () { Array.prototype.forEach.call(document.querySelectorAll('textarea'), grow); };
-  var deeper = function (el) { var d = $(el.id + '-d'); if (d) d.hidden = el.value.trim().length < 40; };
   Object.keys(P).concat(['mqnote']).forEach(function (id) {
     var el = $(id); if (!el) return;
     el.value = V[id] || '';
-    el.addEventListener('input', function () { change(id, el.value); grow(el); deeper(el); });
+    el.addEventListener('input', function () { change(id, el.value); grow(el); });
     el.addEventListener('blur', function () { if (dirty[id]) flush(); });
-    deeper(el);
   });
   function stamp(id, when) {
     var i = (D.quests || []).map(function (q) { return q.id; }).indexOf(id), el = $('quest' + i + '-at');
@@ -429,6 +406,7 @@ const SCRIPT = String.raw`
   var Q = {};
   Object.keys(P).forEach(function (id) {
     var first = D.sections[id] && D.sections[id].q, list = (first ? [first] : []).concat(P[id].more);
+    if (id === 'reflection' && D.evening_q) list.unshift(D.evening_q);
     Q[id] = list;
     var q = $(id + '-q'); if (q) q.textContent = list[(UI['n_' + id] || 0) % list.length];
   });
@@ -444,85 +422,18 @@ const SCRIPT = String.raw`
     b.addEventListener('click', function () { UI['n_' + id] = ((UI['n_' + id] || 0) + 1) % Q[id].length; saveUI(); $(id + '-q').textContent = Q[id][UI['n_' + id]]; });
   });
 
-  // ---- Today's focus: Enter on a filled line adds the next; Backspace on an empty one removes it ----
-  function focusChanged(g, now) { change('f:' + g, undefined, now); }
-  function drawGroup(g, focusAt) {
-    var box = document.querySelector('.rows[data-group="' + g + '"]'); if (!box) return;
-    box.innerHTML = '';
-    F[g].forEach(function (it, i) {
-      var row = document.createElement('label'); row.className = 'line' + (it.c ? ' done' : '');
-      row.innerHTML = '<input type="checkbox" aria-label="Done"' + (it.c ? ' checked' : '') + '><textarea rows="1" enterkeyhint="next" aria-label="' + box.getAttribute('data-label') + ' ' + (i + 1) + '" placeholder="' + (i ? 'And…' : box.getAttribute('data-ph')) + '"></textarea>';
-      var cb = row.children[0], tx = row.children[1];
-      tx.value = it.t;
-      tx.addEventListener('input', function () {
-        // One line per to-do: a pasted line break becomes a space.
-        if (/\n/.test(tx.value)) tx.value = tx.value.replace(/\s*\n\s*/g, ' ');
-        it.t = tx.value; if (it.todo) it.todo = null; focusChanged(g); todos(); grow(tx);
-      });
-      tx.addEventListener('blur', function () { if (dirty['f:' + g]) flush(); });
-      cb.addEventListener('change', function () { tick(g, it, cb.checked); row.classList.toggle('done', cb.checked); });
-      tx.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' && !e.isComposing) {
-          e.preventDefault();
-          if (!tx.value.trim()) return;
-          if (F[g][i + 1] && !F[g][i + 1].t.trim()) return drawGroup(g, i + 1);
-          F[g].splice(i + 1, 0, { t: '', c: false }); drawGroup(g, i + 1);
-        } else if (e.key === 'Backspace' && !tx.value && F[g].length > 1) {
-          e.preventDefault(); F[g].splice(i, 1); focusChanged(g); drawGroup(g, Math.max(0, i - 1));
-        }
-      });
-      box.appendChild(row); grow(tx);
-    });
-    if (focusAt !== undefined) { var t = box.querySelectorAll('textarea')[focusAt]; if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }
-  }
-  function tick(g, it, on) {
-    it.c = on;
-    if (it.todo) todoOps.push({ id: it.todo, done: on });
-    focusChanged(g, true);
-  }
-  Object.keys(F).forEach(function (g) { drawGroup(g); });
-  // To-do suggestions: one quiet line; a picked one fills the first empty line of its group.
-  var SUG = (D.suggestions || []).filter(function (s) { return F[s.group] || F.can; });
-  function todos() {
-    var el = $('sugg'); if (!el) return;
-    var taken = {}; Object.keys(F).forEach(function (g) { F[g].forEach(function (it) { taken[it.t.trim().toLowerCase()] = 1; }); });
-    var left = SUG.filter(function (s) { return !taken[s.t.trim().toLowerCase()]; });
-    el.hidden = !left.length;
-    el.innerHTML = '<span>From your to-dos:</span> ' + left.map(function (s, i) { return (i ? '<span class="dot">·</span>' : '') + '<button type="button" class="todo" data-id="' + esc(s.id) + '">' + esc(s.t) + '</button>'; }).join('');
-    Array.prototype.forEach.call(el.querySelectorAll('.todo'), function (b) {
-      b.addEventListener('click', function () {
-        var s = SUG.filter(function (x) { return x.id === b.getAttribute('data-id'); })[0], g = F[s.group] ? s.group : 'can';
-        var slot = F[g].filter(function (it) { return !it.t.trim(); })[0];
-        if (!slot) { slot = { t: '', c: false }; F[g].push(slot); }
-        slot.t = s.t; slot.todo = s.id;
-        todoOps.push({ id: s.id, link: true });
-        focusChanged(g, true); drawGroup(g); todos();
-      });
-    });
-  }
-  todos();
-  var focusItems = function () { var out = []; Object.keys(F).forEach(function (g) { F[g].forEach(function (it) { if (it.t.trim()) out.push({ g: g, it: it }); }); }); return out; };
-
-  // ---- Hand-offs ----
-  (function lastNight() {
-    var l = D.last || {}, h = '';
-    if ((l.tomorrow || '').trim()) h += '<p class="soft">Last night, for today:</p><blockquote>' + esc(l.tomorrow.trim()) + '</blockquote>';
-    if ((l.park || '').trim()) h += '<p class="soft">You parked:</p><blockquote>' + esc(l.park.trim()) + '</blockquote>';
-    if (h) { $('lastnight').innerHTML = '<div class="label">From last night</div>' + h; $('lastnight').hidden = false; }
-  })();
+  // ---- The evening look-back and the folded morning ----
   function lookback() {
-    var w = (V.winif || '').trim(), items = focusItems();
-    var h = '<div class="label">This morning</div>';
-    if (w) h += '<blockquote>Today is a win if ' + esc(w.replace(/^…\s*/, '')) + '</blockquote><div class="did">' +
-      ['It happened', 'Partly', 'Not today'].map(function (o) { return '<button type="button" data-did="' + o + '" aria-pressed="' + (V.did === o) + '">' + o + '</button>'; }).join('') + '</div>';
-    else h += '<p class="soft">No plan this morning. What ended up mattering most today? Start there.</p>';
-    if (items.length) h += '<div class="ticks">' + items.map(function (f, i) { var c = f.it.c; return '<label class="line' + (c ? ' done' : '') + '"><input type="checkbox" data-k="' + i + '"' + (c ? ' checked' : '') + '><input type="text" value="' + esc(f.it.t) + '" readonly tabindex="-1" aria-label="' + esc(f.it.t) + '"></label>'; }).join('') + '</div>';
-    $('lookback').innerHTML = h;
+    var w = (V.winif || '').trim();
+    // Under the Reflection box: whether the morning's "win if" happened.
+    var h = '';
+    if (w) h += '<div class="didrow"><span class="dl">The win</span><div class="did">' +
+      ['It happened', 'Partly', 'Not today'].map(function (o) { return '<button type="button" data-did="' + o + '" aria-pressed="' + (V.did === o) + '">' + o + '</button>'; }).join('') + '</div></div>';
+    $('lookback').innerHTML = h; $('lookback').hidden = !h;
     Array.prototype.forEach.call(document.querySelectorAll('[data-did]'), function (b) { b.addEventListener('click', function () { change('did', V.did === b.getAttribute('data-did') ? '' : b.getAttribute('data-did'), true); lookback(); }); });
-    Array.prototype.forEach.call(document.querySelectorAll('[data-k]'), function (b) { b.addEventListener('change', function () { var f = items[+b.getAttribute('data-k')]; tick(f.g, f.it, b.checked); drawGroup(f.g); lookback(); }); });
   }
   function recap() {
-    var bits = [['Headspace', V.headspace], ['Looking forward', V.forward], ['Win if', V.winif], ['Focus', focusItems().map(function (f) { return f.it.t.trim(); }).join(' · ')]]
+    var bits = [['Headspace', V.headspace], ['Looking forward', V.forward], ['Win if', V.winif]]
       .filter(function (b) { return b[1] && String(b[1]).trim(); });
     $('m-recap').innerHTML = '<div class="recap">' + (UI.bye ? '<p class="bye" style="margin-bottom:6px">Have a good day, Roy. Tonight starts with your “win if”.</p>' : '') +
       (bits.length ? bits.map(function (b) { return '<p><b>' + b[0] + '</b>' + esc(b[1]) + '</p>'; }).join('') : '<p class="later" style="font-size:17px">Nothing written this morning.</p>') +
@@ -534,7 +445,7 @@ const SCRIPT = String.raw`
     var did = (V.winif || '').trim() ? (V.did || '').trim() : '';
     var bits = [['Win if', did ? V.winif.trim() + ' · ' + did : ''], ['Reflection', V.reflection], ['Park it', V.park], ['For tomorrow', V.tomorrow]]
       .filter(function (b) { return b[1] && String(b[1]).trim(); });
-    $('e-recap').innerHTML = '<div class="recap night"><p class="bye" style="margin-bottom:6px">Saved. Sleep well, Roy. Tomorrow starts with what you wrote tonight.</p>' +
+    $('e-recap').innerHTML = '<div class="recap night"><p class="bye" style="margin-bottom:6px">Saved. Sleep well, Roy.</p>' +
       bits.map(function (b) { return '<p><b>' + b[0] + '</b>' + esc(b[1]) + '</p>'; }).join('') +
       '<button type="button" class="link" id="edit-e">Open the evening ›</button></div>';
     $('edit-e').addEventListener('click', function () { UI.edone = false; saveUI(); layout(); });
@@ -575,15 +486,53 @@ const SCRIPT = String.raw`
     var eOpen = evening || UI.eopen, eClosed = eOpen && UI.edone;
     $('e-open').hidden = !eOpen || eClosed; $('e-later').hidden = eOpen; $('e-recap').hidden = !eClosed;
     recap(); lookback(); if (eClosed) eveningRecap(); growAll();
+    if (eOpen && !eClosed && !D.evening_q && !asked) askEvening();
   }
   $('open-evening').addEventListener('click', function () { UI.eopen = true; saveUI(); layout(); });
+  // The evening's Reflection question, written from the whole morning (one small AI call;
+  // the server only asks again when the morning changed).
+  var asked = false;
+  function askEvening() {
+    var m = { headspace: V.headspace || '', forward: V.forward || '', winif: V.winif || '' };
+    if (!(m.headspace.trim() || m.forward.trim() || m.winif.trim())) return;
+    asked = true;
+    fetch('/journal/evening-question', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(m), credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || !j.ok || !j.q || !Q.reflection) return;
+        if (D.evening_q && Q.reflection[0] === D.evening_q) Q.reflection.shift();
+        D.evening_q = j.q; Q.reflection.unshift(j.q);
+        var el = $('reflection-q'); if (el && !(UI.n_reflection > 0)) el.textContent = j.q;
+      }).catch(function () {});
+  }
+  // Done / Close the day: the open half shrinks to its recap while it fades, the recap lines rise in,
+  // then a small sun rises (morning) or a few stars twinkle (evening) in its corner.
+  function fold(openEl, recapEl, mark, finish) {
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) { finish(); recapEl.scrollIntoView({ block: 'nearest' }); return; }
+    var h0 = openEl.offsetHeight;
+    finish();
+    var h1 = recapEl.offsetHeight;
+    recapEl.hidden = true; openEl.hidden = false;
+    openEl.style.height = h0 + 'px'; openEl.style.overflow = 'hidden';
+    void openEl.offsetHeight;
+    openEl.classList.add('folding'); openEl.style.height = h1 + 'px';
+    setTimeout(function () {
+      openEl.hidden = true; openEl.classList.remove('folding'); openEl.style.height = ''; openEl.style.overflow = '';
+      recapEl.hidden = false;
+      var r = recapEl.querySelector('.recap');
+      if (r) {
+        Array.prototype.forEach.call(r.children, function (c, i) { c.style.animationDelay = (i * 90) + 'ms'; c.classList.add('risein'); });
+        r.classList.add('glow'); r.insertAdjacentHTML('beforeend', '<span class="sky" aria-hidden="true">' + mark + '</span>');
+      }
+      recapEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, 520);
+  }
   $('m-done').addEventListener('click', function () {
-    UI.mdone = true; UI.mopen = false; UI.bye = true; saveUI(); flush(); layout();
-    $('m-recap').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    fold($('m-open'), $('m-recap'), '☀', function () { UI.mdone = true; UI.mopen = false; UI.bye = true; saveUI(); flush(); layout(); });
+    askEvening();
   });
   $('e-done').addEventListener('click', function () {
-    UI.edone = true; saveUI(); flush(); layout();
-    $('e-recap').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    fold($('e-open'), $('e-recap'), '✦✧✦', function () { UI.edone = true; saveUI(); flush(); layout(); });
   });
   layout();
 
