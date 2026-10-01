@@ -160,15 +160,14 @@ textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400
 @media (max-width:480px){.sheet{padding:20px 18px 18px;border-radius:18px} .qcard{padding:16px 18px 14px} .scene{height:300px}
   h1{font-size:31px} h2{font-size:21px} .label{font-size:17.5px} .q,textarea{font-size:17.5px} .qcard .q,.checkin .q{font-size:16.5px}}
 @media (max-width:360px){.ci-btns{grid-template-columns:1fr}}
-.wrow{display:grid;grid-template-columns:110px 1fr;align-items:center;gap:6px 12px}
-.wrow + .wrow{margin-top:8px}
+.wrow{display:flex;flex-wrap:wrap;gap:12px 16px}
+.wsel{display:flex;flex-direction:column;gap:5px;min-width:130px;flex:1 1 130px;max-width:220px}
 .wk{font-size:13.5px;font-weight:500;color:var(--muted)}
-.opts{display:flex;gap:6px;flex-wrap:wrap}
-.opts button{font-size:14px;font-weight:500;min-height:34px;padding:0 13px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
-.opts button[aria-pressed="true"]{background:var(--night);color:var(--paper);border-color:var(--night)}
-#work .link{color:var(--night)}
-.wline{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;font-family:var(--serif);font-size:18px;line-height:1.5}
-@media (max-width:480px){.wrow{grid-template-columns:1fr} .wline{font-size:17.5px}}
+.wsel select{appearance:none;-webkit-appearance:none;font:inherit;font-family:var(--sans);font-size:16px;color:var(--ink);background-color:var(--write-night);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23888' stroke-width='1.6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;border:1px solid var(--rule);border-radius:12px;padding:9px 34px 9px 12px;min-height:42px;cursor:pointer}
+.wsel select:focus{outline:none;border-color:color-mix(in srgb,var(--night) 60%,transparent)}
+#work .link{color:var(--night);margin-top:6px}
 .folding{overflow:hidden;transition:height .5s cubic-bezier(.4,0,.2,1),opacity .35s ease;opacity:0}
 .risein{animation:rise-in .45s ease both}
 .recap.glow{position:relative;overflow:hidden;isolation:isolate}
@@ -452,39 +451,34 @@ const SCRIPT = String.raw`
       '<button type="button" class="link" id="edit-m">' + (bits.length ? 'Open the morning ›' : 'Write it now ›') + '</button></div>';
     $('edit-m').addEventListener('click', function () { UI.mopen = true; UI.bye = false; saveUI(); layout(); });
   }
-  // ---- Commute: today's Work Location Log row, as one line until "Change ›" ----
-  var PLACES = ['🇳🇱 Home', '🇧🇪 Beerse', '🇧🇪 Ghent', '✈️ Travel', '🏖️ Holiday', '🎉 Public holiday'];
-  var RIDES = ['🚲 E-bike', '🚗 Car', '✈️ Plane', 'N/A'];
-  var bare = function (v) { return v.replace(/^\S+\s/, ''); };
-  var workOpen = false, workSplit = false;
-  function workLine(w) {
-    var place = w.am && w.pm ? (w.am === w.pm ? bare(w.am) + ' all day' : bare(w.am) + ' in the morning, ' + bare(w.pm) + ' in the afternoon')
-      : w.am || w.pm ? bare(w.am || w.pm) + (w.am ? ' in the morning' : ' in the afternoon') : '';
-    var ride = w.commute === 'N/A' ? 'no commute' : w.commute ? 'by ' + bare(w.commute).toLowerCase() : '';
-    return [place, ride].filter(Boolean).join(' · ');
-  }
+  // ---- Commute: today's Work Location Log row, as two drop-downs ----
+  var PLACES = ['🇳🇱 Home', '🇧🇪 Beerse', '🇧🇪 Ghent', '🏖️ Holiday'];
+  var RIDES = ['🚲 E-bike', '🚗 Car', 'N/A'];
+  var NO_RIDE = { '🇳🇱 Home': 1, '🏖️ Holiday': 1 };
+  var workSplit = false;
   function drawWork() {
     if (!D.work || !$('work')) return;
-    var w = V.work, line = workLine(w);
-    var cur = function (k) { return k === 'day' ? (w.am === w.pm ? w.am : '') : w[k]; };
-    var row = function (k, label, list) {
-      return '<div class="wrow"><span class="wk">' + label + '</span><div class="opts">' + list.map(function (o) {
-        return '<button type="button" data-w="' + k + '" data-v="' + esc(o) + '" aria-pressed="' + (cur(k) === o) + '">' + esc(o) + '</button>';
-      }).join('') + '</div></div>';
+    var w = V.work;
+    var pick = function (k, label, list, value) {
+      var opts = list.slice(); if (value && opts.indexOf(value) < 0) opts.push(value);   // keeps what Notion already has
+      return '<label class="wsel"><span class="wk">' + label + '</span><select data-w="' + k + '"><option value="">–</option>' +
+        opts.map(function (o) { return '<option value="' + esc(o) + '"' + (o === value ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select></label>';
     };
-    // One "Where" row sets the whole day; a split day shows morning and afternoon.
-    var split = workSplit || (w.am && w.pm && w.am !== w.pm) || (!!w.am !== !!w.pm);
-    $('work').innerHTML = !workOpen && w.am && w.pm && w.commute
-      ? '<div class="wline"><span>' + esc(line) + '</span><button type="button" class="link" id="work-change">Change ›</button></div>'
-      : (split ? row('am', 'Morning', PLACES) + row('pm', 'Afternoon', PLACES) : row('day', 'Where', PLACES)) + row('commute', 'Getting there', RIDES) +
-        (split ? '' : '<button type="button" class="link" id="work-split">Different in the afternoon ›</button>');
-    var ch = $('work-change'); if (ch) ch.addEventListener('click', function () { workOpen = true; drawWork(); });
+    // One "Where" sets the whole day; a split day shows morning and afternoon.
+    var split = workSplit || w.am !== w.pm;
+    $('work').innerHTML = '<div class="wrow">' + (split ? pick('am', 'Morning', PLACES, w.am) + pick('pm', 'Afternoon', PLACES, w.pm) : pick('day', 'Where', PLACES, w.am)) +
+      pick('commute', 'Getting there', RIDES, w.commute) + '</div>' +
+      (split ? '' : '<button type="button" class="link" id="work-split">Different in the afternoon ›</button>');
     var sp = $('work-split'); if (sp) sp.addEventListener('click', function () { workSplit = true; drawWork(); });
-    document.querySelectorAll('[data-w]').forEach(function (b) { b.addEventListener('click', function () {
-      var k = b.dataset.w, v = b.dataset.v;
-      if (k === 'day') { w.am = w.pm = cur('day') === v ? '' : v; }
-      else w[k] = w[k] === v ? '' : v;
-      workOpen = true; change('work', undefined, true); drawWork();
+    document.querySelectorAll('[data-w]').forEach(function (el) { el.addEventListener('change', function () {
+      var k = el.dataset.w, v = el.value;
+      if (k === 'day') w.am = w.pm = v; else w[k] = v;
+      // Home or a holiday all day means no commute; going to work again asks for one.
+      if (k !== 'commute') {
+        if (w.am && NO_RIDE[w.am] && NO_RIDE[w.pm]) w.commute = 'N/A';
+        else if (w.commute === 'N/A') w.commute = '';
+      }
+      change('work', undefined, true); drawWork();
     }); });
   }
   drawWork();
