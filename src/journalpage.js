@@ -279,7 +279,7 @@ export function journalHtml(d) {
 
   <canvas id="burst" aria-hidden="true"></canvas>
   ${d.errors && d.errors.length ? `<p class="hint">Some parts could not load: ${esc(d.errors.join('; '))}</p>` : ''}
-  <p class="foot">Saves to <a href="${esc(d.url || '#')}" target="_blank" rel="noopener">${esc(d.title || 'your journal')} in Notion</a> when you tap Done, Close the day or Save.</p>
+  <p class="foot">${d.url ? `Saves to <a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.title || 'your journal')} in Notion</a>` : `Saves ${esc(d.title || 'your journal')}`} when you tap Done, Close the day or Save.</p>
 </div>
 <script type="application/json" id="data">${safeJson(d)}</script>
 <script>${SCRIPT}</script>

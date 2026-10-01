@@ -58,6 +58,12 @@ and `src/areas.js` are copies of the Quest Engine's `src/store.js` and
 `src/areas.js`. With D1, saving a Commute sets E-bike € (€0.37 × 70 km =
 €25.90, `EBIKE` in `src/config.js`); days paid before keep their amount.
 
+The journal, To-Dos and Quests follow with step 2: `JOURNAL_STORE` (`notion`
+or `d1`, the same as the Quest Engine's). With D1 the journal page reads
+and saves the day as a `journal` row (its answers as columns, the focus
+to-dos and quest notes as rows) in `src/journald1.js`; the Health tab's
+quests and the win's To-Do go through the same store.
+
 ## Routes
 
 | Route | What |

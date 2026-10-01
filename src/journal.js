@@ -20,12 +20,16 @@
 //     counts), Relapse leaves it unticked.
 // A to-do picked from To-Dos gets linked to the day's journal, so the digest
 // does not copy it again, and is set Done when it is ticked.
+// With JOURNAL_STORE "d1" (the Quest Engine's docs/d1-migration.md, step 2)
+// the day is a D1 row instead: src/journald1.js reads and saves it, with the
+// same data for the page.
 
 import { Notion } from './notion.js';
 import { cached, remember } from './cache.js';
 import { eveningQuestion } from './eveningq.js';
 import { DATA_SOURCES, EBIKE, ebikeDay } from './config.js';
-import { healthStore } from './healthstore.js';
+import { healthStore, journalStore } from './healthstore.js';
+import { loadJournalD1, saveJournalD1 } from './journald1.js';
 
 export const JOURNAL = {
   journal: '9e98784e-e304-4cee-9a50-e492580b1d86',
@@ -277,7 +281,7 @@ export function mergeQuests(boxes, active) {
 // first save (no rows for weekends; Roy, 1 Oct 2026).
 const selName = (p, name) => (prop(p, name) && prop(p, name).select && prop(p, name).select.name) || '';
 const isWeekday = day => { const d = new Date(day + 'T12:00:00Z').getUTCDay(); return d >= 1 && d <= 5; };
-const workFor = (store, day) => store.query('work_location', { filter: { property: 'Date', date: { equals: day } }, page_size: 1 })
+export const workFor = (store, day) => store.query('work_location', { filter: { property: 'Date', date: { equals: day } }, page_size: 1 })
   .then(([p]) => (p ? { id: p.id, am: selName(p, 'AM'), pm: selName(p, 'PM'), commute: selName(p, 'Commute') }
     : store.kind === 'd1' && isWeekday(day) ? { id: `new:${day}`, am: '', pm: '', commute: '' } : null));
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -336,6 +340,7 @@ const idsKey = day => `journal-ids:${day}`;
 
 export async function loadJournal(env, { now = Date.now() } = {}) {
   const n = new Notion(env.NOTION_TOKEN);
+  if (env.JOURNAL_STORE === 'd1') return loadJournalD1(env, n, { now });
   const health = healthStore(env, n);
   const errors = [];
   const safe = (p, label) => p.catch(e => { errors.push(`${label}: ${e.message || e}`); return null; });
@@ -487,11 +492,13 @@ export async function ensureExtras(n, pageId) {
   return readExtras(tree).fields;
 }
 
-async function linkTodo(n, id, pageId) {
-  const row = await n.call('GET', `/pages/${id}`);
+// The to-do writes take the To-Dos store (Notion or D1, src/healthstore.js).
+export async function linkTodo(store, id, pageId) {
+  const row = await store.get('todos', id);
+  if (!row) throw Object.assign(new Error('No such To-Do'), { code: 'bad_request' });
   const ids = relIds(row, 'Related Journal');
-  if (ids.includes(pageId)) return;
-  await n.call('PATCH', `/pages/${id}`, { properties: { 'Related Journal': { relation: [...ids, pageId].map(x => ({ id: x })) } } });
+  if (ids.some(x => sameId(x, pageId))) return;
+  await store.update('todos', row.id, { 'Related Journal': { relation: [...ids, pageId].map(x => ({ id: x })) } });
 }
 // "Today is a win if…" is also a To-Do (Tag "Win if", linked to the day's
 // journal, due that day), so the Quest Engine can count it. The boss page
@@ -500,25 +507,25 @@ async function linkTodo(n, id, pageId) {
 export const WIN = { tag: 'Win if', status: { 'It happened': 'Done', Partly: 'In progress', 'Not today': 'Not started', '': 'Not started' } };
 export const isWin = row => !!(prop(row, 'Tag') && prop(row, 'Tag').select && prop(row, 'Tag').select.name === WIN.tag);
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
-export async function syncWin(n, pageId, { text = '', did = '', day = null } = {}) {
-  const found = await n.query(JOURNAL.todos, { filter: { and: [
+export async function syncWin(store, pageId, { text = '', did = '', day = null } = {}) {
+  const found = await store.query('todos', { filter: { and: [
     { property: 'Related Journal', relation: { contains: pageId } },
     { property: 'Tag', select: { equals: WIN.tag } }
   ] }, page_size: 5 });
-  const row = (found.results || [])[0] || null;
+  const row = found[0] || null;
   const t = String(text).trim().slice(0, 2000);
-  if (!t) { if (row) await n.call('PATCH', `/pages/${row.id}`, { in_trash: true }); return null; }
+  if (!t) { if (row) await store.remove('todos', row.id); return null; }
   const properties = { Task: { title: textRuns(t) } };
   if (did || !row) properties.Status = { status: { name: WIN.status[did] || 'Not started' } };
-  if (row) { await n.call('PATCH', `/pages/${row.id}`, { properties }); return row.id; }
+  if (row) { await store.update('todos', row.id, properties); return row.id; }
   const when = DAY.test(day || '') ? { Due: { date: { start: day } }, 'Source Date': { date: { start: day } } } : {};
-  const made = await n.call('POST', '/pages', { parent: { type: 'data_source_id', data_source_id: JOURNAL.todos }, properties: {
+  const made = await store.create('todos', {
     ...properties, ...when, Tag: { select: { name: WIN.tag } }, 'Related Journal': { relation: [{ id: pageId }] }
-  } });
+  });
   return made.id;
 }
 
-const setTodoDone = (n, id, done) => n.call('PATCH', `/pages/${id}`, { properties: { Status: { status: { name: done ? 'Done' : 'Not started' } } } });
+export const setTodoDone = (store, id, done) => store.update('todos', id, { Status: { status: { name: done ? 'Done' : 'Not started' } } });
 
 // A box for a quest made active after the 03:00 setup: found by name if it is
 // there by now, else made after the other quest boxes, like the setup makes them.
@@ -575,6 +582,8 @@ export async function writeWork(store, w) {
 // block has gone (edited in Notion meanwhile), the page is read again once.
 export async function saveJournal(env, body) {
   const n = new Notion(env.NOTION_TOKEN);
+  if (env.JOURNAL_STORE === 'd1') return saveJournalD1(env, n, body);
+  const todos = journalStore(env, n);
   const pageId = body && body.page;
   if (!isId(pageId)) throw Object.assign(new Error('No journal page'), { code: 'bad_request' });
   const out = { sections: {}, extras: {}, quests: {}, focus: {} };
@@ -654,13 +663,13 @@ export async function saveJournal(env, body) {
   for (const op of Array.isArray(body.todos) ? body.todos.slice(0, 20) : []) {
     if (!isId(op.id)) continue;
     await attempt('todo:' + op.id, async () => {
-      if (op.link) await linkTodo(n, op.id, pageId);
-      if (typeof op.done === 'boolean') await setTodoDone(n, op.id, op.done);
+      if (op.link) await linkTodo(todos, op.id, pageId);
+      if (typeof op.done === 'boolean') await setTodoDone(todos, op.id, op.done);
     });
   }
 
   if (body.work) out.work = await attempt('work', () => writeWork(healthStore(env, n), body.work));
-  if (body.win) out.win = await attempt('winif', () => syncWin(n, pageId, { text: limit(body.win.text), did: DID.includes(body.win.did) ? body.win.did : '', day: body.win.day }));
+  if (body.win) out.win = await attempt('winif', () => syncWin(todos, pageId, { text: limit(body.win.text), did: DID.includes(body.win.did) ? body.win.did : '', day: body.win.day }));
 
   if (typeof body.success === 'boolean') await attempt('success', () => n.call('PATCH', `/pages/${pageId}`, { properties: { Success: { checkbox: body.success } } }));
 

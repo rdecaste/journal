@@ -91,5 +91,134 @@ export const AREAS = {
   }
 };
 
+// Step 2: journal, to-dos and quests. Two-way relations are kept on one side:
+// the mirror is in `ignore` (Notion keeps both sides; D1 keeps one). Each
+// table also keeps the page's icon and cover (PAGE).
+// `content`: the page's blocks are copied too (POST /d1/content), and the
+// journal's are read into its columns (src/journalread.js).
+const PAGE = { icon: { page: 'icon' }, cover: { page: 'cover' } };
+AREAS.journal = {
+  tables: [
+    {
+      table: 'journal',
+      dataSource: '9e98784e-e304-4cee-9a50-e492580b1d86',
+      content: 'journal',
+      columns: {
+        ...PAGE,
+        entry: 'Entry', date: 'Date', morning_spark: 'Morning Spark', agent_digest: 'Agent Digest', success: 'Success',
+        level: 'Level', sublevel: 'Sublevel', stage: 'Stage', stage_progress_pct: 'Stage Progress %',
+        xp: 'XP', xp_multiplier: 'XP Multiplier', xp_to_next_stage: 'XP to Next Stage',
+        performance_tier: 'Performance Tier', visual_band: 'Visual Band', display_level: 'Display Level',
+        hp_restored: 'HP Restored', three_day_average: '3-Day Average',
+        force_regenerate_boss: 'Force Regenerate Boss', force_regenerate_visual: 'Force Regenerate Visual',
+        related_quests: 'Related Quests'
+      },
+      types: {
+        Entry: 'title', Date: 'date', 'Morning Spark': 'rich_text', 'Agent Digest': 'rich_text', Success: 'checkbox',
+        'Display Level': 'rich_text', 'Force Regenerate Boss': 'checkbox', 'Force Regenerate Visual': 'checkbox', 'Related Quests': 'relation'
+      },
+      // The page's answers: D1 columns with no Notion property (written by
+      // the 03:30 setup and the journal page; read from the blocks by the copy).
+      plain: ['headspace_q', 'headspace', 'forward_q', 'forward', 'reflection_q', 'reflection', 'tomorrow_q', 'tomorrow',
+        'win_if', 'did_it_happen', 'park_it', 'main_quest_name', 'main_quest_checkin', 'main_quest_note'],
+      // Rollups no code reads, and the other side of relations kept on the
+      // health tables and the updates.
+      ignore: ['Weight', 'Body Fat %', 'Workouts', 'Body Metrics', 'Sleep', 'Work Location', 'Journal Updates', 'Quest Updates']
+    },
+    {
+      table: 'todos',
+      dataSource: '0c9c63e3-cd72-4cf8-bc53-251d1f010bdc',
+      content: 'blocks',
+      columns: {
+        ...PAGE,
+        task: 'Task', status: 'Status', labels: 'Labels', tag: 'Tag', priority: 'Priority',
+        due: 'Due', source_date: 'Source Date', notes: 'Notes', related_journal: 'Related Journal', related_quests: 'Related Quests'
+      },
+      types: {
+        Task: 'title', Status: 'status', Labels: 'multi_select', Tag: 'select', Priority: 'select',
+        Due: 'date', 'Source Date': 'date', Notes: 'rich_text', 'Related Journal': 'relation', 'Related Quests': 'relation'
+      },
+      ignore: ['Done'] // a button
+    },
+    {
+      table: 'quests',
+      dataSource: '9cbb0e5a-10cf-4013-9eea-961aba9b4ac1',
+      content: 'blocks',
+      columns: {
+        ...PAGE,
+        quest: 'Quest', description: 'Description', desired_outcome: 'Desired Outcome',
+        active_quest: 'Active Quest', main_quest: 'Main Quest',
+        quest_attention: 'Quest Attention', quest_phase: 'Quest Phase', year: 'Year',
+        start_date: 'Start Date', target_date: 'Target Date', completed_at: 'Completed At', completion_logged: 'Completion Logged',
+        dashboard_status: 'Dashboard Status', dashboard_status_statement: 'Dashboard Status Statement',
+        dashboard_latest_evidence: 'Dashboard Latest Evidence', dashboard_updated_at: 'Dashboard Updated At',
+        agent_progress_assessment: 'Agent Progress Assessment', daily_evidence_guide: 'Daily Evidence Guide',
+        pass_fail_question: 'Pass/Fail Question', next_move: 'Next Move', final_word: 'Final Word', comment: 'Comment',
+        refresh_visual: 'Refresh visual', update_questboard: 'Update questboard', last_visual_update: 'Last Visual Update',
+        cloudinary_video_url: 'Cloudinary Video URL', cloudinary_video_public_id: 'Cloudinary Video Public ID',
+        cloudinary_video_version: 'Cloudinary Video Version',
+        journey: 'Journey', character: 'Character'
+      },
+      types: {
+        Quest: 'title', Description: 'rich_text', 'Desired Outcome': 'rich_text', 'Active Quest': 'checkbox', 'Main Quest': 'checkbox',
+        'Quest Attention': 'select', 'Quest Phase': 'select', Year: 'select',
+        'Start Date': 'date', 'Target Date': 'date', 'Completed At': 'date', 'Completion Logged': 'checkbox',
+        'Dashboard Status': 'rich_text', 'Dashboard Status Statement': 'rich_text', 'Dashboard Latest Evidence': 'rich_text',
+        'Dashboard Updated At': 'date', 'Agent Progress Assessment': 'rich_text', 'Daily Evidence Guide': 'rich_text',
+        'Pass/Fail Question': 'rich_text', 'Next Move': 'rich_text', 'Final Word': 'rich_text', Comment: 'rich_text',
+        'Refresh visual': 'checkbox', 'Update questboard': 'checkbox', 'Last Visual Update': 'date',
+        'Cloudinary Video URL': 'url', 'Cloudinary Video Public ID': 'rich_text', 'Cloudinary Video Version': 'rich_text',
+        Journey: 'relation', Character: 'relation'
+      },
+      ignore: ['Quest Updates', 'Related Journal Entries']
+    },
+    {
+      table: 'journeys',
+      dataSource: 'fbf29ca2-ee96-4734-8fd1-f35e100de354',
+      content: 'blocks',
+      columns: {
+        ...PAGE,
+        journey: 'Journey', description: 'Description', north_star: 'North Star', evidence_guide: 'Evidence Guide',
+        accountability_lens: 'Accountability Lens', accountability_partner: 'Accountability Partner'
+      },
+      types: {
+        Journey: 'title', Description: 'rich_text', 'North Star': 'rich_text', 'Evidence Guide': 'rich_text',
+        'Accountability Lens': 'rich_text', 'Accountability Partner': 'rich_text'
+      },
+      ignore: ['Quests', 'Journal Updates']
+    },
+    {
+      table: 'journal_updates',
+      dataSource: 'c89fb5ef-583d-4eef-b109-4822a2d45ca3',
+      content: 'blocks',
+      columns: {
+        ...PAGE,
+        update: 'Update', date: 'Date', type: 'Type', source: 'Source', summary: 'Summary', key_fact: 'Key Fact',
+        journal_entry: 'Journal Entry', journey: 'Journey'
+      },
+      types: {
+        Update: 'title', Date: 'date', Type: 'select', Source: 'select', Summary: 'rich_text', 'Key Fact': 'rich_text',
+        'Journal Entry': 'relation', Journey: 'relation'
+      },
+      ignore: []
+    },
+    {
+      table: 'quest_updates',
+      dataSource: '367cf6de-f174-404f-834d-aea5cf60c6ff',
+      content: 'blocks',
+      columns: {
+        ...PAGE,
+        update: 'Update', date: 'Date', type: 'Type', source: 'Source', summary: 'Summary', progress_highlight: 'Progress Highlight',
+        quest: 'Quest', journal_entry: 'Journal Entry', milestone: 'Milestone', image: 'Image', created: 'Created'
+      },
+      types: {
+        Update: 'title', Date: 'date', Type: 'select', Source: 'select', Summary: 'rich_text', 'Progress Highlight': 'rich_text',
+        Quest: 'relation', 'Journal Entry': 'relation', Milestone: 'relation', Image: 'files', Created: 'created_time'
+      },
+      ignore: []
+    }
+  ]
+};
+
 // Every copied table by name, with its area.
 export const TABLES = Object.fromEntries(Object.entries(AREAS).flatMap(([area, a]) => a.tables.map(t => [t.table, { ...t, area }])));
