@@ -170,6 +170,14 @@ textarea::placeholder{color:var(--muted);opacity:.55;font-weight:400;font-style:
 .qcard{background:var(--paper);border-radius:18px;padding:18px 20px 16px;box-shadow:0 1px 2px rgba(20,26,36,.04)}
 .quests .qcard .label{color:var(--gold)}
 @media (max-width:480px){.qcard{padding:16px 18px 14px}}
+/* Quest cards are quick updates, not journal pages: a title, the question, a small plain box. */
+.qcard{gap:6px}
+.quests .qcard .label{font-family:var(--display);font-size:17px;font-weight:700;letter-spacing:-.01em;text-transform:none;color:var(--ink);text-decoration:none}
+.qcard .q{font-family:var(--body);font-style:normal;font-size:15px;line-height:1.4;color:var(--muted);margin-bottom:4px}
+.quests .qcard textarea{border:1px solid var(--rule);border-radius:12px;background-image:none;background-color:var(--write-quest);
+  font-size:16px;font-weight:400;line-height:1.45;padding:10px 12px;min-height:68px;transition:border-color .2s}
+.quests .qcard textarea:focus{border-color:var(--gold)}
+.quests .qcard textarea::placeholder{font-family:var(--body);font-style:normal}
 .scene{position:absolute;inset:0 0 auto 0;height:360px;z-index:0;pointer-events:none;overflow:hidden;
   -webkit-mask-image:linear-gradient(to bottom,#000 55%,transparent);mask-image:linear-gradient(to bottom,#000 55%,transparent)}
 .scene svg{width:100%;height:100%;display:block}
@@ -296,7 +304,7 @@ export function journalHtml(d) {
     ${d.quests.map((q, i) => `<div class="entry small qcard" data-entry="quest${i}">
         <div class="label">${esc(q.icon || '⚔️')} ${esc(q.title)}</div>
         <p class="q" id="quest${i}-q">${esc(q.question)}</p>
-        <textarea id="quest${i}" data-quest="${esc(q.id)}" aria-labelledby="quest${i}-q" rows="2"></textarea>
+        <textarea id="quest${i}" data-quest="${esc(q.id)}" aria-labelledby="quest${i}-q" rows="2" placeholder="A sentence or two…"></textarea>
         <p class="stamp" id="quest${i}-at" hidden></p>
       </div>`).join('')}
   </section>` : ''}
