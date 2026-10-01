@@ -18,12 +18,12 @@ const longDay = day => { const d = new Date(day + 'T12:00:00Z'); return `${DAYS[
 // No AI here: these are fixed.
 export const PROMPTS = {
   headspace: { icon: '🧠', name: 'Headspace', more: ['What’s taking up the most room in your head right now?', 'How are you arriving today, honestly?', 'What would make this morning feel lighter?'],
-    starters: ['Honestly, I feel…', 'What bugs me is…'], deeper: 'What’s one decision you could make today so it stops circling?' },
+    starters: ['Honestly, I feel…', 'What bugs me is…'] },
   winif: { icon: '🎯', name: 'Today is a win if…', more: ['Finish the sentence. One thing, so tonight you can tell whether it happened.', 'What’s the smallest thing that would still make today count?'],
     starters: ['I…', 'I don’t…'], hint: 'Tonight’s page asks you about this.' },
   forward: { icon: '😄', name: 'Looking forward to', more: ['What small moment today would make you smile if it happened?', 'Who would you like to catch up with today?'], starters: ['I’d like to…'] },
   reflection: { icon: '🌙', name: 'Reflection', more: ['When today did you feel most like yourself?', 'What drained you today, and what gave something back?', 'What surprised you today?'],
-    starters: ['What stood out was…', 'I noticed…'], deeper: 'What would you do the same way tomorrow, and what not?' },
+    starters: ['What stood out was…', 'I noticed…'] },
   park: { icon: '🅿️', name: 'Park it', more: ['What’s still spinning? Write it down and leave it here for tonight.', 'Anything you’re carrying to bed that you can put down now?'],
     starters: ['Still on my mind:', 'I’ll deal with…'], hint: 'Waits for you at the top of tomorrow morning.' },
   tomorrow: { icon: '➡️', name: 'For tomorrow', more: ['What’s one thing you can take off tomorrow’s plate?', 'What would make tomorrow morning easy to start?'],
@@ -87,7 +87,6 @@ textarea{width:100%;display:block;resize:none;overflow:hidden;border:1px solid v
 textarea:focus{outline:none;border-color:color-mix(in srgb,var(--ki) 55%,transparent)}
 .evening textarea:focus{border-color:color-mix(in srgb,var(--night) 60%,transparent)}
 textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--muted);opacity:.6}
-.deeper{margin:0;font-family:var(--serif);font-style:italic;font-size:17px;line-height:1.5;color:var(--muted);padding-left:12px;border-left:2px solid var(--rule)}
 .hint{margin:0;font-size:13.5px;color:var(--muted)}
 /* Nudges that never move the page: "↻ another" beside the label (brighter in the box
    you're writing in) and a starter as grey text in an empty box. */
@@ -118,6 +117,7 @@ textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400
 .dot{color:var(--muted);margin:0 4px}
 /* Hand-offs between the two halves, the recaps and the endings. */
 .handoff{display:flex;flex-direction:column;gap:8px}
+.entry .handoff{margin-bottom:10px}
 .handoff blockquote{margin:0;font-family:var(--serif);font-size:18px;line-height:1.55;padding-left:14px;border-left:2px solid color-mix(in srgb,var(--ki) 60%,transparent);white-space:pre-wrap}
 .evening .handoff blockquote{border-color:color-mix(in srgb,var(--night) 50%,transparent)}
 .handoff .soft{margin:0;font-family:var(--serif);font-style:italic;font-size:17px;line-height:1.5;color:var(--muted)}
@@ -184,14 +184,13 @@ textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400
 `;
 
 // One writing box; the script fills in the question and the nudges.
-const entry = (id, { small = false, evening = false } = {}) => {
+const entry = (id, { small = false, evening = false, lead = '' } = {}) => {
   const p = PROMPTS[id];
   return `<div class="entry${small ? ' small' : ''}" data-entry="${id}">
         <div class="label">${p.icon} ${esc(p.name)}</div>
         <button type="button" class="more" data-box="${id}" aria-label="Another question">↻ another</button>
-        <p class="q" id="${id}-q"></p>
+        ${lead}<p class="q" id="${id}-q"></p>
         <textarea id="${id}" aria-labelledby="${id}-q" rows="2" placeholder="${esc(p.starters[0] || '')}"></textarea>
-        ${p.deeper ? `<p class="deeper" id="${id}-d" hidden>${esc(p.deeper)}</p>` : ''}
         ${p.hint ? `<p class="hint">${esc(p.hint)}</p>` : ''}
       </div>`;
 };
@@ -255,8 +254,7 @@ export function journalHtml(d) {
   <div id="e-recap" hidden></div>
   <div id="e-open" class="evening" style="display:flex;flex-direction:column;gap:22px">
     <section class="sheet" aria-label="Looking back">
-      <div class="handoff" id="lookback"></div>
-      ${d.sections.reflection ? entry('reflection') : ''}
+      ${d.sections.reflection ? entry('reflection', { lead: '<div class="handoff" id="lookback" hidden></div>' }) : '<div class="handoff" id="lookback" hidden></div>'}
     </section>
     <section class="sheet" aria-label="Before you sleep">
       ${entry('park', { small: true })}
@@ -401,13 +399,11 @@ const SCRIPT = String.raw`
   // ---- Writing boxes ----
   var grow = function (el) { if (!el.offsetParent) return; el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight + el.offsetHeight - el.clientHeight, 30) + 'px'; };
   var growAll = function () { Array.prototype.forEach.call(document.querySelectorAll('textarea'), grow); };
-  var deeper = function (el) { var d = $(el.id + '-d'); if (d) d.hidden = el.value.trim().length < 40; };
   Object.keys(P).concat(['mqnote']).forEach(function (id) {
     var el = $(id); if (!el) return;
     el.value = V[id] || '';
-    el.addEventListener('input', function () { change(id, el.value); grow(el); deeper(el); });
+    el.addEventListener('input', function () { change(id, el.value); grow(el); });
     el.addEventListener('blur', function () { if (dirty[id]) flush(); });
-    deeper(el);
   });
   function stamp(id, when) {
     var i = (D.quests || []).map(function (q) { return q.id; }).indexOf(id), el = $('quest' + i + '-at');
@@ -512,12 +508,12 @@ const SCRIPT = String.raw`
   })();
   function lookback() {
     var w = (V.winif || '').trim(), items = focusItems();
-    var h = '<div class="label">This morning</div>';
-    if (w) h += '<blockquote>Today is a win if ' + esc(w.replace(/^…\s*/, '')) + '</blockquote><div class="did">' +
+    // The morning's "win if" and focus lead into the Reflection question rather than a block of their own.
+    var h = '';
+    if (w) h += '<p class="q">This morning you said today is a win if “' + esc(w.replace(/^…\s*/, '').replace(/[.…\s]+$/, '')) + '”. Did it happen?</p><div class="did">' +
       ['It happened', 'Partly', 'Not today'].map(function (o) { return '<button type="button" data-did="' + o + '" aria-pressed="' + (V.did === o) + '">' + o + '</button>'; }).join('') + '</div>';
-    else h += '<p class="soft">No plan this morning. What ended up mattering most today? Start there.</p>';
-    if (items.length) h += '<div class="ticks">' + items.map(function (f, i) { var c = f.it.c; return '<label class="line' + (c ? ' done' : '') + '"><input type="checkbox" data-k="' + i + '"' + (c ? ' checked' : '') + '><input type="text" value="' + esc(f.it.t) + '" readonly tabindex="-1" aria-label="' + esc(f.it.t) + '"></label>'; }).join('') + '</div>';
-    $('lookback').innerHTML = h;
+    if (items.length) h += '<p class="q">' + (w ? 'And your focus for today:' : 'Your focus for today:') + '</p><div class="ticks">' + items.map(function (f, i) { var c = f.it.c; return '<label class="line' + (c ? ' done' : '') + '"><input type="checkbox" data-k="' + i + '"' + (c ? ' checked' : '') + '><input type="text" value="' + esc(f.it.t) + '" readonly tabindex="-1" aria-label="' + esc(f.it.t) + '"></label>'; }).join('') + '</div>';
+    $('lookback').innerHTML = h; $('lookback').hidden = !h;
     Array.prototype.forEach.call(document.querySelectorAll('[data-did]'), function (b) { b.addEventListener('click', function () { change('did', V.did === b.getAttribute('data-did') ? '' : b.getAttribute('data-did'), true); lookback(); }); });
     Array.prototype.forEach.call(document.querySelectorAll('[data-k]'), function (b) { b.addEventListener('change', function () { var f = items[+b.getAttribute('data-k')]; tick(f.g, f.it, b.checked); drawGroup(f.g); lookback(); }); });
   }
