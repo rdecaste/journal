@@ -442,8 +442,7 @@ const SCRIPT = String.raw`
   }
   // The evening folds the same way once the day is closed.
   function eveningRecap() {
-    var did = (V.winif || '').trim() ? (V.did || '').trim() : '';
-    var bits = [['Win if', did ? V.winif.trim() + ' · ' + did : ''], ['Reflection', V.reflection], ['Park it', V.park], ['For tomorrow', V.tomorrow]]
+    var bits = [['Reflection', V.reflection], ['Park it', V.park], ['For tomorrow', V.tomorrow]]
       .filter(function (b) { return b[1] && String(b[1]).trim(); });
     $('e-recap').innerHTML = '<div class="recap night"><p class="bye" style="margin-bottom:6px">Saved. Sleep well, Roy.</p>' +
       bits.map(function (b) { return '<p><b>' + b[0] + '</b>' + esc(b[1]) + '</p>'; }).join('') +
