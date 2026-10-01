@@ -24,7 +24,8 @@
 import { Notion } from './notion.js';
 import { cached, remember } from './cache.js';
 import { eveningQuestion } from './eveningq.js';
-import { DATA_SOURCES } from './config.js';
+import { DATA_SOURCES, EBIKE, ebikeDay } from './config.js';
+import { healthStore } from './healthstore.js';
 
 export const JOURNAL = {
   journal: '9e98784e-e304-4cee-9a50-e492580b1d86',
@@ -271,10 +272,21 @@ export function mergeQuests(boxes, active) {
   return [...kept, ...added];
 }
 
-// Today's row in the Work Location Log (one row per calendar day, made ahead).
+// Today's row in the Work Location Log. In Notion the rows were made ahead;
+// in D1 a weekday without one gets `new:<day>`, and the row is made on the
+// first save (no rows for weekends; Roy, 1 Oct 2026).
 const selName = (p, name) => (prop(p, name) && prop(p, name).select && prop(p, name).select.name) || '';
-const workFor = (n, day) => n.query(DATA_SOURCES.workLocation, { filter: { property: 'Date', date: { equals: day } }, page_size: 1 })
-  .then(r => { const p = (r.results || [])[0]; return p ? { id: p.id, am: selName(p, 'AM'), pm: selName(p, 'PM'), commute: selName(p, 'Commute') } : null; });
+const isWeekday = day => { const d = new Date(day + 'T12:00:00Z').getUTCDay(); return d >= 1 && d <= 5; };
+const workFor = (store, day) => store.query('work_location', { filter: { property: 'Date', date: { equals: day } }, page_size: 1 })
+  .then(([p]) => (p ? { id: p.id, am: selName(p, 'AM'), pm: selName(p, 'PM'), commute: selName(p, 'Commute') }
+    : store.kind === 'd1' && isWeekday(day) ? { id: `new:${day}`, am: '', pm: '', commute: '' } : null));
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// A Work Location row's title, as the Notion rows had it: "Wed 30 Sep 2026".
+export function workDayTitle(day) {
+  const d = new Date(day + 'T12:00:00Z');
+  return `${WEEKDAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS3[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
 const journalFor = (n, day) => n.query(JOURNAL.journal, { filter: { property: 'Date', date: { equals: day } }, page_size: 1 }).then(r => (r.results || [])[0] || null);
 
 // Open to-dos to suggest: carried over from the day before first, then by priority.
@@ -324,6 +336,7 @@ const idsKey = day => `journal-ids:${day}`;
 
 export async function loadJournal(env, { now = Date.now() } = {}) {
   const n = new Notion(env.NOTION_TOKEN);
+  const health = healthStore(env, n);
   const errors = [];
   const safe = (p, label) => p.catch(e => { errors.push(`${label}: ${e.message || e}`); return null; });
   const day = journalDay(now);
@@ -354,7 +367,7 @@ export async function loadJournal(env, { now = Date.now() } = {}) {
     // Which quests are active now; without it the journal's own boxes show.
     n.query(JOURNAL.quests, { filter: { property: 'Active Quest', checkbox: { equals: true } }, page_size: 100 })
       .then(r => activeQuests(r.results || [])).catch(e => { console.warn('Quests:', e.message || e); return null; }),
-    safe(workFor(n, day), 'Work Location Log')
+    safe(workFor(health, day), 'Work Location Log')
   ]);
   const data = { day, hour: amsterdamHour(now), page: null, errors, work };
   // The streak as the Hero card last counted it; today counts once Success is ticked.
@@ -366,13 +379,18 @@ export async function loadJournal(env, { now = Date.now() } = {}) {
   }
   const reads = early && sameId(early.id, page.id) ? early : { tree: treeFor(page.id), linked: linkedFor(page.id) };
 
+  // The day's sleep and workouts: through the journal's links in Notion; in
+  // D1 the rows link their journal.
   const sleepId = relIds(page, 'Sleep')[0];
+  const linkedTo = { filter: { property: 'Journal', relation: { contains: page.id } } };
   const [tree, last, linked, sleep, workouts, evening] = await Promise.all([
     reads.tree(),
     lastP,
     safe(reads.linked(), 'To-Dos'),
-    sleepId ? safe(n.call('GET', `/pages/${sleepId}`), 'Sleep') : null,
-    Promise.all(relIds(page, 'Workouts').slice(0, 3).map(id => safe(n.call('GET', `/pages/${id}`), 'Workout'))),
+    health.kind === 'd1' ? safe(health.query('sleep_recovery', { ...linkedTo, page_size: 1 }).then(r => r[0] || null), 'Sleep')
+      : sleepId ? safe(n.call('GET', `/pages/${sleepId}`), 'Sleep') : null,
+    health.kind === 'd1' ? safe(health.query('workouts', { ...linkedTo, sorts: [{ property: 'start_date_local', direction: 'ascending' }], page_size: 3 }), 'Workouts')
+      : Promise.all(relIds(page, 'Workouts').slice(0, 3).map(id => safe(n.call('GET', `/pages/${id}`), 'Workout'))),
     eveningP
   ]);
   const j = readJournal(tree);
@@ -526,18 +544,29 @@ const limit = s => String(s ?? '').slice(0, 20000);
 
 // The evening's commute entry: AM, PM and Commute on the day's Work Location
 // Log row. An empty value clears the field; a value the page doesn't know is
-// left alone.
-export async function writeWork(n, w) {
-  if (!isId(w.id)) throw Object.assign(new Error('No Work Location Log row'), { code: 'bad_request' });
-  const row = await n.call('GET', `/pages/${w.id}`);
-  if (!sameId(row.parent && row.parent.data_source_id, DATA_SOURCES.workLocation)) throw Object.assign(new Error('Not a Work Location Log row'), { code: 'bad_request' });
+// left alone. In D1, `new:<day>` makes the weekday's row first, and a change
+// of Commute sets E-bike € (EBIKE in config.js), which was a Notion formula.
+export async function writeWork(store, w) {
+  const newDay = /^new:(\d{4}-\d{2}-\d{2})$/.exec(String(w.id || ''));
+  if (!isId(w.id) && !(newDay && store.kind === 'd1' && isWeekday(newDay[1]))) throw Object.assign(new Error('No Work Location Log row'), { code: 'bad_request' });
   const properties = {};
   for (const [key, name, list] of [['am', 'AM', WORK.places], ['pm', 'PM', WORK.places], ['commute', 'Commute', WORK.rides]]) {
     const v = w[key];
     if (v === '') properties[name] = { select: null };
     else if (list.includes(v)) properties[name] = { select: { name: v } };
   }
-  if (Object.keys(properties).length) await n.call('PATCH', `/pages/${w.id}`, { properties });
+  if (!Object.keys(properties).length) return 1;
+  const row = newDay
+    ? await store.create('work_location', { Day: { title: [{ type: 'text', text: { content: workDayTitle(newDay[1]) } }] }, Date: { date: { start: newDay[1] } }, Weekend: { checkbox: false } })
+    : await store.get('work_location', w.id);
+  if (!row || !sameId(row.parent && row.parent.data_source_id, DATA_SOURCES.workLocation)) throw Object.assign(new Error('Not a Work Location Log row'), { code: 'bad_request' });
+  const columns = {};
+  if (store.kind === 'd1' && properties.Commute) {
+    const before = newDay ? null : selName(row, 'Commute') || null;
+    const after = (properties.Commute.select && properties.Commute.select.name) || null;
+    if (newDay || before !== after) columns.ebike_eur = after === EBIKE.commute ? ebikeDay() : 0;
+  }
+  await store.update('work_location', row.id, properties, columns);
   return 1;
 }
 
@@ -630,7 +659,7 @@ export async function saveJournal(env, body) {
     });
   }
 
-  if (body.work) out.work = await attempt('work', () => writeWork(n, body.work));
+  if (body.work) out.work = await attempt('work', () => writeWork(healthStore(env, n), body.work));
   if (body.win) out.win = await attempt('winif', () => syncWin(n, pageId, { text: limit(body.win.text), did: DID.includes(body.win.did) ? body.win.did : '', day: body.win.day }));
 
   if (typeof body.success === 'boolean') await attempt('success', () => n.call('PATCH', `/pages/${pageId}`, { properties: { Success: { checkbox: body.success } } }));

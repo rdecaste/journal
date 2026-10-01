@@ -47,6 +47,17 @@ missed it) and kept in a small
 Durable Object (`src/store.js`). It runs when `ADMIN_AI` in
 `wrangler.jsonc` is `1` (on since 28 Sep 2026) and the `OPENAI_API_KEY` secret is set.
 
+## Data: Notion and D1
+
+The health and work tables (Workouts, Body Metrics, Sleep & Recovery, Work
+Location Log) are moving from Notion to D1, the Quest Engine's database
+`quest` (binding `DB`): see `docs/d1-migration.md` in rdecaste/quest-engine.
+`HEALTH_STORE` in `wrangler.jsonc` says where they are read and written
+(`notion` or `d1`, always the same as the Quest Engine's); `src/healthstore.js`
+and `src/areas.js` are copies of the Quest Engine's `src/store.js` and
+`src/areas.js`. With D1, saving a Commute sets E-bike € (€0.37 × 70 km =
+€25.90, `EBIKE` in `src/config.js`); days paid before keep their amount.
+
 ## Routes
 
 | Route | What |

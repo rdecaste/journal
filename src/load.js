@@ -1,4 +1,5 @@
-// Gathers everything the dashboard shows: Notion rows (read only), the Quest
+// Gathers everything the dashboard shows: Notion and D1 rows (read only; the
+// health and work tables come from src/healthstore.js), the Quest
 // Engine's status and ledger, and the healthchecks.io checks. The result is
 // cached for a few minutes so opening the page repeatedly costs nothing.
 
@@ -8,6 +9,7 @@ import { crossBorder, health, system, overview, amsterdamDay, mergeUsage } from 
 import { questEngineStatus, questEngineLedger, healthChecks } from './sources.js';
 import { store } from './usage.js';
 import { cached, remember } from './cache.js';
+import { healthStore } from './healthstore.js';
 
 const CACHE_SECONDS = 300;
 const DAY = 86400000;
@@ -22,6 +24,7 @@ export async function loadDashboard(env, { now = Date.now(), fresh = false } = {
     if (hit) return hit;
   }
   const n = new Notion(env.NOTION_TOKEN);
+  const rows = healthStore(env, n);
   const s = store(env);
   const today = amsterdamDay(now);
   const since = d => new Date(now - d * DAY).toISOString().slice(0, 10);
@@ -29,13 +32,13 @@ export async function loadDashboard(env, { now = Date.now(), fresh = false } = {
   const safe = (p, label) => p.catch(e => { errors.push(`${label}: ${e.message || e}`); return null; });
 
   const [locations, workouts, metrics, sleep, quests, latestWorkout, latestMetric, status, ledger, checks, summary, ownUsage] = await Promise.all([
-    safe(n.queryAll(DS.workLocation, { filter: { and: [{ property: 'Date', date: { on_or_after: CROSS_BORDER.start } }, { property: 'Date', date: { on_or_before: today.slice(0, 4) + '-12-31' } }] }, sorts: [{ property: 'Date', direction: 'ascending' }] }), 'Work Location Log'),
-    safe(n.queryAll(DS.workouts, { filter: { property: 'start_date_local', date: { on_or_after: since(7 * 13 + 7) } }, sorts: [{ property: 'start_date_local', direction: 'ascending' }] }), 'Workouts'),
-    safe(n.queryAll(DS.bodyMetrics, { filter: { property: 'Date', date: { on_or_after: since(120) } }, sorts: [{ property: 'Date', direction: 'ascending' }] }), 'Body Metrics'),
-    safe(n.queryAll(DS.sleepRecovery, { filter: { property: 'Date', date: { on_or_after: since(60) } }, sorts: [{ property: 'Date', direction: 'ascending' }] }), 'Sleep & Recovery'),
+    safe(rows.queryAll('work_location', { filter: { and: [{ property: 'Date', date: { on_or_after: CROSS_BORDER.start } }, { property: 'Date', date: { on_or_before: today.slice(0, 4) + '-12-31' } }] }, sorts: [{ property: 'Date', direction: 'ascending' }] }), 'Work Location Log'),
+    safe(rows.queryAll('workouts', { filter: { property: 'start_date_local', date: { on_or_after: since(7 * 13 + 7) } }, sorts: [{ property: 'start_date_local', direction: 'ascending' }] }), 'Workouts'),
+    safe(rows.queryAll('body_metrics', { filter: { property: 'Date', date: { on_or_after: since(120) } }, sorts: [{ property: 'Date', direction: 'ascending' }] }), 'Body Metrics'),
+    safe(rows.queryAll('sleep_recovery', { filter: { property: 'Date', date: { on_or_after: since(60) } }, sorts: [{ property: 'Date', direction: 'ascending' }] }), 'Sleep & Recovery'),
     safe(n.query(DS.quests, { filter: { and: [{ property: 'Journey', relation: { contains: HEALTH_JOURNEY } }, { property: 'Active Quest', checkbox: { equals: true } }, { property: 'Main Quest', checkbox: { equals: false } }] } }).then(r => r.results), 'Quests'),
-    safe(n.query(DS.workouts, { filter: { property: 'start_date_local', date: { on_or_before: today } }, sorts: [{ property: 'start_date_local', direction: 'descending' }], page_size: 1 }).then(r => r.results), 'Workouts (newest)'),
-    safe(n.query(DS.bodyMetrics, { filter: { property: 'Date', date: { on_or_before: today } }, sorts: [{ property: 'Date', direction: 'descending' }], page_size: 1 }).then(r => r.results), 'Body Metrics (newest)'),
+    safe(rows.query('workouts', { filter: { property: 'start_date_local', date: { on_or_before: today } }, sorts: [{ property: 'start_date_local', direction: 'descending' }], page_size: 1 }), 'Workouts (newest)'),
+    safe(rows.query('body_metrics', { filter: { property: 'Date', date: { on_or_before: today } }, sorts: [{ property: 'Date', direction: 'descending' }], page_size: 1 }), 'Body Metrics (newest)'),
     safe(questEngineStatus(env), 'Quest Engine status'),
     safe(questEngineLedger(env), 'Quest Engine ledger'),
     healthChecks(env).catch(() => null),

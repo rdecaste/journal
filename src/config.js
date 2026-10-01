@@ -107,6 +107,12 @@ export const ENGINE = { watchHours: 1.25, attentionHours: 3 };
 // Estimated unit prices (USD) for the paid calls the Quest Engine and this
 // dashboard make. These are
 // list-price estimates, not invoices: adjust them when the price sheets change.
+// E-bike commute allowance (Roy, 1 Oct 2026): €0.37 per km, 70 km round
+// trip, so €25.90 for a day with this Commute. Set on the Work Location row
+// when its Commute is saved (D1); days paid before keep their amount (€25).
+export const EBIKE = { commute: '🚲 E-bike', km: 70, perKm: 0.37 };
+export const ebikeDay = () => Math.round(EBIKE.km * EBIKE.perKm * 100) / 100;
+
 export const PRICES = {
   chatInputPerMillion: 1.25,
   chatOutputPerMillion: 10,
