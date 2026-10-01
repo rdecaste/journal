@@ -205,8 +205,10 @@ const prop = (p, name) => p && p.properties && p.properties[name];
 const relIds = (p, name) => ((prop(p, name) && prop(p, name).relation) || []).map(r => r.id);
 const textProp = v => ((v && (v.title || v.rich_text)) || []).map(r => r.plain_text ?? r.text?.content ?? '').join('');
 
-async function engine(env, path) {
-  const request = new Request(`${env.QUEST_ENGINE_URL}${path}`, { headers: { Accept: 'application/json' } });
+export const QUEST_FALLBACK = 'What moved on this today, or what got in the way?';
+
+async function engine(env, path, headers = {}) {
+  const request = new Request(`${env.QUEST_ENGINE_URL}${path}`, { headers: { Accept: 'application/json', ...headers } });
   const r = await (env.QUEST_ENGINE ? env.QUEST_ENGINE.fetch(request) : fetch(request));
   if (!r.ok) throw new Error(`Quest Engine ${path} answered ${r.status}`);
   return r.json();
@@ -259,7 +261,7 @@ export async function loadJournal(env, { now = Date.now() } = {}) {
   const errors = [];
   const safe = (p, label) => p.catch(e => { errors.push(`${label}: ${e.message || e}`); return null; });
   const day = journalDay(now);
-  const [page, before, open, hero, board] = await Promise.all([
+  const [page, before, open, hero, asked] = await Promise.all([
     journalFor(n, day),
     safe(journalFor(n, dayBefore(day)), 'Yesterday'),
     safe(n.query(JOURNAL.todos, {
@@ -268,7 +270,9 @@ export async function loadJournal(env, { now = Date.now() } = {}) {
       page_size: 40
     }).then(r => r.results || []), 'To-Dos'),
     safe(engine(env, '/hero'), 'Hero'),
-    safe(engine(env, '/questboard'), 'Questboard')
+    // Written by the Quest Engine's 03:00 AI call; until then each quest gets
+    // the plain fallback question, without an error on the page.
+    engine(env, '/journal/questions', { 'X-Admin-Token': env.QUEST_ENGINE_TOKEN || '' }).catch(e => { console.warn('Quest questions:', e.message || e); return null; })
   ]);
   const data = { day, hour: amsterdamHour(now), page: null, errors };
   // The streak as the Hero card last counted it; today counts once Success is ticked.
@@ -292,11 +296,11 @@ export async function loadJournal(env, { now = Date.now() } = {}) {
   if (j.focus) for (const g of Object.values(j.focus)) for (const it of g.items) it.todo = todoFor(it.t);
   const taken = j.focus ? Object.values(j.focus).flatMap(g => g.items.map(it => it.t)) : [];
 
-  const cards = Array.isArray(board) ? board : [];
+  // Today's question per quest, matched by name; yesterday's are not reused.
+  const questions = asked && asked.day === day && asked.questions ? asked.questions : {};
   for (const q of j.quests) {
-    const card = cards.find(c => norm(c.questTitle) === norm(q.title)) || {};
-    q.question = (card.passFailQuestion || '').trim() || 'Anything moved today?';
-    q.next = (card.nextMove || '').trim();
+    const hit = Object.entries(questions).find(([name]) => norm(name) === norm(q.title));
+    q.question = (hit && String(hit[1]).trim()) || QUEST_FALLBACK;
   }
 
   const hours = sleep && prop(sleep, 'Total Sleep') && typeof prop(sleep, 'Total Sleep').number === 'number' ? prop(sleep, 'Total Sleep').number : null;

@@ -22,7 +22,9 @@ active quest. The Notion Journal stays the record: each answer is saved a
 moment after he stops typing into that day's Journal row, in the template's
 own boxes (so the Quest Engine's 03:00 digest reads it as before), and what
 the template has no box for goes in one ✍️ "More from today" callout. The
-top of `src/journal.js` lists where each piece goes.
+top of `src/journal.js` lists where each piece goes. Each quest's question
+comes from the Quest Engine's 03:00 AI call (`GET /journal/questions`, with
+`QUEST_ENGINE_TOKEN`); until it has one for today, a plain fallback shows.
 Full description and change log: the Notion page "🧭 Admin Dashboard".
 
 | Area | Reads |
