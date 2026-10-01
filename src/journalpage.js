@@ -91,21 +91,32 @@ textarea:focus{outline:none}
 .entry.active>.label{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:2px}
 .deeper{margin:0;font-family:var(--serif);font-style:italic;font-size:17px;color:var(--muted);padding-left:12px;border-left:2px solid var(--rule)}
 .hint{margin:0;font-size:13px;color:var(--muted)}
-.tools{display:none;flex-wrap:wrap;gap:6px}
-.entry.active .tools{display:flex}
-.chip,.more{font-size:13.5px;min-height:32px;padding:0 12px;border-radius:999px;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--muted)}
-.more{border-color:transparent;padding-left:0;color:var(--ki)}
-.evening .more{color:var(--night)}
-.chip:hover,.more:hover{color:var(--ink)}
+/* Nudges that never move the page: "↻ another" beside the label (brighter in the box
+   you're writing in) and a starter as grey text in an empty box. */
+.entry{position:relative}
+.more{position:absolute;top:-3px;right:0;border:0;background:none;cursor:pointer;font-size:13px;color:var(--muted);padding:2px 0;opacity:.6;transition:opacity .2s,color .2s}
+.entry.active .more{opacity:1;color:var(--ki)}
+.evening .entry.active .more{color:var(--night)}
+.more:hover{opacity:1}
+textarea::placeholder{color:var(--muted);opacity:.55;font-weight:400;font-style:italic;font-family:var(--serif)}
 .fgroup{display:flex;flex-direction:column;gap:2px}
 .flabel{font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-top:10px}
 .fgroup:first-of-type .flabel{margin-top:0}
+/* Today's focus: one row per group, the label in a narrow column and its lines beside it. */
+.fcols{display:flex;flex-direction:column;gap:4px}
+.fcols .fgroup{display:grid;grid-template-columns:104px minmax(0,1fr);column-gap:14px;align-items:start}
+.fcols .flabel{margin-top:0;padding-top:13px;line-height:1.3}
 .line{display:flex;align-items:center;gap:12px;min-height:40px;border-bottom:1px solid var(--rule)}
 .line input[type=checkbox]{width:20px;height:20px;accent-color:var(--gold);flex:none;margin:0}
 .line input[type=text]{flex:1;min-width:0;border:0;background:transparent;font-size:17px;padding:8px 0}
 .line input[type=text]:focus{outline:none}
-.line input[type=text]::placeholder{color:var(--muted);opacity:.7}
 .line.done input[type=text]{text-decoration:line-through;color:var(--muted)}
+/* Focus lines wrap instead of cutting off a long item. */
+.rows .line{align-items:flex-start}
+.rows .line input[type=checkbox]{margin-top:10px}
+.line textarea{flex:1;min-width:0;min-height:0;border:0;border-radius:0;background:none;padding:8px 0;font-size:16px;line-height:1.4;font-weight:400;color:var(--ink)}
+.line textarea::placeholder{font-family:var(--body);font-style:normal;color:var(--muted);opacity:.7}
+.line.done textarea{text-decoration:line-through;color:var(--muted)}
 .sugg{margin:10px 0 0;font-size:13.5px;line-height:1.7;color:var(--muted)}
 .todo{border:0;background:none;padding:0;font-size:13.5px;color:var(--ink);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;cursor:pointer}
 .dot{color:var(--muted);margin:0 4px}
@@ -147,6 +158,32 @@ textarea:focus{outline:none}
 .qintro{margin:-6px 0 -8px}
 .quests .label{color:var(--muted)}
 .stamp{margin:0;font-size:12.5px;color:var(--muted)}
+/* Main quest follows the page (light by day, dark at night): a page card with a warm gold wash. */
+.checkin{--hero-ink:var(--ink);--hero-muted:var(--muted);--hero-track:var(--line);--hero-gold:var(--gold);
+  background:linear-gradient(180deg,var(--gold-soft),var(--paper) 75%);color:var(--ink);box-shadow:0 1px 2px rgba(20,26,36,.04)}
+.ci.win[aria-pressed="true"]{background:var(--ok-soft);border-color:var(--ok)}
+.ci.lose[aria-pressed="true"]{background:var(--warn-soft);border-color:var(--warn)}
+.checkin textarea{background-color:var(--write-quest)}
+/* Quests: one card per active quest. */
+.quests{display:flex;flex-direction:column;gap:12px}
+.quests .qintro{margin:0 0 2px}
+.qcard{background:var(--paper);border-radius:18px;padding:18px 20px 16px;box-shadow:0 1px 2px rgba(20,26,36,.04)}
+.quests .qcard .label{color:var(--gold)}
+@media (max-width:480px){.qcard{padding:16px 18px 14px}}
+/* Quest cards are quick updates, not journal pages: a title, the question, a small plain box. */
+.qcard{gap:6px}
+.quests .qcard .label{font-family:var(--display);font-size:17px;font-weight:700;letter-spacing:-.01em;text-transform:none;color:var(--ink);text-decoration:none}
+.qcard .q{font-family:var(--body);font-style:normal;font-size:15px;line-height:1.4;color:var(--muted);margin-bottom:4px}
+.quests .qcard textarea{border:1px solid var(--rule);border-radius:12px;background-image:none;background-color:var(--write-quest);
+  font-size:16px;font-weight:400;line-height:1.45;padding:10px 12px;min-height:68px;transition:border-color .2s}
+.quests .qcard textarea:focus{border-color:var(--gold)}
+.quests .qcard textarea::placeholder{font-family:var(--body);font-style:normal}
+/* The main quest's note: the same small plain box as the quest cards. */
+.checkin .after .q{font-family:var(--body);font-style:normal;font-size:15px;line-height:1.4;color:var(--muted);margin-bottom:4px}
+.checkin .after textarea{border:1px solid var(--rule);border-radius:12px;background-image:none;background-color:var(--write-quest);
+  font-size:16px;font-weight:400;line-height:1.45;padding:10px 12px;min-height:68px;transition:border-color .2s}
+.checkin .after textarea:focus{border-color:var(--gold)}
+.checkin .after textarea::placeholder{font-family:var(--body);font-style:normal}
 .scene{position:absolute;inset:0 0 auto 0;height:360px;z-index:0;pointer-events:none;overflow:hidden;
   -webkit-mask-image:linear-gradient(to bottom,#000 55%,transparent);mask-image:linear-gradient(to bottom,#000 55%,transparent)}
 .scene svg{width:100%;height:100%;display:block}
@@ -163,7 +200,7 @@ textarea:focus{outline:none}
 @keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.6);color:#fff;text-shadow:0 0 12px #f0b53c}100%{transform:scale(1)}}
 .plus{position:absolute;right:20px;top:14px;font-family:var(--hud);font-weight:600;font-size:18px;color:var(--hero-gold);pointer-events:none;animation:rise 1.3s ease-out forwards}
 @keyframes rise{0%{opacity:0;transform:translateY(8px)}20%{opacity:1}100%{opacity:0;transform:translateY(-34px)}}
-@media (max-width:480px){.scene{height:300px} .sheet{padding:20px 18px 18px;border-radius:18px} h1{font-size:32px} .q{font-size:18px} .small .q{font-size:16.5px}}
+@media (max-width:480px){.fcols .fgroup{grid-template-columns:84px minmax(0,1fr);column-gap:10px} .fcols .line{gap:9px} .line textarea{font-size:15.5px} .scene{height:300px} .sheet{padding:20px 18px 18px;border-radius:18px} h1{font-size:32px} .q{font-size:18px} .small .q{font-size:16.5px}}
 @media (max-width:360px){.ci-btns{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important} .after,.checkin.flare,.lvl .days.pop,.plus{animation:none}}
 `;
@@ -173,11 +210,11 @@ const entry = (id, { small = false, evening = false } = {}) => {
   const p = PROMPTS[id];
   return `<div class="entry${small ? ' small' : ''}" data-entry="${id}">
         <div class="label">${p.icon} ${esc(p.name)}</div>
+        <button type="button" class="more" data-box="${id}" aria-label="Another question">↻ another</button>
         <p class="q" id="${id}-q"></p>
-        <textarea id="${id}" aria-labelledby="${id}-q" rows="${small ? 2 : 3}"></textarea>
+        <textarea id="${id}" aria-labelledby="${id}-q" rows="${small ? 2 : 3}" placeholder="${esc(p.starters[0] || '')}"></textarea>
         ${p.deeper ? `<p class="deeper" id="${id}-d" hidden>${esc(p.deeper)}</p>` : ''}
         ${p.hint ? `<p class="hint">${esc(p.hint)}</p>` : ''}
-        <div class="tools"><button type="button" class="more" data-box="${id}">↻ Another question</button>${p.starters.map(s => `<button type="button" class="chip" data-for="${id}">${esc(s)}</button>`).join('')}</div>
       </div>`;
 };
 
@@ -205,8 +242,8 @@ export function journalHtml(d) {
   }
   const focus = d.focus ? `<div class="entry" data-entry="focus">
         <div class="label">🔥 Today’s focus</div>
-        ${[['must', 'Must do', 'Add a must do'], ['can', 'Can do', 'Add a can do'], ['cool', 'Something cool', 'Add something cool']].filter(([g]) => d.focus[g])
-          .map(([g, label, ph]) => `<div class="fgroup"><div class="flabel">${label}</div><div class="rows" data-group="${g}" data-ph="${ph}" data-label="${label}"></div></div>`).join('')}
+        <div class="fcols">${[['must', 'Must do'], ['can', 'Can do'], ['cool', 'Something cool']].filter(([g]) => d.focus[g])
+          .map(([g, label]) => `<div class="fgroup g-${g}"><div class="flabel">${label}</div><div class="rows" data-group="${g}" data-ph="Add…" data-label="${label}"></div></div>`).join('')}</div>
         <p class="sugg" id="sugg" hidden></p>
       </div>` : '';
   return `${head('Journal')}
@@ -229,9 +266,9 @@ export function journalHtml(d) {
   <section class="sheet morning" id="m-open" aria-label="Morning">
     <div class="handoff" id="lastnight" hidden></div>
     ${d.sections.headspace ? entry('headspace') : ''}
+    ${d.sections.forward ? entry('forward', { small: true }) : ''}
     ${entry('winif', { small: true })}
     ${focus}
-    ${d.sections.forward ? entry('forward', { small: true }) : ''}
     <div class="end"><button type="button" class="endbtn" id="m-done">Done for this morning</button></div>
   </section>
 
@@ -262,18 +299,18 @@ export function journalHtml(d) {
     </div>
     <div class="after" id="after" hidden>
       <p class="q" id="mqnote-q"></p>
-      <textarea id="mqnote" aria-labelledby="mqnote-q" rows="2"></textarea>
+      <textarea id="mqnote" aria-labelledby="mqnote-q" rows="2" placeholder="A sentence or two…"></textarea>
     </div>
     <p class="ci-out" id="ci-out" aria-live="polite"></p>
   </section>
 
   ${d.quests.length ? `<h2>🗺️ Quests</h2>
-  <section class="sheet quiet quests" aria-label="Quest updates">
+  <section class="quests" aria-label="Quest updates">
     <p class="hint qintro">Any time of day, whenever something moves. Skip the rest.</p>
-    ${d.quests.map((q, i) => `<div class="entry small" data-entry="quest${i}">
+    ${d.quests.map((q, i) => `<div class="entry small qcard" data-entry="quest${i}">
         <div class="label">${esc(q.icon || '⚔️')} ${esc(q.title)}</div>
         <p class="q" id="quest${i}-q">${esc(q.question)}</p>
-        <textarea id="quest${i}" data-quest="${esc(q.id)}" aria-labelledby="quest${i}-q" rows="2"></textarea>
+        <textarea id="quest${i}" data-quest="${esc(q.id)}" aria-labelledby="quest${i}-q" rows="2" placeholder="A sentence or two…"></textarea>
         <p class="stamp" id="quest${i}-at" hidden></p>
       </div>`).join('')}
   </section>` : ''}
@@ -419,20 +456,14 @@ const SCRIPT = String.raw`
   });
   Array.prototype.forEach.call(document.querySelectorAll('.entry'), function (en) {
     en.addEventListener('focusin', function (e) {
-      // Only writing moves the nudges: a tapped button would otherwise shift the page under the finger.
+      // Only writing marks the box you're in (a tapped ↻ keeps the box it belongs to).
       if (!/^(TEXTAREA|INPUT)$/.test(e.target.tagName)) return;
       Array.prototype.forEach.call(document.querySelectorAll('.entry.active'), function (x) { if (x !== en) x.classList.remove('active'); }); en.classList.add('active'); });
   });
   Array.prototype.forEach.call(document.querySelectorAll('.more'), function (b) {
     var id = b.getAttribute('data-box');
+    b.addEventListener('mousedown', function (e) { e.preventDefault(); });
     b.addEventListener('click', function () { UI['n_' + id] = ((UI['n_' + id] || 0) + 1) % Q[id].length; saveUI(); $(id + '-q').textContent = Q[id][UI['n_' + id]]; });
-  });
-  Array.prototype.forEach.call(document.querySelectorAll('.chip[data-for]'), function (c) {
-    c.addEventListener('click', function () {
-      var t = $(c.getAttribute('data-for')), w = c.textContent.replace(/…$/, ' ');
-      t.value = t.value.trim() ? t.value.replace(/\s*$/, '\n') + w : w;
-      t.dispatchEvent(new Event('input')); t.focus(); t.setSelectionRange(t.value.length, t.value.length);
-    });
   });
 
   // ---- Today's focus: Enter on a filled line adds the next; Backspace on an empty one removes it ----
@@ -442,10 +473,14 @@ const SCRIPT = String.raw`
     box.innerHTML = '';
     F[g].forEach(function (it, i) {
       var row = document.createElement('label'); row.className = 'line' + (it.c ? ' done' : '');
-      row.innerHTML = '<input type="checkbox" aria-label="Done"' + (it.c ? ' checked' : '') + '><input type="text" enterkeyhint="next" aria-label="' + box.getAttribute('data-label') + ' ' + (i + 1) + '" placeholder="' + (i ? 'And…' : box.getAttribute('data-ph')) + '">';
+      row.innerHTML = '<input type="checkbox" aria-label="Done"' + (it.c ? ' checked' : '') + '><textarea rows="1" enterkeyhint="next" aria-label="' + box.getAttribute('data-label') + ' ' + (i + 1) + '" placeholder="' + (i ? 'And…' : box.getAttribute('data-ph')) + '"></textarea>';
       var cb = row.children[0], tx = row.children[1];
       tx.value = it.t;
-      tx.addEventListener('input', function () { it.t = tx.value; if (it.todo) it.todo = null; focusChanged(g); todos(); });
+      tx.addEventListener('input', function () {
+        // One line per to-do: a pasted line break becomes a space.
+        if (/\n/.test(tx.value)) tx.value = tx.value.replace(/\s*\n\s*/g, ' ');
+        it.t = tx.value; if (it.todo) it.todo = null; focusChanged(g); todos(); grow(tx);
+      });
       tx.addEventListener('blur', function () { if (dirty['f:' + g]) flush(); });
       cb.addEventListener('change', function () { tick(g, it, cb.checked); row.classList.toggle('done', cb.checked); });
       tx.addEventListener('keydown', function (e) {
@@ -458,9 +493,9 @@ const SCRIPT = String.raw`
           e.preventDefault(); F[g].splice(i, 1); focusChanged(g); drawGroup(g, Math.max(0, i - 1));
         }
       });
-      box.appendChild(row);
+      box.appendChild(row); grow(tx);
     });
-    if (focusAt !== undefined) { var t = box.querySelectorAll('input[type=text]')[focusAt]; if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }
+    if (focusAt !== undefined) { var t = box.querySelectorAll('textarea')[focusAt]; if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }
   }
   function tick(g, it, on) {
     it.c = on;
@@ -509,7 +544,7 @@ const SCRIPT = String.raw`
     Array.prototype.forEach.call(document.querySelectorAll('[data-k]'), function (b) { b.addEventListener('change', function () { var f = items[+b.getAttribute('data-k')]; tick(f.g, f.it, b.checked); drawGroup(f.g); lookback(); }); });
   }
   function recap() {
-    var bits = [['Headspace', V.headspace], ['Win if', V.winif], ['Focus', focusItems().map(function (f) { return f.it.t.trim(); }).join(' · ')], ['Looking forward', V.forward]]
+    var bits = [['Headspace', V.headspace], ['Looking forward', V.forward], ['Win if', V.winif], ['Focus', focusItems().map(function (f) { return f.it.t.trim(); }).join(' · ')]]
       .filter(function (b) { return b[1] && String(b[1]).trim(); });
     $('m-recap').innerHTML = '<div class="recap">' + (UI.bye ? '<p class="bye" style="margin-bottom:6px">Have a good day, Roy. Tonight starts with your “win if”.</p>' : '') +
       (bits.length ? bits.map(function (b) { return '<p><b>' + b[0] + '</b>' + esc(b[1]) + '</p>'; }).join('') : '<p class="later" style="font-size:17px">Nothing written this morning.</p>') +

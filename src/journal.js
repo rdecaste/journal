@@ -8,7 +8,11 @@
 //     after the heading stays the question, so a rerun never overwrites it);
 //   - Today's focus: the to-do blocks under Must do, Can do and Something cool
 //     (the 03:00 digest carries unticked ones forward to To-Dos);
-//   - the quest boxes under ACTIVE QUESTS: a note under the quest's name;
+//   - the quest boxes under ACTIVE QUESTS: a note under the quest's name. The
+//     page shows one box per active quest (as the Quest Engine's 03:00 setup
+//     builds them); a quest made active later in the day gets its box in the
+//     journal the first time something is written for it, and a finished
+//     quest's box only stays while it has a note;
 //   - what the template has no box for (Today is a win if…, Did it happen?,
 //     Park it, the main quest check-in and its note) goes in one ✍️ callout,
 //     made after the Evening boxes the first time one of them is written;
@@ -22,12 +26,14 @@ import { Notion } from './notion.js';
 export const JOURNAL = {
   journal: '9e98784e-e304-4cee-9a50-e492580b1d86',
   todos: '0c9c63e3-cd72-4cf8-bc53-251d1f010bdc',
+  quests: '9cbb0e5a-10cf-4013-9eea-961aba9b4ac1',
   // Before this Amsterdam hour the page still shows the day before, so
   // writing after midnight lands on the evening it belongs to. The digest of
   // that day runs at 03:00.
   dayStartHour: 3,
   extrasIcon: '✍️',
-  extrasTitle: 'More from today'
+  extrasTitle: 'More from today',
+  questIcon: '⚔️'
 };
 
 // Template headings → the page's boxes.
@@ -163,6 +169,25 @@ export function readQuests(tree) {
   });
 }
 
+// Where a new quest box goes: after the last one (in the shorter column when
+// they sit in columns), else right under the ACTIVE QUESTS heading.
+export function questAnchor(tree) {
+  const top = kidsOf(tree, tree.root);
+  const i = top.findIndex(b => isHeading(b) && /active quests/i.test(plain(b)));
+  if (i < 0) return { parent: tree.root, after: null };
+  let at = { parent: tree.root, after: top[i].id };
+  for (const b of topAfter(tree, /active quests/i)) {
+    if (b.type === 'callout') at = { parent: tree.root, after: b.id };
+    if (b.type !== 'column_list') continue;
+    const cols = kidsOf(tree, b.id).map(c => ({ id: c.id, boxes: kidsOf(tree, c.id).filter(x => x.type === 'callout') }));
+    if (!cols.length) continue;
+    const col = cols.reduce((m, c) => (c.boxes.length <= m.boxes.length ? c : m));
+    const last = col.boxes[col.boxes.length - 1];
+    at = last ? { parent: col.id, after: last.id } : { parent: col.id, after: null };
+  }
+  return at;
+}
+
 // The main quest's name: the first line of the callout under "MAIN QUEST".
 export function readMainQuest(tree) {
   const box = topAfter(tree, /main quest/i).find(b => b.type === 'callout');
@@ -214,6 +239,29 @@ async function engine(env, path, headers = {}) {
   return r.json();
 }
 
+// The quests that get a box, as the Quest Engine's 03:00 setup picks them:
+// Active Quest ticked, not the Main Quest, no Completed At; oldest first.
+const questName = p => textProp(prop(p, 'Quest')).trim();
+export function activeQuests(rows) {
+  return rows
+    .filter(r => prop(r, 'Active Quest')?.checkbox === true && prop(r, 'Main Quest')?.checkbox !== true && !prop(r, 'Completed At')?.date?.start)
+    .map(r => ({ id: r.id, title: questName(r), icon: r.icon && r.icon.type === 'emoji' ? r.icon.emoji : '', created: r.created_time || '' }))
+    .filter(q => q.title)
+    .sort((a, b) => (a.created < b.created ? -1 : a.created > b.created ? 1 : 0));
+}
+
+// The journal's boxes against the active quests: a box stays when its quest
+// is active or it has a note; an active quest without a box gets an empty one
+// (id "new:<quest id>"), made in the journal on its first save.
+export function mergeQuests(boxes, active) {
+  if (!active) return boxes;
+  const has = new Set(active.map(q => norm(q.title)));
+  const kept = boxes.filter(b => has.has(norm(b.title)) || b.text.trim());
+  const added = active.filter(q => !boxes.some(b => norm(b.title) === norm(q.title)))
+    .map(q => ({ id: `new:${q.id}`, title: q.title, icon: q.icon || JOURNAL.questIcon, text: '', at: null, slot: null }));
+  return [...kept, ...added];
+}
+
 const journalFor = (n, day) => n.query(JOURNAL.journal, { filter: { property: 'Date', date: { equals: day } }, page_size: 1 }).then(r => (r.results || [])[0] || null);
 
 // Open to-dos to suggest: carried over from the day before first, then by priority.
@@ -261,7 +309,7 @@ export async function loadJournal(env, { now = Date.now() } = {}) {
   const errors = [];
   const safe = (p, label) => p.catch(e => { errors.push(`${label}: ${e.message || e}`); return null; });
   const day = journalDay(now);
-  const [page, before, open, hero, asked] = await Promise.all([
+  const [page, before, open, hero, asked, quests] = await Promise.all([
     journalFor(n, day),
     safe(journalFor(n, dayBefore(day)), 'Yesterday'),
     safe(n.query(JOURNAL.todos, {
@@ -272,7 +320,10 @@ export async function loadJournal(env, { now = Date.now() } = {}) {
     safe(engine(env, '/hero'), 'Hero'),
     // Written by the Quest Engine's 03:00 AI call; until then each quest gets
     // the plain fallback question, without an error on the page.
-    engine(env, '/journal/questions', { 'X-Admin-Token': env.QUEST_ENGINE_TOKEN || '' }).catch(e => { console.warn('Quest questions:', e.message || e); return null; })
+    engine(env, '/journal/questions', { 'X-Admin-Token': env.QUEST_ENGINE_TOKEN || '' }).catch(e => { console.warn('Quest questions:', e.message || e); return null; }),
+    // Which quests are active now; without it the journal's own boxes show.
+    n.query(JOURNAL.quests, { filter: { property: 'Active Quest', checkbox: { equals: true } }, page_size: 100 })
+      .then(r => activeQuests(r.results || [])).catch(e => { console.warn('Quests:', e.message || e); return null; })
   ]);
   const data = { day, hour: amsterdamHour(now), page: null, errors };
   // The streak as the Hero card last counted it; today counts once Success is ticked.
@@ -289,6 +340,7 @@ export async function loadJournal(env, { now = Date.now() } = {}) {
     Promise.all(relIds(page, 'Workouts').slice(0, 3).map(id => safe(n.call('GET', `/pages/${id}`), 'Workout')))
   ]);
   const j = readJournal(tree);
+  j.quests = mergeQuests(j.quests, quests);
 
   // Focus items that are To-Dos rows carry the row's id, so a tick sets it Done.
   const rows = [...(linked || []), ...(open || [])];
@@ -387,6 +439,26 @@ async function linkTodo(n, id, pageId) {
 }
 const setTodoDone = (n, id, done) => n.call('PATCH', `/pages/${id}`, { properties: { Status: { status: { name: done ? 'Done' : 'Not started' } } } });
 
+// A box for a quest made active after the 03:00 setup: found by name if it is
+// there by now, else made after the other quest boxes, like the setup makes them.
+const NEW_QUEST = /^new:(.+)$/;
+const sameId = (a, b) => String(a || '').replace(/-/g, '') === String(b || '').replace(/-/g, '');
+async function questBox(n, pageId, questId) {
+  const quest = await n.call('GET', `/pages/${questId}`);
+  if (!sameId(quest.parent && quest.parent.data_source_id, JOURNAL.quests)) throw Object.assign(new Error('Not a quest'), { code: 'bad_request' });
+  const title = questName(quest);
+  const tree = await readTree(n, pageId);
+  const there = readQuests(tree).find(q => norm(q.title) === norm(title));
+  if (there) return there.slot;
+  const at = questAnchor(tree);
+  const icon = quest.icon && quest.icon.type === 'emoji' ? quest.icon.emoji : JOURNAL.questIcon;
+  const r = await append(n, at.parent, [{ type: 'callout', callout: {
+    rich_text: [{ type: 'text', text: { content: title }, annotations: { bold: true } }],
+    icon: { type: 'emoji', emoji: icon }, color: 'blue_bg'
+  } }], at.after);
+  return { parent: (r.results || [])[0].id, after: null, ids: [] };
+}
+
 const validSlot = s => s && isId(s.parent) && (s.after == null || isId(s.after)) && (s.label == null || isId(s.label)) && Array.isArray(s.ids) && s.ids.every(isId);
 const limit = s => String(s ?? '').slice(0, 20000);
 
@@ -435,8 +507,17 @@ export async function saveJournal(env, body) {
   }
 
   for (const [id, v] of Object.entries(body.quests || {})) {
-    if (!isId(id)) continue;
-    out.quests[id] = await retry(s => writeText(n, s, limit(v.text)), v.slot, j => (j.quests.find(q => q.id === id) || {}).slot);
+    const later = NEW_QUEST.exec(id);
+    if (!isId(id) && !(later && isId(later[1]))) continue;
+    const text = limit(v.text);
+    if (later && !validSlot(v.slot)) {
+      if (!text.trim()) continue;
+      out.quests[id] = await writeText(n, await questBox(n, pageId, later[1]), text);
+      fresh = null;
+      continue;
+    }
+    const box = later ? v.slot.parent : id;
+    out.quests[id] = await retry(s => writeText(n, s, text), v.slot, j => (j.quests.find(q => q.id === box) || {}).slot);
   }
 
   for (const [key, v] of Object.entries(body.focus || {})) {
