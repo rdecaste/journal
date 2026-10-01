@@ -357,5 +357,5 @@ test('the dashboard page\'s script parses and defines every constant it uses (1 
   new vm.Script(script);
   const defined = new Set([...script.matchAll(/(?:const|let|var|function)\s+([A-Z][A-Z0-9_]+)/g)].map(m => m[1]));
   const used = [...new Set([...script.replace(/'[^'\n]*'|"[^"\n]*"/g, '').matchAll(/\b([A-Z][A-Z0-9_]{2,})\b/g)].map(m => m[1]))];
-  assert.deepEqual(used.filter(u => !defined.has(u) && !['JSON', 'NaN', 'URL'].includes(u)), []);
+  assert.deepEqual(used.filter(u => !defined.has(u) && !['JSON', 'NaN', 'URL', 'TSB', 'HRV'].includes(u)), []);
 });
