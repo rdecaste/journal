@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readQuestLog, heroView, questsView, crossView, briefingView, workDay } from '../src/today.js';
+import { walkPage, readQuestLog, heroView, questsView, crossView, briefingView, workDay } from '../src/today.js';
 import { todayHtml } from '../src/todaypage.js';
 import { loginHtml } from '../src/page.js';
 
@@ -133,4 +133,19 @@ test('login keeps the page you asked for, and nothing else', () => {
 
 test('login can return to the dashboard at /admin', () => {
   assert.match(loginHtml('', '/admin'), /name="next" value="\/admin"/);
+});
+
+test('quest log: the page walk reads each level at once and keeps page order', async () => {
+  const kids = {
+    root: [{ id: 'a', type: 'column_list', has_children: true }, { id: 'h', type: 'heading_2', has_children: false }],
+    a: [{ id: 'c1', type: 'column', has_children: true }, { id: 'c2', type: 'column', has_children: true }],
+    c1: [{ id: 'x', type: 'callout', has_children: true }],
+    c2: [{ id: 'y', type: 'paragraph', has_children: false }],
+    x: [{ id: 'z', type: 'paragraph', has_children: false }]
+  };
+  let inFlight = 0, most = 0;
+  const n = { children: async id => { inFlight++; most = Math.max(most, inFlight); await new Promise(r => setTimeout(r, 5)); inFlight--; return kids[id] || []; } };
+  const flat = await walkPage(n, 'root');
+  assert.deepEqual(flat.map(x => `${x.parent}>${x.block.id}`), ['root>a', 'a>c1', 'c1>x', 'x>z', 'a>c2', 'c2>y', 'root>h']);
+  assert.equal(most, 2);
 });

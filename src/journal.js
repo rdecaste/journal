@@ -22,6 +22,7 @@
 // does not copy it again, and is set Done when it is ticked.
 
 import { Notion } from './notion.js';
+import { cached, remember } from './cache.js';
 
 export const JOURNAL = {
   journal: '9e98784e-e304-4cee-9a50-e492580b1d86',
@@ -45,6 +46,7 @@ const CHECKIN = { win: '✅ Success', lose: '⚠️ Relapse' };
 
 const ID = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
 const isId = s => typeof s === 'string' && ID.test(s);
+const sameId = (a, b) => String(a || '').replace(/-/g, '') === String(b || '').replace(/-/g, '');
 
 // ---- Days ----
 
@@ -292,26 +294,42 @@ export function subLines({ sleepHours = null, workouts = [] } = {}) {
   return { morning, evening };
 }
 
-// The day before's hand-off (For tomorrow, Park it): cached for an hour.
-async function handoff(n, page) {
-  if (!page) return null;
-  const cache = globalThis.caches && caches.default;
-  const key = `https://admin-dashboard.internal/journal-handoff/${page.id}`;
-  if (cache) { const hit = await cache.match(key); if (hit) return hit.json(); }
-  const d = readJournal(await readTree(n, page.id));
+// The day before's hand-off (For tomorrow, Park it). That day is closed once
+// the new one starts at 03:00, so it is read once and kept for 12 hours.
+async function handoff(env, n, pageId) {
+  if (!pageId) return null;
+  const key = `journal-handoff:${pageId}`;
+  const hit = await cached(env, key, 12 * 3600);
+  if (hit) return hit;
+  const d = readJournal(await readTree(n, pageId));
   const out = { tomorrow: (d.sections.tomorrow && d.sections.tomorrow.text) || '', park: (d.extras.park && d.extras.park.text) || '' };
-  if (cache) await cache.put(key, new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=3600' } }));
+  await remember(env, key, out);
   return out;
 }
+
+// The day's journal row and the one before, found once per day: with their
+// ids known, the pages are read at the same time as the rows are looked up.
+const idsKey = day => `journal-ids:${day}`;
 
 export async function loadJournal(env, { now = Date.now() } = {}) {
   const n = new Notion(env.NOTION_TOKEN);
   const errors = [];
   const safe = (p, label) => p.catch(e => { errors.push(`${label}: ${e.message || e}`); return null; });
   const day = journalDay(now);
+  const known = (await cached(env, idsKey(day), 2 * 86400)) || {};
+  const pageP = journalFor(n, day);
+  const beforeP = safe(journalFor(n, dayBefore(day)), 'Yesterday');
+  // Started now when the ids are known; otherwise as soon as the row is found.
+  // Failures are kept for later, so nothing is left unhandled.
+  const later = p => { const kept = p.then(v => ({ v }), e => ({ e })); return () => kept.then(r => { if (r.e) throw r.e; return r.v; }); };
+  const treeFor = id => later(readTree(n, id));
+  const linkedFor = id => later(n.query(JOURNAL.todos, { filter: { property: 'Related Journal', relation: { contains: id } }, page_size: 50 }).then(r => r.results || []));
+  const early = known.page ? { id: known.page, tree: treeFor(known.page), linked: linkedFor(known.page) } : null;
+  const lastP = safe(known.before ? handoff(env, n, known.before) : beforeP.then(b => handoff(env, n, b && b.id)), 'Yesterday’s journal');
+
   const [page, before, open, hero, asked, quests] = await Promise.all([
-    journalFor(n, day),
-    safe(journalFor(n, dayBefore(day)), 'Yesterday'),
+    pageP,
+    beforeP,
     safe(n.query(JOURNAL.todos, {
       filter: { property: 'Status', status: { does_not_equal: 'Done' } },
       sorts: [{ property: 'Priority', direction: 'ascending' }, { timestamp: 'created_time', direction: 'descending' }],
@@ -329,13 +347,17 @@ export async function loadJournal(env, { now = Date.now() } = {}) {
   // The streak as the Hero card last counted it; today counts once Success is ticked.
   data.run = hero && hero.records && typeof hero.records.current_run === 'number' ? hero.records.current_run : null;
   data.run_includes_today = !!(hero && Array.isArray(hero.days) && hero.days.some(x => x && x.date === day && x.movement));
-  if (!page) return data;
+  if (!page) { await lastP; return data; }
+  if (!known.page || !sameId(known.page, page.id) || (before && !sameId(known.before, before.id))) {
+    await remember(env, idsKey(day), { page: page.id, before: before ? before.id : null });
+  }
+  const reads = early && sameId(early.id, page.id) ? early : { tree: treeFor(page.id), linked: linkedFor(page.id) };
 
   const sleepId = relIds(page, 'Sleep')[0];
   const [tree, last, linked, sleep, workouts] = await Promise.all([
-    readTree(n, page.id),
-    safe(handoff(n, before), 'Yesterday’s journal'),
-    safe(n.query(JOURNAL.todos, { filter: { property: 'Related Journal', relation: { contains: page.id } }, page_size: 50 }).then(r => r.results || []), 'To-Dos'),
+    reads.tree(),
+    lastP,
+    safe(reads.linked(), 'To-Dos'),
     sleepId ? safe(n.call('GET', `/pages/${sleepId}`), 'Sleep') : null,
     Promise.all(relIds(page, 'Workouts').slice(0, 3).map(id => safe(n.call('GET', `/pages/${id}`), 'Workout')))
   ]);
@@ -442,7 +464,6 @@ const setTodoDone = (n, id, done) => n.call('PATCH', `/pages/${id}`, { propertie
 // A box for a quest made active after the 03:00 setup: found by name if it is
 // there by now, else made after the other quest boxes, like the setup makes them.
 const NEW_QUEST = /^new:(.+)$/;
-const sameId = (a, b) => String(a || '').replace(/-/g, '') === String(b || '').replace(/-/g, '');
 async function questBox(n, pageId, questId) {
   const quest = await n.call('GET', `/pages/${questId}`);
   if (!sameId(quest.parent && quest.parent.data_source_id, JOURNAL.quests)) throw Object.assign(new Error('Not a quest'), { code: 'bad_request' });

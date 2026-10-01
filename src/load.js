@@ -7,9 +7,9 @@ import { DATA_SOURCES as DS, CROSS_BORDER, HEALTH_JOURNEY } from './config.js';
 import { crossBorder, health, system, overview, amsterdamDay, mergeUsage } from './metrics.js';
 import { questEngineStatus, questEngineLedger, healthChecks } from './sources.js';
 import { store } from './usage.js';
+import { cached, remember } from './cache.js';
 
 const CACHE_SECONDS = 300;
-const CACHE_KEY = 'https://admin-dashboard.internal/data';
 const DAY = 86400000;
 
 // The sync's newest reading, by its own date (Withings rows can be created long
@@ -17,10 +17,9 @@ const DAY = 86400000;
 const newest = (rows, name) => { const d = rows && rows[0] && rows[0].properties[name] && rows[0].properties[name].date; return d ? { created: d.start, url: rows[0].url } : null; };
 
 export async function loadDashboard(env, { now = Date.now(), fresh = false } = {}) {
-  const cache = globalThis.caches && caches.default;
-  if (cache && !fresh) {
-    const hit = await cache.match(CACHE_KEY);
-    if (hit) return hit.json();
+  if (!fresh) {
+    const hit = await cached(env, 'dashboard', CACHE_SECONDS);
+    if (hit) return hit;
   }
   const n = new Notion(env.NOTION_TOKEN);
   const s = store(env);
@@ -56,6 +55,6 @@ export async function loadDashboard(env, { now = Date.now(), fresh = false } = {
     ai_enabled: env.ADMIN_AI === '1',
     errors
   };
-  if (cache) await cache.put(CACHE_KEY, new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${CACHE_SECONDS}` } }));
+  await remember(env, 'dashboard', data);
   return data;
 }
