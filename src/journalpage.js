@@ -20,7 +20,7 @@ export const PROMPTS = {
   headspace: { icon: '🧠', name: 'Headspace', more: ['What’s taking up the most room in your head right now?', 'How are you arriving today, honestly?', 'What would make this morning feel lighter?'],
     starters: ['Honestly, I feel…', 'What bugs me is…'] },
   winif: { icon: '🎯', name: 'Today is a win if…', more: ['Finish the sentence. One thing, so tonight you can tell whether it happened.', 'What’s the smallest thing that would still make today count?'],
-    starters: ['I…', 'I don’t…'], hint: 'Tonight’s page asks you about this.' },
+    starters: ['I…', 'I don’t…'] },
   forward: { icon: '😄', name: 'Looking forward to', more: ['What small moment today would make you smile if it happened?', 'Who would you like to catch up with today?'], starters: ['I’d like to…'] },
   reflection: { icon: '🌙', name: 'Reflection', more: ['When today did you feel most like yourself?', 'What drained you today, and what gave something back?', 'What surprised you today?'],
     starters: ['What stood out was…', 'I noticed…'] },
