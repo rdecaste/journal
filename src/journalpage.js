@@ -94,33 +94,11 @@ textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400
 .entry.active .more{opacity:1;color:var(--ki)}
 .evening .entry.active .more{color:var(--night)}
 .more:hover{opacity:1}
-/* Today's focus: one row per group, the label in a narrow column and its lines beside it. */
-.fgroup{display:flex;flex-direction:column;gap:2px}
-.flabel{font-size:14px;font-weight:500;color:var(--muted);margin-top:10px}
-.fgroup:first-of-type .flabel{margin-top:0}
-.fcols{display:flex;flex-direction:column;gap:4px}
-.fcols .fgroup{display:grid;grid-template-columns:120px minmax(0,1fr);column-gap:14px;align-items:start}
-.fcols .flabel{margin-top:0;padding-top:13px;line-height:1.3}
-.line{display:flex;align-items:center;gap:12px;min-height:40px}
-.line input[type=checkbox]{width:20px;height:20px;accent-color:var(--ki);flex:none;margin:0}
-.evening .line input[type=checkbox]{accent-color:var(--night)}
-.line input[type=text]{flex:1;min-width:0;border:0;background:transparent;font-family:var(--serif);font-size:18px;padding:8px 0}
-.line input[type=text]:focus{outline:none}
-.line.done input[type=text]{text-decoration:line-through;color:var(--muted)}
-/* Focus lines wrap instead of cutting off a long item. */
-.rows .line{align-items:flex-start}
-.rows .line input[type=checkbox]{margin-top:11px}
-.line textarea{flex:1;min-width:0;min-height:0;border:0;border-radius:0;background:none;padding:8px 0;font-size:18px;line-height:1.45;color:var(--ink)}
-.line.done textarea{text-decoration:line-through;color:var(--muted)}
-.sugg{margin:10px 0 0;font-size:14px;line-height:1.7;color:var(--muted)}
-.todo{border:0;background:none;padding:0;font-size:14px;color:var(--ink);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;cursor:pointer}
-.dot{color:var(--muted);margin:0 4px}
 /* Hand-offs between the two halves, the recaps and the endings. */
 .handoff{display:flex;flex-direction:column;gap:8px}
 .entry .handoff{margin-top:8px;gap:10px}
 .didrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .dl{font-size:13.5px;font-weight:500;color:var(--muted)}
-.handoff>.dl{margin-bottom:-6px}
 .handoff blockquote{margin:0;font-family:var(--serif);font-size:18px;line-height:1.55;padding-left:14px;border-left:2px solid color-mix(in srgb,var(--ki) 60%,transparent);white-space:pre-wrap}
 .evening .handoff blockquote{border-color:color-mix(in srgb,var(--night) 50%,transparent)}
 .handoff .soft{margin:0;font-family:var(--serif);font-style:italic;font-size:17px;line-height:1.5;color:var(--muted)}
@@ -180,8 +158,7 @@ textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400
 .plus{position:absolute;right:20px;top:14px;font-weight:600;font-size:18px;color:var(--gold);pointer-events:none;animation:rise 1.3s ease-out forwards}
 @keyframes rise{0%{opacity:0;transform:translateY(8px)}20%{opacity:1}100%{opacity:0;transform:translateY(-34px)}}
 @media (max-width:480px){.sheet{padding:20px 18px 18px;border-radius:18px} .qcard{padding:16px 18px 14px} .scene{height:300px}
-  h1{font-size:31px} h2{font-size:21px} .label{font-size:17.5px} .q,textarea{font-size:17.5px} .qcard .q,.checkin .q{font-size:16.5px}
-  .fcols .fgroup{grid-template-columns:112px minmax(0,1fr);column-gap:10px} .fcols .line{gap:9px} .flabel{font-size:13.5px} .line textarea,.line input[type=text]{font-size:17px}}
+  h1{font-size:31px} h2{font-size:21px} .label{font-size:17.5px} .q,textarea{font-size:17.5px} .qcard .q,.checkin .q{font-size:16.5px}}
 @media (max-width:360px){.ci-btns{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important} .after,.checkin.flare,.lvl .days.pop,.plus{animation:none}}
 `;
@@ -221,12 +198,6 @@ export function journalHtml(d) {
   <p class="foot"><a href="/journal">Try again</a> · <a href="/admin">Admin</a></p>
 </div></body></html>`;
   }
-  const focus = d.focus ? `<div class="entry" data-entry="focus">
-        <div class="label">🔥 Today’s focus</div>
-        <div class="fcols">${[['must', 'Must do'], ['can', 'Can do'], ['cool', 'Something cool']].filter(([g]) => d.focus[g])
-          .map(([g, label]) => `<div class="fgroup g-${g}"><div class="flabel">${label}</div><div class="rows" data-group="${g}" data-ph="Add…" data-label="${label}"></div></div>`).join('')}</div>
-        <p class="sugg" id="sugg" hidden></p>
-      </div>` : '';
   return `${head('Journal')}
 <body>
 <div class="scene" id="scene" aria-hidden="true"></div>
@@ -249,7 +220,6 @@ export function journalHtml(d) {
     ${d.sections.headspace ? entry('headspace') : ''}
     ${d.sections.forward ? entry('forward', { small: true }) : ''}
     ${entry('winif', { small: true })}
-    ${focus}
     <div class="end"><button type="button" class="endbtn" id="m-done">Done for this morning</button></div>
   </section>
 
@@ -445,65 +415,6 @@ const SCRIPT = String.raw`
     b.addEventListener('click', function () { UI['n_' + id] = ((UI['n_' + id] || 0) + 1) % Q[id].length; saveUI(); $(id + '-q').textContent = Q[id][UI['n_' + id]]; });
   });
 
-  // ---- Today's focus: Enter on a filled line adds the next; Backspace on an empty one removes it ----
-  function focusChanged(g, now) { change('f:' + g, undefined, now); }
-  function drawGroup(g, focusAt) {
-    var box = document.querySelector('.rows[data-group="' + g + '"]'); if (!box) return;
-    box.innerHTML = '';
-    F[g].forEach(function (it, i) {
-      var row = document.createElement('label'); row.className = 'line' + (it.c ? ' done' : '');
-      row.innerHTML = '<input type="checkbox" aria-label="Done"' + (it.c ? ' checked' : '') + '><textarea rows="1" enterkeyhint="next" aria-label="' + box.getAttribute('data-label') + ' ' + (i + 1) + '" placeholder="' + (i ? 'And…' : box.getAttribute('data-ph')) + '"></textarea>';
-      var cb = row.children[0], tx = row.children[1];
-      tx.value = it.t;
-      tx.addEventListener('input', function () {
-        // One line per to-do: a pasted line break becomes a space.
-        if (/\n/.test(tx.value)) tx.value = tx.value.replace(/\s*\n\s*/g, ' ');
-        it.t = tx.value; if (it.todo) it.todo = null; focusChanged(g); todos(); grow(tx);
-      });
-      tx.addEventListener('blur', function () { if (dirty['f:' + g]) flush(); });
-      cb.addEventListener('change', function () { tick(g, it, cb.checked); row.classList.toggle('done', cb.checked); });
-      tx.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' && !e.isComposing) {
-          e.preventDefault();
-          if (!tx.value.trim()) return;
-          if (F[g][i + 1] && !F[g][i + 1].t.trim()) return drawGroup(g, i + 1);
-          F[g].splice(i + 1, 0, { t: '', c: false }); drawGroup(g, i + 1);
-        } else if (e.key === 'Backspace' && !tx.value && F[g].length > 1) {
-          e.preventDefault(); F[g].splice(i, 1); focusChanged(g); drawGroup(g, Math.max(0, i - 1));
-        }
-      });
-      box.appendChild(row); grow(tx);
-    });
-    if (focusAt !== undefined) { var t = box.querySelectorAll('textarea')[focusAt]; if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }
-  }
-  function tick(g, it, on) {
-    it.c = on;
-    if (it.todo) todoOps.push({ id: it.todo, done: on });
-    focusChanged(g, true);
-  }
-  Object.keys(F).forEach(function (g) { drawGroup(g); });
-  // To-do suggestions: one quiet line; a picked one fills the first empty line of its group.
-  var SUG = (D.suggestions || []).filter(function (s) { return F[s.group] || F.can; });
-  function todos() {
-    var el = $('sugg'); if (!el) return;
-    var taken = {}; Object.keys(F).forEach(function (g) { F[g].forEach(function (it) { taken[it.t.trim().toLowerCase()] = 1; }); });
-    var left = SUG.filter(function (s) { return !taken[s.t.trim().toLowerCase()]; });
-    el.hidden = !left.length;
-    el.innerHTML = '<span>From your to-dos:</span> ' + left.map(function (s, i) { return (i ? '<span class="dot">·</span>' : '') + '<button type="button" class="todo" data-id="' + esc(s.id) + '">' + esc(s.t) + '</button>'; }).join('');
-    Array.prototype.forEach.call(el.querySelectorAll('.todo'), function (b) {
-      b.addEventListener('click', function () {
-        var s = SUG.filter(function (x) { return x.id === b.getAttribute('data-id'); })[0], g = F[s.group] ? s.group : 'can';
-        var slot = F[g].filter(function (it) { return !it.t.trim(); })[0];
-        if (!slot) { slot = { t: '', c: false }; F[g].push(slot); }
-        slot.t = s.t; slot.todo = s.id;
-        todoOps.push({ id: s.id, link: true });
-        focusChanged(g, true); drawGroup(g); todos();
-      });
-    });
-  }
-  todos();
-  var focusItems = function () { var out = []; Object.keys(F).forEach(function (g) { F[g].forEach(function (it) { if (it.t.trim()) out.push({ g: g, it: it }); }); }); return out; };
-
   // ---- Hand-offs ----
   (function lastNight() {
     var l = D.last || {}, h = '';
@@ -512,18 +423,16 @@ const SCRIPT = String.raw`
     if (h) { $('lastnight').innerHTML = '<div class="label">From last night</div>' + h; $('lastnight').hidden = false; }
   })();
   function lookback() {
-    var w = (V.winif || '').trim(), items = focusItems();
-    // Under the Reflection box: whether the morning's "win if" happened, and the focus to tick off.
+    var w = (V.winif || '').trim();
+    // Under the Reflection box: whether the morning's "win if" happened.
     var h = '';
     if (w) h += '<div class="didrow"><span class="dl">The win</span><div class="did">' +
       ['It happened', 'Partly', 'Not today'].map(function (o) { return '<button type="button" data-did="' + o + '" aria-pressed="' + (V.did === o) + '">' + o + '</button>'; }).join('') + '</div></div>';
-    if (items.length) h += '<span class="dl">Focus</span><div class="ticks">' + items.map(function (f, i) { var c = f.it.c; return '<label class="line' + (c ? ' done' : '') + '"><input type="checkbox" data-k="' + i + '"' + (c ? ' checked' : '') + '><input type="text" value="' + esc(f.it.t) + '" readonly tabindex="-1" aria-label="' + esc(f.it.t) + '"></label>'; }).join('') + '</div>';
     $('lookback').innerHTML = h; $('lookback').hidden = !h;
     Array.prototype.forEach.call(document.querySelectorAll('[data-did]'), function (b) { b.addEventListener('click', function () { change('did', V.did === b.getAttribute('data-did') ? '' : b.getAttribute('data-did'), true); lookback(); }); });
-    Array.prototype.forEach.call(document.querySelectorAll('[data-k]'), function (b) { b.addEventListener('change', function () { var f = items[+b.getAttribute('data-k')]; tick(f.g, f.it, b.checked); drawGroup(f.g); lookback(); }); });
   }
   function recap() {
-    var bits = [['Headspace', V.headspace], ['Looking forward', V.forward], ['Win if', V.winif], ['Focus', focusItems().map(function (f) { return f.it.t.trim(); }).join(' · ')]]
+    var bits = [['Headspace', V.headspace], ['Looking forward', V.forward], ['Win if', V.winif]]
       .filter(function (b) { return b[1] && String(b[1]).trim(); });
     $('m-recap').innerHTML = '<div class="recap">' + (UI.bye ? '<p class="bye" style="margin-bottom:6px">Have a good day, Roy. Tonight starts with your “win if”.</p>' : '') +
       (bits.length ? bits.map(function (b) { return '<p><b>' + b[0] + '</b>' + esc(b[1]) + '</p>'; }).join('') : '<p class="later" style="font-size:17px">Nothing written this morning.</p>') +
@@ -583,8 +492,8 @@ const SCRIPT = String.raw`
   // the server only asks again when the morning changed).
   var asked = false;
   function askEvening() {
-    var m = { headspace: V.headspace || '', forward: V.forward || '', winif: V.winif || '', focus: focusItems().map(function (f) { return f.it.t; }) };
-    if (!(m.headspace.trim() || m.forward.trim() || m.winif.trim() || m.focus.length)) return;
+    var m = { headspace: V.headspace || '', forward: V.forward || '', winif: V.winif || '' };
+    if (!(m.headspace.trim() || m.forward.trim() || m.winif.trim())) return;
     asked = true;
     fetch('/journal/evening-question', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(m), credentials: 'same-origin' })
       .then(function (r) { return r.json(); })

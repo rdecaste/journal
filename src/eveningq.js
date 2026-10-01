@@ -1,5 +1,5 @@
 // The evening question: one small OpenAI call writes the Reflection question
-// from the whole morning (headspace, looking forward, win if, focus), when Roy
+// from the whole morning (headspace, looking forward, win if), when Roy
 // taps "Done for this morning" or first opens the evening. Kept in the Store
 // per day; asked again only when the morning changed, at most a few times a
 // day. Off unless ADMIN_AI is "1"; the 03:00 question stays until then.
@@ -8,7 +8,7 @@ import { store, addUsage } from './usage.js';
 
 export const EVENING_SYSTEM = [
   'You write the one evening question on Roy\'s private journal page, under the heading Reflection.',
-  'You get what he wrote this morning: his headspace, what he looked forward to, what would make today a win, and his focus list.',
+  'You get what he wrote this morning: his headspace, what he looked forward to, and what would make today a win.',
   'Write one or two short sentences, at most 45 words: briefly reflect the morning back in your own words (not quoted), then ask one open question about how the day actually went.',
   'Plain, warm, everyday English, like a thoughtful friend. No advice, no praise, no numbers, no lists, no emojis.',
   'Never mention habits, cravings, relapse or streaks. Return only the question text.'
@@ -19,9 +19,8 @@ const clean = (v, max = 500) => String(v || '').trim().slice(0, max);
 
 // What the model sees: the morning's words, nothing else.
 export function morningFacts(m = {}) {
-  const focus = (Array.isArray(m.focus) ? m.focus : []).map(f => clean(f, 120)).filter(Boolean).slice(0, 12);
-  const out = { headspace: clean(m.headspace), looking_forward_to: clean(m.forward), today_is_a_win_if: clean(m.winif, 300), focus };
-  return out.headspace || out.looking_forward_to || out.today_is_a_win_if || focus.length ? out : null;
+  const out = { headspace: clean(m.headspace), looking_forward_to: clean(m.forward), today_is_a_win_if: clean(m.winif, 300) };
+  return out.headspace || out.looking_forward_to || out.today_is_a_win_if ? out : null;
 }
 
 export const aiOn = env => env.ADMIN_AI === '1' && !!env.OPENAI_API_KEY;

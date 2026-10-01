@@ -10,8 +10,8 @@
 //   POST /journal/save  writes what changed on the journal page into the day's
 //                  Notion journal (signed in; JSON)
 //   POST /journal/evening-question  writes the evening's Reflection question
-//                  from the morning (signed in; JSON { headspace, forward, winif,
-//                  focus }; one OpenAI call, only when the morning changed)
+//                  from the morning (signed in; JSON { headspace, forward, winif };
+//                  one OpenAI call, only when the morning changed)
 //   Signed out, each page sends you to the login and back afterwards.
 //   GET  /login    the login page; POST /login with the password
 //   POST /logout   signs out
