@@ -307,6 +307,8 @@ const SCRIPT = String.raw`
   (D.quests || []).forEach(function (q) { V['q:' + q.id] = q.text || ''; S.quests[q.id] = q.slot; });
   var F = {};
   Object.keys(D.focus || {}).forEach(function (g) { F[g] = D.focus[g].items.length ? D.focus[g].items : [{ t: '', c: false }]; S.focus[g] = D.focus[g].slot; });
+  // Ticked off elsewhere (the To-Do's Status) shows in "The win" too.
+  if (D.win) V.did = { Done: 'It happened', 'In progress': 'Partly' }[D.win.status] || (V.did === 'Not today' ? 'Not today' : '');
   if (D.work) V.work = { am: D.work.am || '', pm: D.work.pm || '', commute: D.work.commute || '' };
   var checkin = D.checkin || (D.success ? 'win' : null);
   V.mq = checkin || '';
@@ -352,6 +354,8 @@ const SCRIPT = String.raw`
       else if (k.indexOf('q:') === 0) b.quests[k.slice(2)] = { slot: S.quests[k.slice(2)], text: V[k] };
       else if (k.indexOf('f:') === 0) b.focus[k.slice(2)] = { slot: S.focus[k.slice(2)], items: F[k.slice(2)] };
       else if (k === 'work' && D.work) b.work = { id: D.work.id, am: V.work.am, pm: V.work.pm, commute: V.work.commute };
+      // The win is also a To-Do for the Quest Engine; its Status follows "The win".
+      if (k === 'winif' || k === 'did') b.win = { text: V.winif || '', did: V.did || '', day: D.day };
     });
     if (success !== null) b.success = success;
     return b;

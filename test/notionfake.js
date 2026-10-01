@@ -53,10 +53,14 @@ export class FakeNotion {
       b.last_edited_time = '2026-09-30T12:00:00.000Z';
       return [200, b];
     }
+    if (path === '/pages' && method === 'POST') {
+      const id = uuid();
+      return [200, this.pages[this.page(id, body.properties, { parent: body.parent })]];
+    }
     if ((m = /^\/pages\/([^/]+)$/.exec(path))) {
       const p = this.pages[m[1]];
       if (!p) return [404, { message: 'Could not find page' }];
-      if (method === 'PATCH') Object.assign(p.properties, body.properties);
+      if (method === 'PATCH') { Object.assign(p.properties, body.properties); if (body.in_trash) p.in_trash = true; }
       return [200, p];
     }
     if ((m = /^\/data_sources\/([^/]+)\/query$/.exec(path))) {

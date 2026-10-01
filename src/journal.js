@@ -403,6 +403,7 @@ export async function loadJournal(env, { now = Date.now() } = {}) {
     suggestions: todoSuggestions(open || [], { yesterday: before && before.id, taken }),
     sub: subLines({ sleepHours: hours, workouts: names }),
     evening_q: evening ? evening.text : null,
+    win: (() => { const w = (linked || []).find(isWin); return w ? { id: w.id, status: (prop(w, 'Status') && prop(w, 'Status').status && prop(w, 'Status').status.name) || '' } : null; })(),
     ...j
   };
 }
@@ -474,6 +475,30 @@ async function linkTodo(n, id, pageId) {
   if (ids.includes(pageId)) return;
   await n.call('PATCH', `/pages/${id}`, { properties: { 'Related Journal': { relation: [...ids, pageId].map(x => ({ id: x })) } } });
 }
+// "Today is a win if…" is also a To-Do (Tag "Win if", linked to the day's
+// journal, due that day), so the Quest Engine can count it: the evening's
+// It happened / Partly / Not today set its Status. Status stays the truth, so
+// ticking it off elsewhere shows on the page too.
+export const WIN = { tag: 'Win if', status: { 'It happened': 'Done', Partly: 'In progress', 'Not today': 'Not started', '': 'Not started' } };
+export const isWin = row => !!(prop(row, 'Tag') && prop(row, 'Tag').select && prop(row, 'Tag').select.name === WIN.tag);
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+export async function syncWin(n, pageId, { text = '', did = '', day = null } = {}) {
+  const found = await n.query(JOURNAL.todos, { filter: { and: [
+    { property: 'Related Journal', relation: { contains: pageId } },
+    { property: 'Tag', select: { equals: WIN.tag } }
+  ] }, page_size: 5 });
+  const row = (found.results || [])[0] || null;
+  const t = String(text).trim().slice(0, 2000);
+  if (!t) { if (row) await n.call('PATCH', `/pages/${row.id}`, { in_trash: true }); return null; }
+  const properties = { Task: { title: textRuns(t) }, Status: { status: { name: WIN.status[did] || 'Not started' } } };
+  if (row) { await n.call('PATCH', `/pages/${row.id}`, { properties }); return row.id; }
+  const when = DAY.test(day || '') ? { Due: { date: { start: day } }, 'Source Date': { date: { start: day } } } : {};
+  const made = await n.call('POST', '/pages', { parent: { type: 'data_source_id', data_source_id: JOURNAL.todos }, properties: {
+    ...properties, ...when, Tag: { select: { name: WIN.tag } }, 'Related Journal': { relation: [{ id: pageId }] }
+  } });
+  return made.id;
+}
+
 const setTodoDone = (n, id, done) => n.call('PATCH', `/pages/${id}`, { properties: { Status: { status: { name: done ? 'Done' : 'Not started' } } } });
 
 // A box for a quest made active after the 03:00 setup: found by name if it is
@@ -586,6 +611,7 @@ export async function saveJournal(env, body) {
   }
 
   if (body.work) out.work = await writeWork(n, body.work);
+  if (body.win) out.win = await syncWin(n, pageId, { text: limit(body.win.text), did: DID.includes(body.win.did) ? body.win.did : '', day: body.win.day });
 
   if (typeof body.success === 'boolean') await n.call('PATCH', `/pages/${pageId}`, { properties: { Success: { checkbox: body.success } } });
 
