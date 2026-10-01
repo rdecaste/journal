@@ -227,10 +227,8 @@ export function journalHtml(d) {
   <p class="later" id="e-later" hidden>Opens here tonight, starting with your “win if”. <button type="button" class="link" id="open-evening">Write now ›</button></p>
   <div id="e-recap" hidden></div>
   <div id="e-open" class="evening" style="display:flex;flex-direction:column;gap:22px">
-    <section class="sheet" aria-label="Looking back">
+    <section class="sheet" aria-label="Evening">
       ${d.sections.reflection ? entry('reflection', { after: '<div class="handoff" id="lookback" hidden></div>' }) : '<div class="handoff" id="lookback" hidden></div>'}
-    </section>
-    <section class="sheet" aria-label="Before you sleep">
       ${entry('park', { small: true })}
       ${d.sections.tomorrow ? entry('tomorrow', { small: true }) : ''}
     </section>
