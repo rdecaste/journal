@@ -27,9 +27,9 @@
     // the same as the Quest Engine's HEALTH_STORE.
     "HEALTH_STORE": "d1",
     // Where the Journal, To-Dos and Quests live: "notion" until step 2's
-    // switch, then "d1" (src/journald1.js for the journal page). Always the
+    // switch, then "d1" (src/journald1.js for the journal page; switched 1 Oct 2026 13:59 UTC). Always the
     // same as the Quest Engine's JOURNAL_STORE.
-    "JOURNAL_STORE": "notion",
+    "JOURNAL_STORE": "d1",
     "CHAT_MODEL": "gpt-6-astra"
   }
   // Secrets (set with `npx wrangler secret put <NAME>`, never committed):
