@@ -160,6 +160,15 @@ textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400
 @media (max-width:480px){.sheet{padding:20px 18px 18px;border-radius:18px} .qcard{padding:16px 18px 14px} .scene{height:300px}
   h1{font-size:31px} h2{font-size:21px} .label{font-size:17.5px} .q,textarea{font-size:17.5px} .qcard .q,.checkin .q{font-size:16.5px}}
 @media (max-width:360px){.ci-btns{grid-template-columns:1fr}}
+.wrow{display:grid;grid-template-columns:110px 1fr;align-items:center;gap:6px 12px}
+.wrow + .wrow{margin-top:8px}
+.wk{font-size:13.5px;font-weight:500;color:var(--muted)}
+.opts{display:flex;gap:6px;flex-wrap:wrap}
+.opts button{font-size:14px;font-weight:500;min-height:34px;padding:0 13px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+.opts button[aria-pressed="true"]{background:var(--night);color:var(--paper);border-color:var(--night)}
+#work .link{color:var(--night)}
+.wline{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;font-family:var(--serif);font-size:18px;line-height:1.5}
+@media (max-width:480px){.wrow{grid-template-columns:1fr} .wline{font-size:17.5px}}
 .folding{overflow:hidden;transition:height .5s cubic-bezier(.4,0,.2,1),opacity .35s ease;opacity:0}
 .risein{animation:rise-in .45s ease both}
 .recap.glow{position:relative;overflow:hidden;isolation:isolate}
@@ -240,6 +249,7 @@ export function journalHtml(d) {
       ${d.sections.reflection ? entry('reflection', { after: '<div class="handoff" id="lookback" hidden></div>' }) : '<div class="handoff" id="lookback" hidden></div>'}
       ${entry('park', { small: true })}
       ${d.sections.tomorrow ? entry('tomorrow', { small: true }) : ''}
+      ${d.work ? '<div class="entry small" data-entry="work"><div class="label">🚗 Commute</div><div id="work"></div></div>' : ''}
     </section>
     <div class="end close"><button type="button" class="endbtn" id="e-done">Close the day</button></div>
   </div>
@@ -298,6 +308,7 @@ const SCRIPT = String.raw`
   (D.quests || []).forEach(function (q) { V['q:' + q.id] = q.text || ''; S.quests[q.id] = q.slot; });
   var F = {};
   Object.keys(D.focus || {}).forEach(function (g) { F[g] = D.focus[g].items.length ? D.focus[g].items : [{ t: '', c: false }]; S.focus[g] = D.focus[g].slot; });
+  if (D.work) V.work = { am: D.work.am || '', pm: D.work.pm || '', commute: D.work.commute || '' };
   var checkin = D.checkin || (D.success ? 'win' : null);
   V.mq = checkin || '';
   var SECTION = { headspace: 1, forward: 1, reflection: 1, tomorrow: 1 };
@@ -341,6 +352,7 @@ const SCRIPT = String.raw`
       else if (EXTRA[k]) b.extras[k] = { slot: S.extras[k], text: V[k] };
       else if (k.indexOf('q:') === 0) b.quests[k.slice(2)] = { slot: S.quests[k.slice(2)], text: V[k] };
       else if (k.indexOf('f:') === 0) b.focus[k.slice(2)] = { slot: S.focus[k.slice(2)], items: F[k.slice(2)] };
+      else if (k === 'work' && D.work) b.work = { id: D.work.id, am: V.work.am, pm: V.work.pm, commute: V.work.commute };
     });
     if (success !== null) b.success = success;
     return b;
@@ -440,6 +452,43 @@ const SCRIPT = String.raw`
       '<button type="button" class="link" id="edit-m">' + (bits.length ? 'Open the morning ›' : 'Write it now ›') + '</button></div>';
     $('edit-m').addEventListener('click', function () { UI.mopen = true; UI.bye = false; saveUI(); layout(); });
   }
+  // ---- Commute: today's Work Location Log row, as one line until "Change ›" ----
+  var PLACES = ['🇳🇱 Home', '🇧🇪 Beerse', '🇧🇪 Ghent', '✈️ Travel', '🏖️ Holiday', '🎉 Public holiday'];
+  var RIDES = ['🚲 E-bike', '🚗 Car', '✈️ Plane', 'N/A'];
+  var bare = function (v) { return v.replace(/^\S+\s/, ''); };
+  var workOpen = false, workSplit = false;
+  function workLine(w) {
+    var place = w.am && w.pm ? (w.am === w.pm ? bare(w.am) + ' all day' : bare(w.am) + ' in the morning, ' + bare(w.pm) + ' in the afternoon')
+      : w.am || w.pm ? bare(w.am || w.pm) + (w.am ? ' in the morning' : ' in the afternoon') : '';
+    var ride = w.commute === 'N/A' ? 'no commute' : w.commute ? 'by ' + bare(w.commute).toLowerCase() : '';
+    return [place, ride].filter(Boolean).join(' · ');
+  }
+  function drawWork() {
+    if (!D.work || !$('work')) return;
+    var w = V.work, line = workLine(w);
+    var cur = function (k) { return k === 'day' ? (w.am === w.pm ? w.am : '') : w[k]; };
+    var row = function (k, label, list) {
+      return '<div class="wrow"><span class="wk">' + label + '</span><div class="opts">' + list.map(function (o) {
+        return '<button type="button" data-w="' + k + '" data-v="' + esc(o) + '" aria-pressed="' + (cur(k) === o) + '">' + esc(o) + '</button>';
+      }).join('') + '</div></div>';
+    };
+    // One "Where" row sets the whole day; a split day shows morning and afternoon.
+    var split = workSplit || (w.am && w.pm && w.am !== w.pm) || (!!w.am !== !!w.pm);
+    $('work').innerHTML = !workOpen && w.am && w.pm && w.commute
+      ? '<div class="wline"><span>' + esc(line) + '</span><button type="button" class="link" id="work-change">Change ›</button></div>'
+      : (split ? row('am', 'Morning', PLACES) + row('pm', 'Afternoon', PLACES) : row('day', 'Where', PLACES)) + row('commute', 'Getting there', RIDES) +
+        (split ? '' : '<button type="button" class="link" id="work-split">Different in the afternoon ›</button>');
+    var ch = $('work-change'); if (ch) ch.addEventListener('click', function () { workOpen = true; drawWork(); });
+    var sp = $('work-split'); if (sp) sp.addEventListener('click', function () { workSplit = true; drawWork(); });
+    document.querySelectorAll('[data-w]').forEach(function (b) { b.addEventListener('click', function () {
+      var k = b.dataset.w, v = b.dataset.v;
+      if (k === 'day') { w.am = w.pm = cur('day') === v ? '' : v; }
+      else w[k] = w[k] === v ? '' : v;
+      workOpen = true; change('work', undefined, true); drawWork();
+    }); });
+  }
+  drawWork();
+
   // The evening folds the same way once the day is closed.
   function eveningRecap() {
     var bits = [['Reflection', V.reflection], ['Park it', V.park], ['For tomorrow', V.tomorrow]]

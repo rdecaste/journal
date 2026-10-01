@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readTree, readJournal, writeText, writeFocus, saveJournal, loadJournal, journalDay, todoSuggestions, subLines, extrasAnchor, activeQuests, mergeQuests, JOURNAL, QUEST_FALLBACK } from '../src/journal.js';
 import { journalHtml } from '../src/journalpage.js';
 import { Notion } from '../src/notion.js';
+import { DATA_SOURCES } from '../src/config.js';
 import { FakeNotion, journalFixture, run } from './notionfake.js';
 
 const PAGE = '3eb24147-f877-814a-94ba-dc6d77c05990';
@@ -327,4 +328,34 @@ test('evening question: written once from the whole morning, again only when the
     assert.equal(kept.get('usage').days['2026-09-30'].chat_calls, 2);
     assert.equal(await writeEveningQuestion({ ...env, ADMIN_AI: '0' }, '2026-09-30', m), null);
   } finally { globalThis.fetch = real; }
+});
+
+test('journal page: the evening commute reads and writes today’s Work Location Log row', async () => {
+  const { fake } = setup();
+  const ROW = '3ec24147-f877-814a-9236-f12640bcf6aa', OTHER = '3ec24147-f877-814a-9236-f12640bcf6bb';
+  const sel = name => ({ select: name ? { name } : null });
+  fake.page(ROW, { Date: { date: { start: '2026-09-30' } }, AM: sel('🇧🇪 Beerse'), PM: sel('🇧🇪 Beerse'), Commute: sel(null) },
+    { parent: { type: 'data_source_id', data_source_id: DATA_SOURCES.workLocation } });
+  fake.page(OTHER, { Name: { title: [] } }, { parent: { type: 'data_source_id', data_source_id: JOURNAL.todos } });
+  fake.queries[JOURNAL.journal] = () => [fake.pages[PAGE]];
+  fake.queries[DATA_SOURCES.workLocation] = body => body.filter.date.equals === '2026-09-30' ? [fake.pages[ROW]] : [];
+  const d = await fake.use(() => loadJournal(env, { now: Date.parse('2026-09-30T18:00:00Z') }));
+  assert.deepEqual(d.work, { id: ROW, am: '🇧🇪 Beerse', pm: '🇧🇪 Beerse', commute: '' });
+  assert.match(journalHtml(d), /🚗 Commute/);
+
+  // A split day by e-bike; a value the page doesn't know leaves that field alone.
+  await fake.use(() => saveJournal(env, { page: PAGE, work: { id: ROW, am: '🇳🇱 Home', pm: '🇧🇪 Ghent', commute: '🚲 E-bike' } }));
+  assert.deepEqual([fake.pages[ROW].properties.AM, fake.pages[ROW].properties.PM, fake.pages[ROW].properties.Commute], [sel('🇳🇱 Home'), sel('🇧🇪 Ghent'), sel('🚲 E-bike')]);
+  await fake.use(() => saveJournal(env, { page: PAGE, work: { id: ROW, am: '', pm: 'Mars', commute: '🚲 E-bike' } }));
+  assert.deepEqual([fake.pages[ROW].properties.AM, fake.pages[ROW].properties.PM], [sel(null), sel('🇧🇪 Ghent')]);
+
+  // Only a Work Location Log row can be written this way.
+  await assert.rejects(fake.use(() => saveJournal(env, { page: PAGE, work: { id: OTHER, am: '🇳🇱 Home' } })), /Not a Work Location Log row/);
+  await assert.rejects(fake.use(() => saveJournal(env, { page: PAGE, work: { id: 'x' } })), /No Work Location Log row/);
+
+  // No row for the day: no commute entry.
+  fake.queries[DATA_SOURCES.workLocation] = () => [];
+  const none = await fake.use(() => loadJournal(env, { now: Date.parse('2026-09-30T18:00:00Z') }));
+  assert.equal(none.work, null);
+  assert.doesNotMatch(journalHtml(none), /🚗 Commute/);
 });
