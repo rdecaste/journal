@@ -158,6 +158,18 @@ textarea::placeholder{color:var(--muted);opacity:.55;font-weight:400;font-style:
 .qintro{margin:-6px 0 -8px}
 .quests .label{color:var(--muted)}
 .stamp{margin:0;font-size:12.5px;color:var(--muted)}
+/* Main quest follows the page (light by day, dark at night): a page card with a warm gold wash. */
+.checkin{--hero-ink:var(--ink);--hero-muted:var(--muted);--hero-track:var(--line);--hero-gold:var(--gold);
+  background:linear-gradient(180deg,var(--gold-soft),var(--paper) 75%);color:var(--ink);box-shadow:0 1px 2px rgba(20,26,36,.04)}
+.ci.win[aria-pressed="true"]{background:var(--ok-soft);border-color:var(--ok)}
+.ci.lose[aria-pressed="true"]{background:var(--warn-soft);border-color:var(--warn)}
+.checkin textarea{background-color:var(--write-quest)}
+/* Quests: one card per active quest. */
+.quests{display:flex;flex-direction:column;gap:12px}
+.quests .qintro{margin:0 0 2px}
+.qcard{background:var(--paper);border-radius:18px;padding:18px 20px 16px;box-shadow:0 1px 2px rgba(20,26,36,.04)}
+.quests .qcard .label{color:var(--gold)}
+@media (max-width:480px){.qcard{padding:16px 18px 14px}}
 .scene{position:absolute;inset:0 0 auto 0;height:360px;z-index:0;pointer-events:none;overflow:hidden;
   -webkit-mask-image:linear-gradient(to bottom,#000 55%,transparent);mask-image:linear-gradient(to bottom,#000 55%,transparent)}
 .scene svg{width:100%;height:100%;display:block}
@@ -279,9 +291,9 @@ export function journalHtml(d) {
   </section>
 
   ${d.quests.length ? `<h2>🗺️ Quests</h2>
-  <section class="sheet quiet quests" aria-label="Quest updates">
+  <section class="quests" aria-label="Quest updates">
     <p class="hint qintro">Any time of day, whenever something moves. Skip the rest.</p>
-    ${d.quests.map((q, i) => `<div class="entry small" data-entry="quest${i}">
+    ${d.quests.map((q, i) => `<div class="entry small qcard" data-entry="quest${i}">
         <div class="label">${esc(q.icon || '⚔️')} ${esc(q.title)}</div>
         <p class="q" id="quest${i}-q">${esc(q.question)}</p>
         <textarea id="quest${i}" data-quest="${esc(q.id)}" aria-labelledby="quest${i}-q" rows="2"></textarea>

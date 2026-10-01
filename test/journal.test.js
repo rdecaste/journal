@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readTree, readJournal, writeText, writeFocus, saveJournal, loadJournal, journalDay, todoSuggestions, subLines, extrasAnchor, JOURNAL, QUEST_FALLBACK } from '../src/journal.js';
+import { readTree, readJournal, writeText, writeFocus, saveJournal, loadJournal, journalDay, todoSuggestions, subLines, extrasAnchor, activeQuests, mergeQuests, JOURNAL, QUEST_FALLBACK } from '../src/journal.js';
 import { journalHtml } from '../src/journalpage.js';
 import { Notion } from '../src/notion.js';
 import { FakeNotion, journalFixture, run } from './notionfake.js';
@@ -164,6 +164,61 @@ test('journal page: one quiet line from sleep or a workout', () => {
   assert.equal(subLines({}).evening, 'Time to close the day.');
 });
 
+const quest = (id, title, emoji = '', props = {}, created = '2026-09-01T00:00:00.000Z') => ({ id, created_time: created,
+  icon: emoji ? { type: 'emoji', emoji } : null, parent: { type: 'data_source_id', data_source_id: JOURNAL.quests },
+  properties: { Quest: { title: [run(title)] }, 'Active Quest': { checkbox: true }, 'Main Quest': { checkbox: false }, 'Completed At': { date: null }, ...props } });
+
+test('journal page: the quest boxes follow which quests are active', () => {
+  const rows = [
+    quest('q3', 'Renovate the Downstairs Toilet', '🚽', {}, '2026-09-20T00:00:00.000Z'),
+    quest('q1', 'Get Back in Shape', '💪', {}, '2026-08-01T00:00:00.000Z'),
+    quest('mq', 'Break the Cycle', '🔥', { 'Main Quest': { checkbox: true } }),
+    quest('done', 'Zwift Pain Cave', '', { 'Completed At': { date: { start: '2026-09-27' } } })
+  ];
+  const active = activeQuests(rows);
+  assert.deepEqual(active.map(q => q.title), ['Get Back in Shape', 'Renovate the Downstairs Toilet']);
+  const boxes = [
+    { id: 'b1', title: 'Get back in shape', icon: '💪', text: '' },
+    { id: 'b2', title: 'Zwift Pain Cave', icon: '⚔️', text: '' },
+    { id: 'b3', title: 'Old quest with a note', icon: '⚔️', text: 'Wrapped it up' }
+  ];
+  const list = mergeQuests(boxes, active);
+  // Active stays, finished and empty goes, finished with a note stays, newly active is added.
+  assert.deepEqual(list.map(q => q.id), ['b1', 'b3', 'new:q3']);
+  assert.deepEqual(list[2], { id: 'new:q3', title: 'Renovate the Downstairs Toilet', icon: '🚽', text: '', at: null, slot: null });
+  // Without the Quests answer, the journal's own boxes show.
+  assert.equal(mergeQuests(boxes, null), boxes);
+});
+
+test('journal page: a quest made active today gets its box on the first save', async () => {
+  const { fake, ids } = setup();
+  const Q = 'aaaaaaaa-0000-4000-8000-0000000000a3';
+  fake.pages[Q] = { object: 'page', ...quest(Q, 'Renovate the Downstairs Toilet', '🚽') };
+  // Nothing written: no box yet.
+  const none = await fake.use(() => saveJournal(env, { page: PAGE, quests: { [`new:${Q}`]: { slot: null, text: '  ' } } }));
+  assert.deepEqual(none.slots.quests, {});
+  const r = await fake.use(() => saveJournal(env, { page: PAGE, quests: { [`new:${Q}`]: { slot: null, text: 'Tiles picked' } } }));
+  const slot = r.slots.quests[`new:${Q}`];
+  // The box sits after the last quest box, in the shorter column (the right one on a tie).
+  const col = fake.blocks[ids.yard].parent.block_id;
+  assert.deepEqual(fake.kids[col], [ids.yard, slot.parent]);
+  const box = fake.blocks[slot.parent];
+  assert.equal(box.callout.icon.emoji, '🚽');
+  assert.equal(fake.text(slot.parent), 'Renovate the Downstairs Toilet');
+  assert.equal(fake.text(slot.ids[0]), 'Tiles picked');
+  let j = await read(fake);
+  assert.deepEqual(j.quests.map(q => q.title), ['Get Back in Shape', 'Develop the Backyard', 'Renovate the Downstairs Toilet']);
+  // Later saves write into it; a lost slot (an old draft) finds the box by name, never a second one.
+  await fake.use(() => saveJournal(env, { page: PAGE, quests: { [`new:${Q}`]: { slot, text: 'Tiles ordered' } } }));
+  await fake.use(() => saveJournal(env, { page: PAGE, quests: { [`new:${Q}`]: { slot: null, text: 'Tiles here' } } }));
+  j = await read(fake);
+  assert.equal(j.quests.length, 3);
+  assert.equal(j.quests[2].text, 'Tiles here');
+  // Only pages from the Quests database.
+  fake.pages[PAGE].parent = { type: 'workspace' };
+  await assert.rejects(fake.use(() => saveJournal(env, { page: PAGE, quests: { [`new:${PAGE}`]: { slot: null, text: 'x' } } })), e => e.code === 'bad_request');
+});
+
 test('journal page: loads today, yesterday’s hand-off, to-dos and the streak', async () => {
   const { fake } = setup();
   const YDAY = '3ea24147-f877-8155-a95f-c53bafd83165';
@@ -175,6 +230,7 @@ test('journal page: loads today, yesterday’s hand-off, to-dos and the streak',
   fake.queries[JOURNAL.todos] = body => body.filter.property === 'Status'
     ? [{ id: 'aaaaaaaa-0000-4000-8000-000000000001', properties: { Task: { title: [run('reply sunly')] }, Labels: { multi_select: [{ name: 'Must do' }] }, 'Related Journal': { relation: [{ id: YDAY }] }, Tag: { select: null } } }]
     : [];
+  fake.queries[JOURNAL.quests] = () => [quest('aaaaaaaa-0000-4000-8000-0000000000a1', 'Get Back in Shape', '💪'), quest('aaaaaaaa-0000-4000-8000-0000000000a2', 'Develop the Backyard')];
   let asked = { day: '2026-09-30', questions: { 'Get back in shape': 'What made Tuesday’s swim feel easy?' } };
   const engineEnv = { ...env, QUEST_ENGINE_URL: 'https://engine', QUEST_ENGINE_TOKEN: 'tok', QUEST_ENGINE: { fetch: async req => {
     const path = new URL(req.url).pathname;
