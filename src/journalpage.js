@@ -160,7 +160,17 @@ textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400
 @media (max-width:480px){.sheet{padding:20px 18px 18px;border-radius:18px} .qcard{padding:16px 18px 14px} .scene{height:300px}
   h1{font-size:31px} h2{font-size:21px} .label{font-size:17.5px} .q,textarea{font-size:17.5px} .qcard .q,.checkin .q{font-size:16.5px}}
 @media (max-width:360px){.ci-btns{grid-template-columns:1fr}}
-@media (prefers-reduced-motion:reduce){*{transition:none!important} .after,.checkin.flare,.lvl .days.pop,.plus{animation:none}}
+.folding{overflow:hidden;transition:height .5s cubic-bezier(.4,0,.2,1),opacity .35s ease;opacity:0}
+.risein{animation:rise-in .45s ease both}
+.recap.glow{position:relative;overflow:hidden;isolation:isolate}
+.recap.glow::before{content:"";position:absolute;inset:-30%;z-index:-1;pointer-events:none;background:radial-gradient(closest-side at 88% 15%,rgba(255,206,110,.6),rgba(255,206,110,0));animation:glow 2.8s ease both}
+.recap.night.glow::before{background:radial-gradient(closest-side at 85% 20%,rgba(150,140,230,.45),rgba(150,140,230,0))}
+.recap .sky{position:absolute;right:18px;top:12px;font-size:20px;line-height:1;pointer-events:none;color:#e9a93a;animation:sunrise 2.4s cubic-bezier(.3,0,.2,1) both}
+.recap.night .sky{color:var(--night);font-size:13px;letter-spacing:6px;animation:twinkle 2.4s ease both}
+@keyframes glow{0%{opacity:0}35%{opacity:1}100%{opacity:.35}}
+@keyframes sunrise{0%{opacity:0;transform:translateY(26px)}50%{opacity:1}100%{opacity:.75;transform:none}}
+@keyframes twinkle{0%{opacity:0}30%{opacity:1}55%{opacity:.35}75%{opacity:1}100%{opacity:.6}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important} .after,.checkin.flare,.lvl .days.pop,.plus,.risein,.recap.glow::before,.recap .sky{animation:none}}
 `;
 
 // One writing box; the script fills in the question and the nudges.
@@ -495,13 +505,34 @@ const SCRIPT = String.raw`
         var el = $('reflection-q'); if (el && !(UI.n_reflection > 0)) el.textContent = j.q;
       }).catch(function () {});
   }
+  // Done / Close the day: the open half shrinks to its recap while it fades, the recap lines rise in,
+  // then a small sun rises (morning) or a few stars twinkle (evening) in its corner.
+  function fold(openEl, recapEl, mark, finish) {
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) { finish(); recapEl.scrollIntoView({ block: 'nearest' }); return; }
+    var h0 = openEl.offsetHeight;
+    finish();
+    var h1 = recapEl.offsetHeight;
+    recapEl.hidden = true; openEl.hidden = false;
+    openEl.style.height = h0 + 'px'; openEl.style.overflow = 'hidden';
+    void openEl.offsetHeight;
+    openEl.classList.add('folding'); openEl.style.height = h1 + 'px';
+    setTimeout(function () {
+      openEl.hidden = true; openEl.classList.remove('folding'); openEl.style.height = ''; openEl.style.overflow = '';
+      recapEl.hidden = false;
+      var r = recapEl.querySelector('.recap');
+      if (r) {
+        Array.prototype.forEach.call(r.children, function (c, i) { c.style.animationDelay = (i * 90) + 'ms'; c.classList.add('risein'); });
+        r.classList.add('glow'); r.insertAdjacentHTML('beforeend', '<span class="sky" aria-hidden="true">' + mark + '</span>');
+      }
+      recapEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, 520);
+  }
   $('m-done').addEventListener('click', function () {
-    UI.mdone = true; UI.mopen = false; UI.bye = true; saveUI(); flush(); layout(); askEvening();
-    $('m-recap').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    fold($('m-open'), $('m-recap'), '☀', function () { UI.mdone = true; UI.mopen = false; UI.bye = true; saveUI(); flush(); layout(); });
+    askEvening();
   });
   $('e-done').addEventListener('click', function () {
-    UI.edone = true; saveUI(); flush(); layout();
-    $('e-recap').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    fold($('e-open'), $('e-recap'), '✦✧✦', function () { UI.edone = true; saveUI(); flush(); layout(); });
   });
   layout();
 
