@@ -78,6 +78,13 @@ export const AREAS = {
           Day: 'title', Date: 'date', AM: 'select', PM: 'select', Commute: 'select', Weekend: 'checkbox',
           'E-bike €': 'formula', Journal: 'relation', 'Month Summary': 'relation'
         },
+        // No rows for weekends in D1 (Roy, 1 Oct 2026): Notion's empty weekend
+        // rows are not copied, and the check doesn't expect them.
+        skip: page => {
+          const p = page.properties || {};
+          return !!(p.Weekend && p.Weekend.checkbox) && !(p.AM && p.AM.select) && !(p.PM && p.PM.select) && !(p.Commute && p.Commute.select) &&
+            !((p.Journal && p.Journal.relation) || []).length;
+        },
         ignore: ['Month', 'Accountable Days', 'BE Work Days', 'NL Work Days', 'Travel Days', 'Holiday Days', 'Unclassified Days', 'Expected Work Days']
       }
     ]
