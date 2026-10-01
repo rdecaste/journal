@@ -32,7 +32,7 @@
     "JOURNAL_STORE": "d1",
     // Whether the 🌍 line is still written on the Notion Quest log page:
     // "1" until step 5's switch, then "0". The same as the Quest Engine's.
-    "NOTION_QUEST_LOG": "1",
+    "NOTION_QUEST_LOG": "0",
     "CHAT_MODEL": "gpt-6-astra"
   }
   // Secrets (set with `npx wrangler secret put <NAME>`, never committed):
