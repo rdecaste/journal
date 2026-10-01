@@ -18,9 +18,9 @@ const shortDate = (day, back) => { const d = new Date(Date.parse(day + 'T12:00:0
 const ext = 'target="_blank" rel="noopener"';
 
 const LINKS = [
-  ['⚔️ Quest Dashboard', 'https://rdecaste.github.io/Questboard/'],
-  ['🐉 Hero card', 'https://rdecaste.github.io/MainQuest/'],
-  ['📺 Family Dashboard', 'https://rdecaste.github.io/FamilyDashboard/'],
+  ['⚔️ Quest Dashboard', 'https://questboard.quest-engine.workers.dev/'],
+  ['🐉 Hero card', 'https://mainquest.quest-engine.workers.dev/'],
+  ['📺 Family Dashboard', 'https://family.quest-engine.workers.dev/'],
   ['🧭 Admin Dashboard', '/admin'],
   ['🌴 Quest log in Notion', 'https://app.notion.com/p/d835f903d4754c9bbf52100097824752']
 ];
@@ -168,7 +168,7 @@ function heroHtml(h, mainNote, quest) {
       <div class="lvl">LV ${esc(h.level ?? '–')}${stage}</div>
       ${hp}${xp}
       ${note(mainNote)}
-      <a class="more" href="https://rdecaste.github.io/MainQuest/" ${ext}>Open the hero card ›</a>
+      <a class="more" href="https://mainquest.quest-engine.workers.dev/" ${ext}>Open the hero card ›</a>
     </div>
   </article>`;
 }
