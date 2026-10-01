@@ -25,9 +25,9 @@ export const PROMPTS = {
   reflection: { icon: '🌙', name: 'Reflection', more: ['When today did you feel most like yourself?', 'What drained you today, and what gave something back?', 'What surprised you today?'],
     starters: ['What stood out was…', 'I noticed…'] },
   park: { icon: '🅿️', name: 'Park it', more: ['What’s still spinning? Write it down and leave it here for tonight.', 'Anything you’re carrying to bed that you can put down now?'],
-    starters: ['Still on my mind:', 'I’ll deal with…'], hint: 'Waits for you at the top of tomorrow morning.' },
+    starters: ['Still on my mind:', 'I’ll deal with…'] },
   tomorrow: { icon: '➡️', name: 'For tomorrow', more: ['What’s one thing you can take off tomorrow’s plate?', 'What would make tomorrow morning easy to start?'],
-    starters: ['Tomorrow I want…'], hint: 'Becomes the first thing you read tomorrow.' }
+    starters: ['Tomorrow I want…'] }
 };
 
 const STYLE = `
@@ -216,7 +216,6 @@ export function journalHtml(d) {
   <h2>☀️ Morning</h2>
   <div id="m-recap" hidden></div>
   <section class="sheet morning" id="m-open" aria-label="Morning">
-    <div class="handoff" id="lastnight" hidden></div>
     ${d.sections.headspace ? entry('headspace') : ''}
     ${d.sections.forward ? entry('forward', { small: true }) : ''}
     ${entry('winif', { small: true })}
@@ -413,13 +412,7 @@ const SCRIPT = String.raw`
     b.addEventListener('click', function () { UI['n_' + id] = ((UI['n_' + id] || 0) + 1) % Q[id].length; saveUI(); $(id + '-q').textContent = Q[id][UI['n_' + id]]; });
   });
 
-  // ---- Hand-offs ----
-  (function lastNight() {
-    var l = D.last || {}, h = '';
-    if ((l.tomorrow || '').trim()) h += '<p class="soft">Last night, for today:</p><blockquote>' + esc(l.tomorrow.trim()) + '</blockquote>';
-    if ((l.park || '').trim()) h += '<p class="soft">You parked:</p><blockquote>' + esc(l.park.trim()) + '</blockquote>';
-    if (h) { $('lastnight').innerHTML = '<div class="label">From last night</div>' + h; $('lastnight').hidden = false; }
-  })();
+  // ---- The evening look-back and the folded morning ----
   function lookback() {
     var w = (V.winif || '').trim();
     // Under the Reflection box: whether the morning's "win if" happened.
