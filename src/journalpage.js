@@ -178,6 +178,12 @@ textarea::placeholder{color:var(--muted);opacity:.55;font-weight:400;font-style:
   font-size:16px;font-weight:400;line-height:1.45;padding:10px 12px;min-height:68px;transition:border-color .2s}
 .quests .qcard textarea:focus{border-color:var(--gold)}
 .quests .qcard textarea::placeholder{font-family:var(--body);font-style:normal}
+/* The main quest's note: the same small plain box as the quest cards. */
+.checkin .after .q{font-family:var(--body);font-style:normal;font-size:15px;line-height:1.4;color:var(--muted);margin-bottom:4px}
+.checkin .after textarea{border:1px solid var(--rule);border-radius:12px;background-image:none;background-color:var(--write-quest);
+  font-size:16px;font-weight:400;line-height:1.45;padding:10px 12px;min-height:68px;transition:border-color .2s}
+.checkin .after textarea:focus{border-color:var(--gold)}
+.checkin .after textarea::placeholder{font-family:var(--body);font-style:normal}
 .scene{position:absolute;inset:0 0 auto 0;height:360px;z-index:0;pointer-events:none;overflow:hidden;
   -webkit-mask-image:linear-gradient(to bottom,#000 55%,transparent);mask-image:linear-gradient(to bottom,#000 55%,transparent)}
 .scene svg{width:100%;height:100%;display:block}
@@ -293,7 +299,7 @@ export function journalHtml(d) {
     </div>
     <div class="after" id="after" hidden>
       <p class="q" id="mqnote-q"></p>
-      <textarea id="mqnote" aria-labelledby="mqnote-q" rows="2"></textarea>
+      <textarea id="mqnote" aria-labelledby="mqnote-q" rows="2" placeholder="A sentence or two…"></textarea>
     </div>
     <p class="ci-out" id="ci-out" aria-live="polite"></p>
   </section>
