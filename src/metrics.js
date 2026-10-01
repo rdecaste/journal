@@ -5,7 +5,7 @@
 // 'attention' (needs attention), plus the specific flags that caused it. There
 // is no combined score: the Overview lists the flagged areas themselves.
 
-import { CROSS_BORDER, LOCATIONS, TRAINING, RECOVERY, INTERVAL_PATTERN, SPORTS, SYNCS, PRICES, ENGINE, NOTION } from './config.js';
+import { CROSS_BORDER, LOCATIONS, TRAINING, RECOVERY, INTERVAL_PATTERN, SPORTS, SYNCS, PRICES, ENGINE, D1_CONSOLE } from './config.js';
 
 const DAY = 86400000;
 const RANK = { ok: 0, watch: 1, attention: 2, unknown: 0 };
@@ -245,7 +245,7 @@ export function health(workouts, metrics, today, { sleep = null, quests = null }
   const recovering = !!(recovery && recovery.recovering);
 
   const flags = [];
-  if (recovery && recovery.stale) flags.push(flag('watch', 'No sleep data for ' + recovery.stale + ' days', `The newest Sleep & Recovery row is from ${recovery.last_date}, so Recovery today is out of date.`, NOTION.sleepRecovery));
+  if (recovery && recovery.stale) flags.push(flag('watch', 'No sleep data for ' + recovery.stale + ' days', `The newest Sleep & Recovery row is from ${recovery.last_date}, so Recovery today is out of date.`, D1_CONSOLE));
   if (recovery && recovery.broken.length >= 2) flags.push(flag('watch', `${WORDS[recovery.broken.length] || recovery.broken.length} broken nights this week`.replace(/^./, c => c.toUpperCase()), `Awake ${listing(recovery.broken.map(b => durationText(b.awake / 60) + ' ' + b.night))}, against a usual ${Math.round(recovery.awake_usual)} minutes.`));
   // Training flags pause while recovering; a missed step is never a flag.
   if (!recovering) {

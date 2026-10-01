@@ -3,7 +3,7 @@
 // The page fetches /data and draws everything in the browser; nothing here
 // holds personal data.
 
-import { LINKS, NOTION } from './config.js';
+import { LINKS, NOTION, D1_CONSOLE } from './config.js';
 
 const STYLE = `
 :root{color-scheme:light;--page:#f9f9f7;--surface:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;--grid:#e1e0d9;--axis:#c3c2b7;--ring:rgba(11,11,11,.10);
@@ -261,7 +261,7 @@ function renderCross(c) {
   html += '<h2>By month</h2><div class="card scroll"><div class="legend"><span><i style="background:var(--s1)"></i>Belgium</span><span><i style="background:var(--s2)"></i>Netherlands</span></div><table><thead><tr><th>Month</th><th>Split</th><th class="num">BE</th><th class="num">NL</th><th class="num">Travel</th><th class="num">Holiday</th><th class="num">Unclassified</th><th class="num">BE %</th><th class="num">E-bike €</th></tr></thead><tbody>' +
     c.months.map(m => '<tr><td>' + esc(m.month) + '</td><td>' + (m.be + m.nl ? '<div class="split" data-tip="' + fmt(m.be_share) + '% Belgium"><span style="width:' + m.be_share + '%;background:var(--s1)"></span><span style="flex:1;background:var(--s2)"></span></div>' : '') + '</td><td class="num">' + fmt(m.be) + '</td><td class="num">' + fmt(m.nl) + '</td><td class="num">' + fmt(m.travel) + '</td><td class="num">' + fmt(m.holiday) + '</td><td class="num">' + fmt(m.unclassified) + '</td><td class="num">' + fmt(m.be_share) + '</td><td class="num">' + fmt(m.ebike, 2) + '</td></tr>').join('') + '</tbody></table></div>';
   html += '<h2>Missing or unclassified days</h2>' + (c.missing.length ? '<div class="card scroll"><table><thead><tr><th>Date</th><th>AM</th><th>PM</th><th></th></tr></thead><tbody>' + c.missing.map(m => '<tr><td>' + day(m.date) + '</td><td>' + esc(m.am || '—') + '</td><td>' + esc(m.pm || '—') + '</td><td class="num">' + (m.url ? '<a class="src" href="' + esc(m.url) + '" target="_blank" rel="noopener">Fix ↗</a>' : '<span class="muted">no row</span>') + '</td></tr>').join('') + '</tbody></table></div>' : '<p class="calm">Every past work day is classified.</p>');
-  return html + '<p><a class="src" href="' + NOTION.workLocation + '" target="_blank" rel="noopener">Work Location Log ↗</a> · <a class="src" href="' + NOTION.borderDashboard + '" target="_blank" rel="noopener">Border Worker Dashboard ↗</a></p>';
+  return html + '<p><a class="src" href="' + D1_CONSOLE + '" target="_blank" rel="noopener">Work Location Log (D1) ↗</a> · <a class="src" href="' + NOTION.borderDashboard + '" target="_blank" rel="noopener">Border Worker Dashboard ↗</a></p>';
 }
 
 // ---- Health (Recovery today, quests, form, training, body) ----
@@ -445,7 +445,7 @@ function renderHealth(h) {
   if (!h) return '<p class="calm">Workouts or Body Metrics could not be read.</p>';
   let html = heroHtml(h.recovery);
   html += h.flags.map(wflag).join('');
-  if (h.quests && h.quests.length) html += '<div class="sec"><h2>Health quests</h2><a class="src" href="' + NOTION.healthJourney + '" target="_blank" rel="noopener">from your Health Journey ↗</a></div><div class="two">' + h.quests.map(q => questHtml(q, h)).join('') + '</div>';
+  if (h.quests && h.quests.length) html += '<div class="sec"><h2>Health quests</h2><a class="src" href="' + D1_CONSOLE + '" target="_blank" rel="noopener">from your Health Journey (D1) ↗</a></div><div class="two">' + h.quests.map(q => questHtml(q, h)).join('') + '</div>';
   const t = h.tsb, L = h.load;
   if (t) {
     const zc = { Fresh: 'good', Neutral: 'muted', Building: 'blue', Overreaching: 'crit' }[t.zone], now = t.today;

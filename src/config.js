@@ -94,13 +94,13 @@ export const SPORTS = {
   EBikeRide: 'ebike'
 };
 
-// When the Strava or Withings sync looks stopped: days since its newest Notion row.
+// When the Strava or Withings sync looks stopped: days since its newest row.
 export const SYNCS = {
   strava: { wasMake: 9739463, watchDays: 7, attentionDays: 14 },
   withings: { wasMake: 9754079, watchDays: 14, attentionDays: 30 }
 };
 
-// The Quest Engine checks the boss card against Notion at least hourly (and
+// The Quest Engine checks the boss card against its data at least hourly (and
 // when it is opened), so an older check means its timer has stopped.
 export const ENGINE = { watchHours: 1.25, attentionHours: 3 };
 
@@ -124,6 +124,12 @@ export const PRICES = {
 const notion = id => `https://app.notion.com/p/${id}`;
 const pages = name => `https://rdecaste.github.io/${name}/`;
 
+// The data lives in D1 since 1 Oct 2026: its tables are browsed and edited in
+// the Cloudflare dashboard (D1 → quest → Data Studio). The Notion pages below
+// are other pages, or Notion's frozen copy.
+export const D1_CONSOLE = 'https://dash.cloudflare.com/5976b96a95f8d424a229294bb45ee3ef/workers/d1/databases/94e5f5c7-b24f-4a3c-808c-a85345a27f7f';
+const doc = (repo, file) => `https://github.com/rdecaste/${repo}/blob/main/docs/${file}`;
+
 export const NOTION = {
   questLog: notion('d835f903d4754c9bbf52100097824752'),
   questEngine: notion('3e824147f877813889c9cb966890e21b'),
@@ -143,7 +149,7 @@ export const LINKS = [
     { name: 'Boss Dashboard', url: pages('Boss') },
     { name: 'Main Quest', url: pages('MainQuest') },
     { name: 'VaultQuest', url: pages('VaultQuest') },
-    { name: 'Quest Log', url: NOTION.questLog }
+    { name: 'Quest Log', url: '/' }
   ] },
   { group: 'Family', items: [
     { name: 'Family Dashboard', url: pages('FamilyDashboard') },
@@ -152,12 +158,11 @@ export const LINKS = [
   ] },
   { group: 'Admin', items: [
     { name: 'Cross-border working', url: NOTION.crossBorder },
-    { name: 'Work Location Log', url: NOTION.workLocation },
-    { name: 'Body Metrics', url: NOTION.bodyMetrics },
-    { name: 'Workouts', url: NOTION.workouts }
+    { name: 'Data (D1 Data Studio)', url: D1_CONSOLE }
   ] },
   { group: 'Infrastructure', items: [
-    { name: 'Quest Engine doc', url: NOTION.questEngine },
+    { name: 'Quest Engine doc', url: doc('quest-engine', 'quest-engine.md') },
+    { name: 'Admin Dashboard doc', url: doc('journal', 'admin-dashboard.md') },
     { name: 'Quest Engine status', url: 'https://quest-engine.quest-engine.workers.dev/status' },
     { name: 'Make', url: 'https://eu2.make.com/' },
     { name: 'Cloudflare', url: 'https://dash.cloudflare.com/' },

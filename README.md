@@ -26,7 +26,9 @@ the template has no box for goes in one ✍️ "More from today" callout. The
 top of `src/journal.js` lists where each piece goes. Each quest's question
 comes from the Quest Engine's 03:00 AI call (`GET /journal/questions`, with
 `QUEST_ENGINE_TOKEN`); until it has one for today, a plain fallback shows.
-Full description and change log: the Notion page "🧭 Admin Dashboard".
+Full description and change log: `docs/admin-dashboard.md` (moved from the
+Notion page "🧭 Admin Dashboard" on 1 Oct 2026); keep it up to date with
+each change.
 
 | Area | Reads |
 |---|---|
