@@ -23,7 +23,8 @@ Roy's admin dashboard and landing page as one Cloudflare Worker
 - `git pull --rebase` before committing.
 - Tests: `npm test`. The `/admin` page's script runs in the browser, so a
   constant it uses must be handed to it in `src/page.js` (a test checks).
-- **A push to `main` deploys this Worker** (Workers Builds). Check
+- **A push to `main` deploys this Worker** (Workers Builds; the build runs
+  `npm test` first, so a failing test stops the deploy). Check
   `npx wrangler deployments list` a minute or two later: a new deployment
   should appear (its source shows "Unknown" for builds too; the commit is in
   the dashboard under Settings → Builds). Only `main` deploys; merge there
