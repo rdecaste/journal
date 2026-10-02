@@ -38,7 +38,7 @@ export async function loadGym(env) {
 
 // The buttons, and the only fields each may send.
 export const ACTIONS = {
-  generate: { path: '/gym/generate', fields: b => ({ routine_id: String(b.routine_id || ''), ...(Number(b.feeling) >= 1 && Number(b.feeling) <= 5 ? { feeling: String(Math.round(Number(b.feeling))) } : {}) }) },
+  generate: { path: '/gym/generate', fields: b => ({ routine_id: String(b.routine_id || ''), ...(Number(b.feeling) >= 1 && Number(b.feeling) <= 5 ? { feeling: String(Math.round(Number(b.feeling))) } : {}), ...(b.routine_id === 'custom' ? { request: String(b.request || '').slice(0, 500) } : {}) }) },
   send: { path: '/gym/send', fields: b => ({ plan_id: String(b.plan_id || '') }) },
   feedback: { path: '/gym/feedback', fields: b => ({ workout_id: String(b.workout_id || ''), ...(b.force ? { force: '1' } : {}) }) },
   sync: { path: '/hevy/sync', fields: b => (b.full ? { full: '1' } : {}) }
@@ -49,6 +49,7 @@ export async function gymAction(env, action, body = {}) {
   if (!a) throw Object.assign(new Error('No such action'), { code: 'bad_request' });
   if (!env.QUEST_ENGINE_TOKEN) throw Object.assign(new Error('QUEST_ENGINE_TOKEN is not set on the dashboard'), { code: 'not_set' });
   if (action === 'generate' && !body.routine_id) throw Object.assign(new Error('Pick a template first'), { code: 'bad_request' });
+  if (action === 'generate' && body.routine_id === 'custom' && !String(body.request || '').trim()) throw Object.assign(new Error('Say what you want to train today'), { code: 'bad_request' });
   const r = await engine(env, 'POST', a.path, a.fields(body));
   return r.ok === 1 ? r : { ok: 0, code: r.code || 'failed', message: r.message || 'The Quest Engine said no.' };
 }

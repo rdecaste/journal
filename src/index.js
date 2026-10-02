@@ -11,10 +11,12 @@
 //                  journal row in D1 (signed in; JSON)
 //   GET  /journal/mood/1.webp … 5.webp  the mood row's pictures (signed in;
 //                  src/moodart.js)
-//   GET  /gym      the gym page: today's recovery, a button that builds the
-//                  day's workout from a Hevy routine and one that sends it to Hevy, the
-//                  last workouts with the coach's feedback, lift trends
-//                  (signed in; src/gym.js, data from the Quest Engine's GET /gym)
+//   GET  /gym      the gym page: today's recovery (with an AI insight), how Roy
+//                  feels, a Hevy routine or Custom (free text) → Generate builds
+//                  the day's workout, Send to Hevy saves it there; the last
+//                  workout with the coach's feedback. ?plan=<id> opens a plan
+//                  just generated (signed in; src/gym.js, data from the Quest
+//                  Engine's GET /gym)
 //   POST /gym/generate|send|feedback|sync  the gym page's buttons, passed on to the
 //                  Quest Engine (signed in; JSON)
 //   POST /journal/evening-question  writes the evening's Reflection question
@@ -162,7 +164,8 @@ export default {
       }
       if (pathname === '/gym') {
         if (!signedIn) return redirect('/login?next=/gym');
-        return new Response(gymHtml(await loadGym(env)), { headers: PAGE_HEADERS });
+        const gym = await loadGym(env);
+        return new Response(gymHtml({ ...gym, open_plan: searchParams.get('plan') || null }), { headers: PAGE_HEADERS });
       }
       const gymButton = pathname.match(/^\/gym\/(generate|send|feedback|sync)$/);
       if (gymButton && request.method === 'POST') {

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadGym, gymAction } from '../src/gym.js';
-import { gymHtml, setsLine, feedbackHtml, sparkline } from '../src/gympage.js';
+import { gymHtml, setsLine, feedbackHtml } from '../src/gympage.js';
 
 // GET /gym as the Quest Engine answers it.
 const gym = {
@@ -36,21 +36,18 @@ test('the coach\'s "- " lines become a list, escaped', () => {
   assert.equal(feedbackHtml('Just a sentence.'), '<p class="fbp">Just a sentence.</p>');
 });
 
-test('a sparkline needs two points', () => {
-  assert.equal(sparkline([{ e1rm: 100 }]), '');
-  assert.match(sparkline([{ e1rm: 100 }, { e1rm: 110 }]), /<polyline points="2.0,33.0 130.0,3.0"/);
-});
-
 test('gym page: readiness, the plan, the last workout\'s feedback, older ones and lifts; text escaped', () => {
-  const html = gymHtml(gym);
+  const html = gymHtml({ ...gym, open_plan: 'p1' });
   assert.match(html, /Friday 2 October/);
   assert.match(html, /<div class="insight steady"><div class="verdict">Mostly recovered<\/div><p>Fine for a normal session: HRV is a bit &lt;low&gt;, sleep was fine.<\/p><\/div>/);
   assert.match(html, /<details class="nums"><summary>The numbers<\/summary>/);
   const order = ['Your recovery', 'How do you feel?', 'Template', 'Recommended workout'].map(t => html.indexOf(t));
   assert.ok(order.every((at, i) => at > 0 && (i === 0 || at > order[i - 1])), 'the four steps in order');
   assert.match(html, /class="sig low"><span class="sn">HRV<\/span><b>41 ms<\/b><span class="su">usual 50 ms/);
-  assert.match(html, /<option value="r-push" selected>Push &lt;A&gt; \(5 exercises\)<\/option>/);
-  assert.match(html, /Generate again/);
+  assert.match(html, /<option value="">Pick a template…<\/option><option value="r-push">Push &lt;A&gt; \(5 exercises\)<\/option>/); // nothing chosen in advance
+  assert.match(html, /<option value="custom">Custom: say what you want…<\/option><\/select>/);
+  assert.match(html, /<div id="req-box" class="req" hidden>/);
+  assert.match(html, />Generate<\/button>/);
   assert.match(html, /<div class="sl"><span class="w">warm-up 10@40 kg<\/span><span class="k">8@80 · 8@80 · 7@80 kg<\/span><\/div>/);
   assert.match(html, /<div class="why">last 8@80 · 8@80 · 7@80 — <i>Elbows tucked<\/i><\/div>/);
   assert.match(html, /title="80 kg again, one more rep on set 3.">\+1 rep<\/span>/);
@@ -59,9 +56,7 @@ test('gym page: readiness, the plan, the last workout\'s feedback, older ones an
   assert.match(html, /data-act="send" data-plan="p1">Send to Hevy<\/button>/);
   assert.match(html, /Saves it in Hevy as <b>Today · Push &lt;A&gt;<\/b>, replacing the one there.<\/p>/);
   assert.match(html, /<li>Keep the pause &lt;tight&gt;.<\/li>/);
-  assert.match(html, /<details class="older"><summary><b>Pull<\/b>/);
-  assert.match(html, /data-act="feedback" data-workout="w2"/);
-  assert.match(html, /\+14 kg over 3 sessions/);
+  assert.doesNotMatch(html, /Before that|<h2>Lifts<\/h2>/); // older workouts and trends: in Hevy
   assert.match(html, /120 workouts since Sun 5 Jan/);
   assert.match(html, /Sync from Hevy/);
   assert.doesNotMatch(html, /Push <A>/);
@@ -80,7 +75,7 @@ test('gym page: empty history offers the import; an error shows plainly', () => 
   assert.match(html, /Import my Hevy history/);
   assert.match(html, /data-full="1"/);
   assert.match(html, /No recovery data for today yet/);
-  assert.match(html, /Generate today’s workout/);
+  assert.match(html, /Pick a template or Custom above, then Generate./);
   assert.match(gymHtml({ error: 'Quest Engine /gym answered 500' }), /<p class="err">Quest Engine \/gym answered 500<\/p>/);
 });
 
@@ -137,4 +132,22 @@ test('set lines: reps @ weight, reps, minutes; a timed block hides "Last time 0 
   assert.match(html, /<span class="k">7:57 min<\/span>/);
   const { compactSets } = await import('../src/gympage.js');
   assert.equal(compactSets([{ weight_kg: null, reps: 9 }, { weight_kg: null, reps: 7 }]), '9 · 7 reps');
+  assert.equal(compactSets([8, 8, 7].map(d => ({ weight_kg: null, reps: null, duration_seconds: d }))), '8 · 8 · 7 s');
+});
+
+test('gym page: a plan made earlier waits folded until Generate opens it; a custom plan shows the request', () => {
+  const folded = gymHtml(gym);
+  assert.match(folded, /<details class="earlier"><summary>Earlier today: Push &lt;A&gt; · not sent<\/summary>/);
+  assert.match(folded, /Pick a template or Custom above, then Generate./);
+  const custom = gymHtml({ ...gym, open_plan: 'p1', plan: { ...gym.plan, routine_id: 'custom', plan: { ...gym.plan.plan, request: 'bench & <handstand>' } } });
+  assert.match(custom, /You asked: “bench &amp; &lt;handstand&gt;”/);
+  assert.doesNotMatch(gymHtml({ ...gym, ai: false }), /value="custom"/);
+});
+
+test('Custom sends its request; without one it is refused before calling the Quest Engine', async () => {
+  const { env, sent } = engineEnv({ ok: 1, id: 'p9' });
+  await gymAction(env, 'generate', { routine_id: 'custom', request: 'bench and one-arm handstand', feeling: 5 });
+  assert.deepEqual(sent[0].body, { routine_id: 'custom', feeling: '5', request: 'bench and one-arm handstand' });
+  await assert.rejects(gymAction(env, 'generate', { routine_id: 'custom', request: '  ' }), /Say what you want/);
+  assert.equal(sent.length, 1);
 });

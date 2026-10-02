@@ -25,15 +25,14 @@ The landing page, [https://admindashboard.quest-engine.workers.dev](https://admi
 - **Today's workout,** as four numbered steps (Roy's order):
   1. **Your recovery:** a short AI insight on whether Roy is ready to train, from last night's HRV, resting HR and sleep against the usual 30 nights (the same rules as Recovery today) and the last three days of training. The insight is written once a day in the Quest Engine. The numbers are folded under "The numbers".
   2. **How do you feel?** (1–5).
-  3. **Template:** a dropdown of his Hevy routines, read fresh from Hevy on every open.
+  3. **Template:** a dropdown of his Hevy routines, read fresh from Hevy on every open, with nothing chosen in advance. **Custom: say what you want…** opens a text box ("super in the mood for bench and some one-arm handstand"). OpenAI then picks the exercises from his own history, and his rules set the numbers.
   4. **Recommended workout:** Generate, the plan, and Send to Hevy. The plan is dense (Roy's request), three short lines per exercise:
      - the name and its change label (↑ weight, +1 rep, ↓ 10%, 2 sets; tapping it shows the reason);
      - all sets in Roy's notation, warm-ups grey first: `warm-up 8@35 · 4@52.5 kg`, then `7@70 · 6@70 · 6@70 kg`;
      - last time and the AI tip.
   - **Generate** builds the day's workout from that routine with Roy's double progression (6–8 reps; weight up a step once every set reached 8; 10% lighter after three stuck sessions; on an easy day last time's weights, two sets). Each lift shows how it changed and why. It also writes a short briefing and a cue per exercise (one OpenAI call, in the Quest Engine). The workout is only shown on the page.
   - **Send to Hevy** writes it to Hevy as the routine **Today · <template>**, which is overwritten each time. The page then shows ✓ In Hevy. If Roy generates again, the page says which plan Hevy still has until he sends the new one.
-- **Last workout:** its sets and the coach's feedback, written when the Strava sync brings the session in. If a workout has no feedback, a **Write feedback** button writes it. Older workouts are listed below it.
-- **Lifts:** the best estimated one-rep max per session for the four most-done lifts over the last 12 months (lifts done at least twice).
+- **Last workout:** its sets and the coach's feedback, written when the Strava sync brings the session in. If it has no feedback, a **Write feedback** button writes it. Older workouts and lift trends were removed on 2 Oct; Roy looks at those in Hevy.
 - **Sync from Hevy** (the first time: **Import my Hevy history**) pulls workouts changed in Hevy. It is also a Rerun button under Strava in System Health.
 
 ## What it reads
@@ -231,5 +230,11 @@ Step 1 leads with one or two AI sentences on whether Roy is ready to train (Ques
 A 9-exercise routine fits in about one phone screen. Timed blocks show minutes, and the workout history uses the same "6 @ 70 kg" notation.
 
 2 Oct 2026: **Gym page: lighter after a break** (Roy's request). A lift not done for 2–4 weeks is planned 10% lighter, 1–2 months 20%, 2–3 months 30%, longer 40%, aiming for 8 reps. Its label reads "↓ after break" (amber); tapping it shows how long it has been. The rule is in the Quest Engine's `src/hevy.js`.
+
+2 Oct 2026: **Gym page: Custom, Generate and a quieter page** (Roy's request).
+- **Custom:** a template option with a text box for what Roy wants to train. OpenAI composes the session from his own exercises, and his rules set the weights, reps and holds. The plan shows "You asked: …".
+- **Generate:** the button is just "Generate", and nothing is chosen in advance. A plan made earlier today stays folded ("Earlier today: …") until a new one is generated (`/gym?plan=<id>` opens the new one).
+- **Removed:** "Before that" and "Lifts". Roy looks at those in Hevy.
+- **Skills:** holds such as the planche, human flag and one-arm handstand show "+2 s" and "↑ next stage".
 
 2 Oct 2026: **Journal page: new mood pictures, Meh becomes Tired** (Roy's request). Roy's second set of five pictures replaces the first; 2 is now a tired face with Zzz, called Tired (still stored as 2). The page asks for the pictures with `?v=` and `MOOD_ART_VERSION` from `src/moodart.js`, so browsers that kept the old ones for a year fetch the new ones; bump it whenever the pictures change.
