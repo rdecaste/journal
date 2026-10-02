@@ -621,6 +621,6 @@ export const loginHtml = (error = '', next = '/') => `<!doctype html>
 form{max-width:340px;margin:18vh auto 0;padding:0 16px;display:flex;flex-direction:column;gap:10px}
 input{font:inherit;padding:10px 12px;border-radius:8px;border:1px solid var(--axis);background:var(--surface);color:var(--ink)}
 button{font:inherit;padding:10px 12px;border-radius:8px;border:0;background:var(--ink);color:var(--page);font-weight:600;cursor:pointer}</style></head>
-<body><form method="post" action="/login"><input type="hidden" name="next" value="${['/questlog', '/admin'].includes(next) ? next : '/'}"><h1 style="font-size:18px;margin:0 0 4px">Sign in</h1>
+<body><form method="post" action="/login"><input type="hidden" name="next" value="${['/questlog', '/admin', '/journal', '/gym'].includes(next) ? next : '/'}"><h1 style="font-size:18px;margin:0 0 4px">Sign in</h1>
 <label class="sub" for="t">Password</label><input id="t" name="password" type="password" autocomplete="current-password" required autofocus>
 ${error ? `<p class="sub" style="color:var(--crit);margin:0">${error}</p>` : ''}<button type="submit">Sign in</button></form></body></html>`;

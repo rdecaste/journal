@@ -23,6 +23,7 @@ export const JOBS = {
   'publish-boss': { process: 'publish', name: 'Boss card', note: 'Rebuilds the boss card from D1', path: '/refresh', fields: { reason: 'Admin dashboard' }, dry: false },
   'publish-vault': { process: 'publish', name: 'Vault card', note: 'Rebuilds the Vault card from D1', path: '/vault/publish', fields: { reason: 'Admin dashboard' } },
   'strava-sync': { process: 'strava', name: 'Strava catch-up', note: 'Activities of the last 2 days', path: '/strava/sync', fields: { days: '2' } },
+  'hevy-sync': { process: 'strava', name: 'Hevy sync', note: 'Gym workouts changed in Hevy since the last sync', path: '/hevy/sync', fields: {}, dry: false },
   'withings-sync': { process: 'withings', name: 'Withings catch-up', note: 'Body metrics of the last 2 days', path: '/withings/sync', fields: { days: '2' } }
 };
 

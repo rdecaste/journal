@@ -20,6 +20,16 @@ A private cockpit with the detail behind Cross Border, Health and System Health 
 ## Quest log page
 The landing page, [https://admindashboard.quest-engine.workers.dev](https://admindashboard.quest-engine.workers.dev) (also `/questlog`; since 29 Sep, Roy's request): the Quest log as one clean page with an Admin button to the dashboard, which lives at `/admin`. It is for the iPad mini and phone, behind the same login (the login returns you to this page). Read only: the Morning Spark with today's journal link inside it, the 💬 notes and the training and to-do numbers from the Quest Engine's `GET /questlog` (kept current by its 03:00 run), the hero and active quests from the Quest Engine (`/mainquest`, `/hero`, `/questboard` via the service binding; tapping a quest opens the Quest Dashboard card), the cross-border numbers and today's work location from the dashboard's own data. Since 29 Sep it also holds what the dashboard's Overview tab used to (tab removed): one "Today's briefing" card (since 30 Sep, Roy's request to drop the repeats): the AI summary bullets (or, before the summary exists, the drift flags with their reason), then one chip per area with its state (tech problems read "for Claude"), each linking to its tab in `/admin`, and a Rewrite button. The day's summary (one small OpenAI call a day) is written by the 05:00 Amsterdam timer, after the Quest Engine's 03:00 and 04:00 runs; the first open after 05:00 writes it if the timer missed. Cached 5 minutes; "Refresh now" at the bottom skips the cache. Code: `src/today.js` (data), `src/todaypage.js` (page). On iPad or iPhone: Share → Add to Home Screen.
 
+## Gym page
+`/gym` (since 2 Oct 2026, Roy's request), behind the same login, linked from the Quest log page (Gym ›). It is built for the phone before the gym. Code: `src/gym.js` (data and buttons) and `src/gympage.js` (page). Everything comes from the Quest Engine (`GET /gym` and its Hevy routes, `src/hevy.js` there, which holds the Hevy key), so this Worker never calls Hevy itself.
+- **Today's workout:**
+  - The page shows the morning's recovery (HRV, resting HR and sleep against the usual 30 nights; the same rules as Recovery today), asks how Roy feels (1–5) and offers a dropdown of his Hevy routines, read fresh from Hevy on every open.
+  - **Generate** builds the day's workout from that routine: push, normal or easy depending on readiness, with a short briefing and a cue per exercise (one OpenAI call, in the Quest Engine). It is only shown on the page.
+  - **Send to Hevy** writes it to Hevy as the routine **Today · <template>**, which is overwritten each time. The page then shows ✓ In Hevy. If Roy generates again, the page says which plan Hevy still has until he sends the new one.
+- **Last workout:** its sets and the coach's feedback, written when the Strava sync brings the session in. If a workout has no feedback, a **Write feedback** button writes it. Older workouts are listed below it.
+- **Lifts:** the best estimated one-rep max per session for the four most-done lifts over the last 90 days.
+- **Sync from Hevy** (the first time: **Import my Hevy history**) pulls workouts changed in Hevy. It is also a Rerun button under Strava in System Health.
+
 ## What it reads
 Everything comes from the D1 database `quest` (binding `DB`) or the Quest Engine (service binding `QUEST_ENGINE`); the Worker never calls Notion. Its only writes are what Roy saves on the journal page: the day's `journal` row with its `journal_focus` and `journal_quest_notes` rows, its `todos` ("Win if" and linked to-dos) and the day's `work_location` row. (Until 1 Oct it also wrote a 🌍 buffer line on the Notion Quest log at 07:00; that has stopped.)
 
@@ -180,3 +190,11 @@ rdecaste/journal PR #12, merged `f28a69a`; Roy deploys with `npx wrangler deploy
 2 Oct 2026: **Journal page: the day's theme runs down the whole page** (Roy's request). The weekday palette no longer stops at the hills: the page background takes the day's softest tone under the header and pales towards the bottom (a touch of dusk in the evening, a faint tint in dark mode), and the phone's status bar takes the same colour.
 
 2 Oct 2026: **Journal page: Start my day ☀ and End my day** (Roy's request, tried in the mockup https://claude.ai/artifact/5BA8rZUCEBuc36yWH7qdTD first). "Done for this morning" is now **Start my day ☀** and "Close the day" is **End my day**; they do the same as before (save, fold the half into its recap). Both are bigger, full-width pills in the page's serif: a warm sunrise gradient in the morning and a purple dusk gradient at night, pressing in slightly when tapped (option A).
+
+2 Oct 2026: **Gym page** (Roy's request): `/gym` with today's recovery, how Roy feels and a Hevy routine as the template.
+- **Generate** builds the day's workout and shows it on the page; **Send to Hevy** saves it in Hevy as "Today · …".
+- The page also shows the last workouts with the coach's feedback, and lift trends.
+- The buttons go to the Quest Engine through the service binding (`src/gym.js`, `src/gympage.js`). New routes: `GET /gym`, `POST /gym/generate|send|feedback|sync`.
+- The Quest log page links to the Gym page, and the login can return to `/gym` and `/journal`.
+- New rerun job **Hevy sync** under Strava.
+- The Hevy work itself is in the Quest Engine (`src/hevy.js`).

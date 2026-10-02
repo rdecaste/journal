@@ -9,6 +9,12 @@
 //                  to write, morning and evening (signed in; src/journald1.js)
 //   POST /journal/save  writes what changed on the journal page into the day's
 //                  journal row in D1 (signed in; JSON)
+//   GET  /gym      the gym page: today's recovery, a button that builds the
+//                  day's workout from a Hevy routine and one that sends it to Hevy, the
+//                  last workouts with the coach's feedback, lift trends
+//                  (signed in; src/gym.js, data from the Quest Engine's GET /gym)
+//   POST /gym/generate|send|feedback|sync  the gym page's buttons, passed on to the
+//                  Quest Engine (signed in; JSON)
 //   POST /journal/evening-question  writes the evening's Reflection question
 //                  from the morning (signed in; JSON { headspace, forward, winif };
 //                  one OpenAI call, only when the morning changed)
@@ -36,6 +42,8 @@ import { todayHtml } from './todaypage.js';
 import { loadJournal, saveJournal, journalDay } from './journal.js';
 import { writeEveningQuestion, aiOn } from './eveningq.js';
 import { journalHtml } from './journalpage.js';
+import { loadGym, gymAction } from './gym.js';
+import { gymHtml } from './gympage.js';
 import { summaryDue, writeSummary, isSummaryHour } from './summary.js';
 import { store } from './usage.js';
 import { runJob } from './rerun.js';
@@ -47,7 +55,7 @@ const PAGE_HEADERS = {
 };
 const redirect = (to, cookie) => new Response(null, { status: 303, headers: { Location: to, ...(cookie ? { 'Set-Cookie': cookie } : {}) } });
 // Where the login sends you back to: only the dashboard's own pages.
-const NEXT = new Set(['/', '/questlog', '/admin', '/journal']);
+const NEXT = new Set(['/', '/questlog', '/admin', '/journal', '/gym']);
 const nextPath = p => (NEXT.has(p) ? p : '/');
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 
@@ -141,6 +149,22 @@ export default {
         } catch (e) {
           console.error('evening question', e && e.stack || e);
           return json({ ok: 0, code: 'server_error', message: String(e.message || e) }, 500);
+        }
+      }
+      if (pathname === '/gym') {
+        if (!signedIn) return redirect('/login?next=/gym');
+        return new Response(gymHtml(await loadGym(env)), { headers: PAGE_HEADERS });
+      }
+      const gymButton = pathname.match(/^\/gym\/(generate|send|feedback|sync)$/);
+      if (gymButton && request.method === 'POST') {
+        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+        if (!(request.headers.get('Content-Type') || '').includes('application/json')) return json({ ok: 0, code: 'bad_request' }, 400);
+        const body = await request.json().catch(() => null);
+        try {
+          return json(await gymAction(env, gymButton[1], body && typeof body === 'object' ? body : {}));
+        } catch (e) {
+          console.error('gym', e && e.stack || e);
+          return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, e.code === 'bad_request' ? 400 : 500);
         }
       }
       if (pathname === '/admin') return signedIn ? new Response(dashboardHtml(), { headers: PAGE_HEADERS }) : redirect('/login?next=/admin');

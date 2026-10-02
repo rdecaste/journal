@@ -280,7 +280,7 @@ export function todayHtml(d) {
 <body><div class="page">
   <header class="top">
     <div><div class="eyebrow">${esc(longDay(d.today))}</div><h1>Quest log</h1></div>
-    <div class="actions">${run}<a class="admin" href="/admin">Admin ›</a></div>
+    <div class="actions">${run}<a class="admin" href="/gym">Gym ›</a><a class="admin" href="/admin">Admin ›</a></div>
   </header>
 
   <section class="today" aria-label="Today">

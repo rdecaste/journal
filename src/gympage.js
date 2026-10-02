@@ -1,0 +1,278 @@
+// GET /gym: the gym page (data: src/gym.js). One column for the phone before
+// the gym and the Mac afterwards:
+//   Today: the morning's recovery (HRV, resting HR, sleep against the usual
+//   30 nights), how Roy feels (1–5) and a Hevy routine as the template →
+//   Generate shows the day's workout here → Send to Hevy writes it there as
+//   "Today · …" (one routine, overwritten each time).
+//   Last workout: its sets and the coach's feedback (written when the Strava
+//   sync brings the session in; a button writes it when missing).
+//   Lifts: the best estimated one-rep max per day of the four most-done lifts.
+// Drawn on the server; the buttons post JSON and reload the page.
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const longDay = day => { const d = new Date(day + 'T12:00:00Z'); return `${DAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`; };
+const shortDay = day => { const d = new Date(day + 'T12:00:00Z'); return `${DAYS[d.getUTCDay()].slice(0, 3)} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()].slice(0, 3)}`; };
+const n = (v, digits = 0) => (v === null || v === undefined || !isFinite(Number(v)) ? null : Number(Number(v).toFixed(digits)));
+const hm = h => (h === null ? null : `${Math.floor(h)}h ${String(Math.round((h % 1) * 60)).padStart(2, '0')}`);
+const kg = v => `${n(v, 1)} kg`;
+const clock = iso => new Date(iso).toLocaleTimeString('en-GB', { timeZone: 'Europe/Amsterdam', hour: '2-digit', minute: '2-digit' });
+
+export const FEELINGS = [[1, 'Wrecked'], [2, 'Tired'], [3, 'OK'], [4, 'Good'], [5, 'Great']];
+export const VERDICTS = { good: 'Recovered', steady: 'Mostly recovered', easy: 'Take it easier' };
+export const LEVELS = { push: ['Push', 'A little more than last time'], normal: ['Normal', 'Match last time'], easy: ['Easy', 'Lighter, one set fewer'] };
+
+// "3 × 8 @ 80 kg" for identical sets in a row.
+export function setsLine(sets) {
+  const one = s => (s.weight_kg > 0 ? `${s.reps ?? '?'} @ ${n(s.weight_kg, 2)} kg` : s.reps !== null && s.reps !== undefined ? `${s.reps} reps` : s.duration_seconds ? `${s.duration_seconds}s` : s.distance_meters ? `${s.distance_meters} m` : '—');
+  const out = [];
+  for (const s of sets) {
+    const t = one(s), last = out[out.length - 1];
+    if (last && last.t === t) last.k++; else out.push({ t, k: 1 });
+  }
+  return out.map(x => (x.k > 1 ? `${x.k} × ${x.t}` : x.t)).join(', ');
+}
+
+// The coach's feedback: "- " lines become a list.
+export function feedbackHtml(text) {
+  const lines = String(text || '').split('\n').map(l => l.trim()).filter(Boolean);
+  const bullets = lines.filter(l => /^[-•*]\s+/.test(l));
+  if (bullets.length >= lines.length / 2) return `<ul class="fb">${lines.map(l => `<li>${esc(l.replace(/^[-•*]\s+/, ''))}</li>`).join('')}</ul>`;
+  return lines.map(l => `<p class="fbp">${esc(l)}</p>`).join('');
+}
+
+function signalHtml(name, s, fmt, unit) {
+  if (!s || s.value === null) return `<div class="sig"><span class="sn">${name}</span><b>—</b></div>`;
+  return `<div class="sig${s.low ? ' low' : ''}"><span class="sn">${name}</span><b>${esc(fmt(s.value))}${unit}</b>${s.usual !== null ? `<span class="su">usual ${esc(fmt(s.usual))}${unit}</span>` : ''}</div>`;
+}
+
+function readinessHtml(r) {
+  if (!r) return '';
+  const verdict = r.measured ? (r.verdict ? VERDICTS[r.verdict] : 'Too few nights to compare yet') : 'No recovery data for today yet';
+  return `<div class="ready">
+    <div class="verdict ${esc(r.verdict || 'none')}">${esc(verdict)}</div>
+    <div class="sigs">${signalHtml('HRV', r.hrv, v => n(v), ' ms')}${signalHtml('Resting HR', r.rhr, v => n(v), ' bpm')}${signalHtml('Sleep', r.sleep, hm, '')}</div>
+  </div>`;
+}
+
+const ARROWS = { up: '↑', same: '=', down: '↓', new: 'new' };
+
+// Under the plan: the Send to Hevy button, or that Hevy has it.
+function sendHtml(p, sent) {
+  const name = `<b>Today · ${esc(p.routine_title)}</b>`;
+  if (p.sent_at) return `<p class="sentok">✓ In Hevy as ${name}, sent at ${esc(clock(p.sent_at))}. Open Hevy → Routines to start it.</p>`;
+  return `<button class="btn" type="button" data-act="send" data-plan="${esc(p.id)}">Send to Hevy</button>
+    <p class="muted small" style="margin:0">Saves it in Hevy as ${name}, replacing the one there.${sent ? ` Hevy still has the ${esc(sent.routine_title)} you sent at ${esc(clock(sent.sent_at))}.` : ''}</p>`;
+}
+
+function planHtml(p, sent) {
+  if (!p || !p.plan) return '';
+  const lvl = LEVELS[p.plan.level] || LEVELS.normal;
+  return `<div class="plan" id="plan">
+    <div class="planhead"><span class="lvl ${esc(p.plan.level)}">${esc(lvl[0])}</span><span class="pt">${esc(p.routine_title)}</span><span class="muted">${esc(lvl[1])}</span></div>
+    ${p.briefing ? `<p class="brief">${esc(p.briefing)}</p>` : ''}
+    <ol class="exs">${p.plan.exercises.map(e => {
+      const warm = e.sets.filter(s => s.type === 'warmup'), work = e.sets.filter(s => s.type !== 'warmup');
+      return `<li class="ex"><div class="exh"><b>${esc(e.title)}</b><span class="chg ${esc(e.change)}" title="Compared with last time">${esc(ARROWS[e.change] || '')}</span></div>
+        <div class="exs-sets">${esc(setsLine(work))}${warm.length ? `<span class="muted"> · warm-up ${esc(setsLine(warm))}</span>` : ''}</div>
+        ${e.last ? `<div class="muted small">Last time (${esc(shortDay(e.last.day))}): ${esc(e.last.sets)}</div>` : ''}
+        ${e.cue ? `<div class="cue">${esc(e.cue)}</div>` : ''}</li>`;
+    }).join('')}</ol>
+    ${sendHtml(p, sent)}
+  </div>`;
+}
+
+function workoutHtml(w, first, ai) {
+  const facts = [w.duration_min ? `${Math.round(w.duration_min)} min` : null, w.volume_kg ? `${Math.round(w.volume_kg).toLocaleString('en-GB')} kg moved` : null, w.sets ? `${w.sets} sets` : null].filter(Boolean).join(' · ');
+  const body = `<div class="wfacts muted">${esc(facts)}</div>
+    <ul class="wex">${w.exercises.map(e => `<li><b>${esc(e.title)}</b> <span class="muted">${esc(e.sets)}</span></li>`).join('')}</ul>
+    ${w.feedback ? `<div class="coach"><div class="ch">Coach</div>${feedbackHtml(w.feedback)}</div>`
+      : ai ? `<button class="btn ghost" data-act="feedback" data-workout="${esc(w.id)}">Write feedback</button>` : ''}`;
+  if (first) return `<article class="card"><div class="wt"><h2>${esc(w.title || 'Workout')}</h2><span class="muted">${esc(shortDay(w.day))}</span></div>${body}</article>`;
+  return `<details class="older"><summary><b>${esc(w.title || 'Workout')}</b> <span class="muted">${esc(shortDay(w.day))} · ${Math.round(w.volume_kg || 0).toLocaleString('en-GB')} kg</span></summary>${body}</details>`;
+}
+
+export function sparkline(points, w = 132, h = 36) {
+  const v = points.map(p => p.e1rm).filter(x => x > 0);
+  if (v.length < 2) return '';
+  const lo = Math.min(...v), hi = Math.max(...v), span = hi - lo || 1;
+  const xy = v.map((y, i) => `${(i / (v.length - 1) * (w - 4) + 2).toFixed(1)},${(h - 3 - (y - lo) / span * (h - 6)).toFixed(1)}`);
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true"><polyline points="${xy.join(' ')}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${xy[xy.length - 1].split(',')[0]}" cy="${xy[xy.length - 1].split(',')[1]}" r="2.5" fill="currentColor"/></svg>`;
+}
+
+function trendsHtml(trends) {
+  if (!trends || !trends.length) return '';
+  return `<section class="sec"><h2>Lifts</h2><p class="muted small">Best estimated one-rep max per session, last 90 days.</p><div class="lifts">${trends.map(t => {
+    const first = t.points[0].e1rm, last = t.points[t.points.length - 1].e1rm, d = n(last - first, 1);
+    return `<div class="lift"><div><b>${esc(t.title)}</b><div class="big">${esc(kg(last))}</div><div class="muted small">${d > 0 ? '+' : ''}${esc(d)} kg in ${t.points.length} sessions</div></div>${sparkline(t.points)}</div>`;
+  }).join('')}</div></section>`;
+}
+
+const STYLE = `
+:root{
+  --bg:#eef1f5; --surface:#ffffff; --ink:#18202b; --muted:#5e6a7a; --line:#d9dee6; --track:#e3e7ee;
+  --ki:#2f6fd1; --ki-soft:#e6eefb; --ok:#2e8f5c; --ok-soft:#e3f3ea; --gold:#b57a0c; --gold-soft:#fbf1dc; --warn:#b3261e; --warn-soft:#fbe7e5;
+  --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1219; --surface:#171d27; --ink:#e8ecf2; --muted:#95a1b2; --line:#283141; --track:#262f3d;
+  --ki:#5b93ea; --ki-soft:#1a2638; --ok:#4cbf85; --ok-soft:#142a20; --gold:#f0b53c; --gold-soft:#2c2414; --warn:#f0645a; --warn-soft:#321a19; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1219; --surface:#171d27; --ink:#e8ecf2; --muted:#95a1b2; --line:#283141; --track:#262f3d;
+  --ki:#5b93ea; --ki-soft:#1a2638; --ok:#4cbf85; --ok-soft:#142a20; --gold:#f0b53c; --gold-soft:#2c2414; --warn:#f0645a; --warn-soft:#321a19; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%}
+.page{max-width:700px;margin:0 auto;padding-inline:max(16px,env(safe-area-inset-left));padding-block:max(20px,env(safe-area-inset-top)) max(48px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:22px}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--ki);outline-offset:3px;border-radius:6px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.back{font-size:15px;font-weight:500;color:var(--muted);text-decoration:none;min-height:32px;display:inline-flex;align-items:center}
+.date{font-size:13.5px;font-weight:500;color:var(--muted)}
+h1{font-family:var(--serif);font-weight:600;font-size:36px;line-height:1.12;margin:0;letter-spacing:-.01em}
+h2{font-family:var(--serif);font-weight:600;font-size:22px;margin:0}
+.muted{color:var(--muted)} .small{font-size:13.5px}
+.card{background:var(--surface);border-radius:22px;padding:22px;display:flex;flex-direction:column;gap:16px;box-shadow:0 1px 2px rgba(20,26,36,.04)}
+.sec{display:flex;flex-direction:column;gap:10px}
+.ready{display:flex;flex-direction:column;gap:10px}
+.verdict{font-family:var(--serif);font-size:20px;font-weight:600}
+.verdict.good{color:var(--ok)} .verdict.easy{color:var(--warn)} .verdict.steady{color:var(--gold)}
+.sigs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.sig{background:var(--bg);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;min-width:0}
+.sig b{font-size:18px;font-variant-numeric:tabular-nums}
+.sig.low{background:var(--warn-soft)} .sig.low b{color:var(--warn)}
+.sn,.su{font-size:12.5px;color:var(--muted)}
+.label{font-weight:600;font-size:15px}
+.feel{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.feel button{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 2px;display:flex;flex-direction:column;align-items:center;cursor:pointer;min-height:56px}
+.feel button b{font-size:18px} .feel button span{font-size:12px;color:var(--muted)}
+.feel button[aria-pressed="true"]{border-color:var(--ki);background:var(--ki-soft)}
+select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);min-height:48px}
+.btn{border:0;border-radius:14px;padding:14px 16px;background:var(--ki);color:#fff;font-weight:600;cursor:pointer;min-height:48px}
+.btn:disabled{opacity:.6;cursor:progress}
+.btn.ghost{background:var(--ki-soft);color:var(--ki);align-self:flex-start;padding:10px 14px;min-height:40px}
+.sentok{margin:0;background:var(--ok-soft);color:var(--ok);border-radius:14px;padding:12px 16px;font-weight:600;font-size:15px}
+.sentok b{color:inherit}
+.status{font-size:14px;min-height:1.3em;margin:0} .status.bad{color:var(--warn);font-weight:600}
+.plan{display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:16px}
+.planhead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.pt{font-family:var(--serif);font-weight:600;font-size:20px}
+.lvl{font-size:12.5px;font-weight:700;border-radius:999px;padding:3px 10px;background:var(--ki-soft);color:var(--ki)}
+.lvl.push{background:var(--ok-soft);color:var(--ok)} .lvl.easy{background:var(--warn-soft);color:var(--warn)}
+.brief{margin:0;font-family:var(--serif);font-size:17px;line-height:1.55}
+.exs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.ex{display:flex;flex-direction:column;gap:2px}
+.exh{display:flex;justify-content:space-between;gap:8px}
+.exs-sets{font-variant-numeric:tabular-nums}
+.chg{font-size:13px;font-weight:700;color:var(--muted)} .chg.up{color:var(--ok)} .chg.down{color:var(--warn)}
+.cue{font-family:var(--serif);font-style:italic;color:var(--muted)}
+.wt{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.wex{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;font-variant-numeric:tabular-nums}
+.coach{background:var(--bg);border-radius:14px;padding:14px 16px}
+.ch{font-weight:700;font-size:13px;color:var(--muted);margin-bottom:4px}
+.fb{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-family:var(--serif);font-size:16.5px;line-height:1.5}
+.fbp{margin:0 0 6px;font-family:var(--serif)}
+.older{background:var(--surface);border-radius:16px;padding:14px 18px}
+.older summary{cursor:pointer;list-style-position:outside}
+.older[open]{display:flex;flex-direction:column;gap:12px}
+.lifts{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.lift{background:var(--surface);border-radius:16px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.big{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.spark{color:var(--ki);flex:none}
+.err{background:var(--warn-soft);color:var(--warn);border-radius:14px;padding:12px 16px;margin:0}
+.foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:13.5px;color:var(--muted)}
+@media (max-width:420px){h1{font-size:30px}.sig b{font-size:16px}.card{padding:18px}}
+`;
+
+const SCRIPT = `
+(function () {
+  var feeling = null;
+  var status = document.getElementById('status');
+  function say(t, bad) { if (!status) return; status.textContent = t; status.className = 'status' + (bad ? ' bad' : ''); }
+  document.querySelectorAll('.feel button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var v = Number(b.dataset.v);
+      feeling = feeling === v ? null : v;
+      document.querySelectorAll('.feel button').forEach(function (x) { x.setAttribute('aria-pressed', String(Number(x.dataset.v) === feeling)); });
+    });
+  });
+  var sel = document.getElementById('tpl');
+  try { var keep = localStorage.getItem('gym_tpl'); if (sel && keep && sel.querySelector('option[value="' + CSS.escape(keep) + '"]')) sel.value = keep; } catch (e) {}
+  function post(action, body, btn, busy) {
+    var label = btn.textContent;
+    btn.disabled = true; btn.textContent = busy;
+    say('');
+    return fetch('/gym/' + action, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'same-origin' })
+      .then(function (r) { if (r.status === 401) { location.href = '/login?next=/gym'; return null; } return r.json(); })
+      .then(function (d) {
+        if (!d) return;
+        if (d.ok === 1) { location.reload(); return; }
+        btn.disabled = false; btn.textContent = label; say(d.message || 'That did not work.', true);
+      })
+      .catch(function () { btn.disabled = false; btn.textContent = label; say('No connection. Try again.', true); });
+  }
+  var gen = document.getElementById('gen');
+  if (gen) gen.addEventListener('click', function () {
+    if (!sel || !sel.value) { say('Pick a template first.', true); return; }
+    try { localStorage.setItem('gym_tpl', sel.value); } catch (e) {}
+    post('generate', { routine_id: sel.value, feeling: feeling }, gen, 'Building your workout…');
+  });
+  document.querySelectorAll('[data-act="send"]').forEach(function (b) {
+    b.addEventListener('click', function () { post('send', { plan_id: b.dataset.plan }, b, 'Sending to Hevy…'); });
+  });
+  document.querySelectorAll('[data-act="feedback"]').forEach(function (b) {
+    b.addEventListener('click', function () { post('feedback', { workout_id: b.dataset.workout }, b, 'Writing…'); });
+  });
+  var sync = document.getElementById('sync');
+  if (sync) sync.addEventListener('click', function () { post('sync', { full: sync.dataset.full === '1' }, sync, 'Syncing…'); });
+})();
+`;
+
+export function gymHtml(d) {
+  const head = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Gym"><meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#eef1f5" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0e1219" media="(prefers-color-scheme: dark)">
+<title>Gym</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>${STYLE}</style></head>`;
+  const top = `<div class="top"><a class="back" href="/">‹ Quest log</a><a class="back" href="/admin">Admin ›</a></div>`;
+  if (d.error) {
+    return `${head}<body><main class="page">${top}<h1>Gym</h1><p class="err">${esc(d.error)}</p><p class="foot"><a href="/gym">Try again</a></p></main></body></html>`;
+  }
+  const empty = !d.history || !d.history.workouts;
+  const [last, ...older] = d.workouts || [];
+  const sync = d.sync ? `Last synced ${esc(new Date(d.sync.at).toLocaleString('en-GB', { timeZone: 'Europe/Amsterdam', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}` : 'Not synced yet';
+  return `${head}<body><main class="page">
+  ${top}
+  <div><div class="date">${esc(longDay(d.day))}</div><h1>Gym</h1></div>
+  ${!d.connected ? '<p class="err">HEVY_API_KEY is not set on the Quest Engine.</p>' : ''}
+  ${d.routines_error ? `<p class="err">Hevy did not answer, so these are the routines from the last time: ${esc(d.routines_error)}</p>` : ''}
+
+  <article class="card" aria-labelledby="today-h">
+    <h2 id="today-h">Today’s workout</h2>
+    ${readinessHtml(d.readiness)}
+    <div class="label" id="feel-l">How do you feel?</div>
+    <div class="feel" role="group" aria-labelledby="feel-l">${FEELINGS.map(([v, t]) => `<button type="button" data-v="${v}" aria-pressed="false"><b>${v}</b><span>${t}</span></button>`).join('')}</div>
+    <label class="label" for="tpl">Template</label>
+    <select id="tpl">${(d.templates || []).length ? `<option value="">Pick a Hevy routine…</option>${d.templates.map(t => `<option value="${esc(t.id)}"${d.plan && d.plan.routine_id === t.id ? ' selected' : ''}>${esc(t.title)} (${t.exercises} exercises)</option>`).join('')}` : '<option value="">No routines in Hevy yet</option>'}</select>
+    <button class="btn" id="gen" type="button"${(d.templates || []).length ? '' : ' disabled'}>${d.plan ? 'Generate again' : 'Generate today’s workout'}</button>
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+    ${planHtml(d.plan, d.sent)}
+  </article>
+
+  ${last ? workoutHtml(last, true, d.ai) : `<article class="card"><h2>Last workout</h2><p class="muted" style="margin:0">${empty ? 'No Hevy workouts in the dashboard yet. Import your history below; after that, every gym session arrives with the Strava sync.' : ''}</p></article>`}
+  ${older.length ? `<section class="sec"><h2>Before that</h2>${older.map(w => workoutHtml(w, false, d.ai)).join('')}</section>` : ''}
+  ${trendsHtml(d.trends)}
+
+  <div class="foot"><span>${d.history && d.history.workouts ? `${d.history.workouts} workouts since ${esc(shortDay(d.history.since))} · ` : ''}${sync}</span>
+    <button class="btn ghost" id="sync" type="button" data-full="${empty ? '1' : '0'}">${empty ? 'Import my Hevy history' : 'Sync from Hevy'}</button></div>
+</main>
+<script>${SCRIPT}</script></body></html>`;
+}
