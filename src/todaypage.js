@@ -25,11 +25,11 @@ const LINKS = [
   ['🧭 Admin Dashboard', '/admin'],
   ['🗄️ Data (D1)', D1_CONSOLE]
 ];
-// Since the D1 move (1 Oct 2026) the data opens in D1 Data Studio and the
-// main quest on the hero card; Notion is a frozen copy.
+// Since the D1 move (1 Oct 2026) the data opens in D1 Data Studio; Notion is
+// a frozen copy. The main quest card left this page on 2 Oct 2026 (Roy): the
+// hero card in Quick links has it.
 const WORKOUTS = D1_CONSOLE;
 const TODOS = D1_CONSOLE;
-const MAIN_QUEST = 'https://mainquest.quest-engine.workers.dev/';
 
 const STYLE = `
 /* Layout: today's story on the left, the hero card on the right, then three
@@ -66,7 +66,7 @@ h1{font-family:var(--display);font-weight:800;font-size:40px;line-height:1;margi
 h2{font-family:var(--display);font-weight:600;font-size:21px;margin:0;letter-spacing:-.01em}
 .sec{display:flex;flex-direction:column;gap:12px}
 .note{color:var(--muted);font-style:italic;font-size:15px;margin:0}
-.today{display:grid;grid-template-columns:1fr 1.08fr;gap:16px;align-items:stretch}
+.today{display:grid;grid-template-columns:1fr;gap:16px;align-items:stretch}
 .today>*{min-width:0}
 .story{display:flex;flex-direction:column;gap:12px}
 .spark{background:var(--ki-soft);border-radius:var(--radius);padding:20px 22px;flex:1;display:flex;flex-direction:column;gap:10px}
@@ -76,21 +76,6 @@ h2{font-family:var(--display);font-weight:600;font-size:21px;margin:0;letter-spa
 .journal b{font-weight:600}
 .journal span{color:var(--muted);font-size:14.5px}
 .chev{color:var(--muted);font-size:20px;line-height:1}
-.hero{background:var(--hero-bg);color:var(--hero-ink);border-radius:var(--radius);display:grid;grid-template-columns:38% 1fr;overflow:hidden}
-.hero img{width:100%;height:100%;object-fit:cover;object-position:top;display:block;max-width:100%;background:var(--hero-track)}
-.hero .stats{padding:18px 18px 18px 20px;display:flex;flex-direction:column;gap:12px;min-width:0}
-.hero .eyebrow{color:var(--hero-muted)}
-.hero h3{font-family:var(--display);font-weight:600;font-size:20px;line-height:1.2;margin:2px 0 0}
-.hero h3 a{text-decoration:none}
-.lvl{font-family:var(--hud);font-weight:600;font-size:34px;line-height:1;color:var(--hero-gold)}
-.lvl small{font-size:14px;color:var(--hero-muted);font-weight:500;margin-left:8px;letter-spacing:.02em}
-.stat{display:flex;flex-direction:column;gap:5px}
-.stat-row{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;color:var(--hero-muted)}
-.stat-row b{font-family:var(--hud);font-weight:600;color:var(--hero-ink);font-variant-numeric:tabular-nums;font-size:15px}
-.bar{height:8px;border-radius:4px;background:var(--hero-track);overflow:hidden}
-.bar i{display:block;height:100%;border-radius:4px;background:var(--hp)}
-.hero .note{color:var(--hero-muted);font-size:14.5px}
-.hero .more{font-size:14px;color:var(--hero-muted);text-underline-offset:3px;margin-top:auto}
 .brief{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;display:flex;flex-direction:column;gap:12px}
 .flags{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
 .flags li{display:grid;grid-template-columns:10px 1fr;gap:2px 10px;align-items:baseline}
@@ -145,8 +130,7 @@ h2{font-family:var(--display);font-weight:600;font-size:21px;margin:0;letter-spa
 .errors{font-size:13px;color:var(--warn);margin:0}
 @media (min-width:1000px){.deck{grid-template-columns:repeat(4,1fr)} h1{font-size:46px}}
 @media (max-width:700px){.glance{grid-template-columns:1fr}}
-@media (max-width:640px){.today{grid-template-columns:1fr} .deck{grid-template-columns:1fr} h1{font-size:34px}}
-@media (max-width:420px){.hero{grid-template-columns:1fr} .hero img{max-height:340px}}
+@media (max-width:640px){.deck{grid-template-columns:1fr} h1{font-size:34px}}
 `;
 
 const note = text => (text ? `<p class="note">💬 ${esc(text)}</p>` : '');
@@ -155,25 +139,6 @@ function sparkHtml(text) {
   const parts = String(text || '').split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
   if (!parts.length) return '<p class="sign">No spark yet today; it arrives with the 03:00 run.</p>';
   return parts.map((p, i) => `<p${i === parts.length - 1 && parts.length > 1 && p.length < 40 ? ' class="sign"' : ''}>${esc(p).replace(/\n/g, '<br>')}</p>`).join('');
-}
-
-function heroHtml(h, mainNote, quest) {
-  const title = (quest && quest.title) || 'Main quest';
-  const url = (quest && quest.url) || MAIN_QUEST;
-  if (!h) return `<article class="hero" style="grid-template-columns:1fr"><div class="stats"><div class="eyebrow">Main quest</div><p class="note">The hero could not be loaded just now.</p></div></article>`;
-  const stage = h.stage ? `<small>STAGE ${h.stage}/${h.stages}</small>` : '';
-  const hp = h.max_hp > 0 ? `<div class="stat"><div class="stat-row"><span>HP</span><b>${fmt(h.hp)} / ${fmt(h.max_hp)}</b></div><div class="bar" role="img" aria-label="${fmt(h.hp)} of ${fmt(h.max_hp)} HP"><i style="width:${pct(h.hp, h.max_hp)}%"></i></div></div>` : '';
-  const xp = h.xp_to_next_stage !== null ? `<div class="stat-row"><span>Next stage in</span><b>${fmt(h.xp_to_next_stage)} XP</b></div>` : '';
-  return `<article class="hero" aria-label="Main quest">
-    ${h.image ? `<img src="${esc(h.image)}" alt="Your hero at level ${esc(h.level)}">` : ''}
-    <div class="stats">
-      <div><div class="eyebrow">Main quest</div><h3><a href="${esc(url)}" ${ext}>${esc(title)}</a></h3></div>
-      <div class="lvl">LV ${esc(h.level ?? '–')}${stage}</div>
-      ${hp}${xp}
-      ${note(mainNote)}
-      <a class="more" href="https://mainquest.quest-engine.workers.dev/" ${ext}>Open the hero card ›</a>
-    </div>
-  </article>`;
 }
 
 function crossHtml(c, text) {
@@ -288,7 +253,6 @@ export function todayHtml(d) {
       <article class="spark"><div class="eyebrow">Morning spark</div>${sparkHtml(d.spark)}
         <a class="journal" href="/journal"><div><b>Today’s journal</b><br><span>${esc(d.journal ? d.journal.title : 'Write this morning or tonight')}</span></div><div class="chev" aria-hidden="true">›</div></a></article>
     </div>
-    ${heroHtml(d.hero, d.notes && d.notes.main_quest, d.main_quest)}
   </section>
 
   ${briefingHtml(d.briefing, d.today)}

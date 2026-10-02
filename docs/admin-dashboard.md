@@ -238,3 +238,5 @@ A 9-exercise routine fits in about one phone screen. Timed blocks show minutes, 
 - **Skills:** holds such as the planche, human flag and one-arm handstand show "+2 s" and "↑ next stage".
 
 2 Oct 2026: **Journal page: new mood pictures, Meh becomes Tired** (Roy's request). Roy's second set of five pictures replaces the first; 2 is now a tired face with Zzz, called Tired (still stored as 2). The page asks for the pictures with `?v=` and `MOOD_ART_VERSION` from `src/moodart.js`, so browsers that kept the old ones for a year fetch the new ones; bump it whenever the pictures change.
+
+2 Oct 2026: **Quest log page: main quest card removed** (Roy's request). The dark main quest card (hero picture, level, HP, XP, 💬 note) is gone from `/`; the Morning Spark and the journal link now run the full width. The 🔥 streak in the header and the Hero card in Quick links stay.
