@@ -27,7 +27,7 @@ The landing page, [https://admindashboard.quest-engine.workers.dev](https://admi
   - **Generate** builds the day's workout from that routine: push, normal or easy depending on readiness, with a short briefing and a cue per exercise (one OpenAI call, in the Quest Engine). It is only shown on the page.
   - **Send to Hevy** writes it to Hevy as the routine **Today · <template>**, which is overwritten each time. The page then shows ✓ In Hevy. If Roy generates again, the page says which plan Hevy still has until he sends the new one.
 - **Last workout:** its sets and the coach's feedback, written when the Strava sync brings the session in. If a workout has no feedback, a **Write feedback** button writes it. Older workouts are listed below it.
-- **Lifts:** the best estimated one-rep max per session for the four most-done lifts over the last 90 days.
+- **Lifts:** the best estimated one-rep max per session for the four most-done lifts over the last 12 months (lifts done at least twice).
 - **Sync from Hevy** (the first time: **Import my Hevy history**) pulls workouts changed in Hevy. It is also a Rerun button under Strava in System Health.
 
 ## What it reads

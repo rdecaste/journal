@@ -54,7 +54,7 @@ test('gym page: readiness, the plan, the last workout\'s feedback, older ones an
   assert.match(html, /<li>Keep the pause &lt;tight&gt;.<\/li>/);
   assert.match(html, /<details class="older"><summary><b>Pull<\/b>/);
   assert.match(html, /data-act="feedback" data-workout="w2"/);
-  assert.match(html, /\+14 kg in 3 sessions/);
+  assert.match(html, /\+14 kg over 3 sessions/);
   assert.match(html, /120 workouts since Sun 5 Jan/);
   assert.match(html, /Sync from Hevy/);
   assert.doesNotMatch(html, /Push <A>/);

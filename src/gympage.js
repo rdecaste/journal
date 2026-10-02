@@ -6,7 +6,8 @@
 //   "Today · …" (one routine, overwritten each time).
 //   Last workout: its sets and the coach's feedback (written when the Strava
 //   sync brings the session in; a button writes it when missing).
-//   Lifts: the best estimated one-rep max per day of the four most-done lifts.
+//   Lifts: the best estimated one-rep max per day of the four most-done lifts
+//   of the last 12 months (done at least twice).
 // Drawn on the server; the buttons post JSON and reload the page.
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -103,9 +104,9 @@ export function sparkline(points, w = 132, h = 36) {
 
 function trendsHtml(trends) {
   if (!trends || !trends.length) return '';
-  return `<section class="sec"><h2>Lifts</h2><p class="muted small">Best estimated one-rep max per session, last 90 days.</p><div class="lifts">${trends.map(t => {
+  return `<section class="sec"><h2>Lifts</h2><p class="muted small">Best estimated one-rep max per session, last 12 months.</p><div class="lifts">${trends.map(t => {
     const first = t.points[0].e1rm, last = t.points[t.points.length - 1].e1rm, d = n(last - first, 1);
-    return `<div class="lift"><div><b>${esc(t.title)}</b><div class="big">${esc(kg(last))}</div><div class="muted small">${d > 0 ? '+' : ''}${esc(d)} kg in ${t.points.length} sessions</div></div>${sparkline(t.points)}</div>`;
+    return `<div class="lift"><div><b>${esc(t.title)}</b><div class="big">${esc(kg(last))}</div><div class="muted small">${d > 0 ? '+' : ''}${esc(d)} kg over ${t.points.length} sessions</div></div>${sparkline(t.points)}</div>`;
   }).join('')}</div></section>`;
 }
 
