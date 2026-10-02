@@ -125,6 +125,8 @@ test('the buttons pass only their own fields on', async () => {
 test('set lines: reps @ weight, reps, minutes; a timed block hides "Last time 0 reps"', async () => {
   const { setValue } = await import('../src/gympage.js');
   assert.equal(setValue({ weight_kg: 35, reps: 8 }), '8 @ 35 kg');
+  const { CHANGES } = await import('../src/gympage.js');
+  assert.equal(CHANGES.return, '↓ after break');
   const { notation } = await import('../src/gympage.js');
   assert.equal(notation('70kg×6, 52.5kg×4, 9 reps'), '6 @ 70 kg, 4 @ 52.5 kg, 9 reps');
   assert.equal(setValue({ weight_kg: 52.5, reps: 4 }), '4 @ 52.5 kg');

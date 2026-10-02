@@ -66,7 +66,7 @@ function readinessHtml(r, insight) {
 }
 
 // How each lift changed against last time (the generator's `change`).
-export const CHANGES = { weight: '↑ weight', reps: '+1 rep', deload: '↓ 10%', easy: '2 sets', same: '=', new: 'new', up: '↑', down: '↓' };
+export const CHANGES = { weight: '↑ weight', reps: '+1 rep', deload: '↓ 10%', return: '↓ after break', easy: '2 sets', same: '=', new: 'new', up: '↑', down: '↓' };
 
 // Under the plan: the Send to Hevy button, or that Hevy has it.
 function sendHtml(p, sent) {
@@ -240,7 +240,7 @@ select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);b
 .setlist .warm .val{font-weight:400;color:var(--muted)}
 .why{font-size:13.5px;color:var(--muted);line-height:1.45}
 .exs-sets{font-variant-numeric:tabular-nums}
-.chg{font-size:13px;font-weight:700;color:var(--muted);white-space:nowrap} .chg.up,.chg.weight,.chg.reps{color:var(--ok)} .chg.down,.chg.deload{color:var(--warn)}
+.chg{font-size:13px;font-weight:700;color:var(--muted);white-space:nowrap} .chg.up,.chg.weight,.chg.reps{color:var(--ok)} .chg.down,.chg.deload{color:var(--warn)} .chg.return{color:var(--gold)}
 .why{color:var(--ink)}
 .cue{font-family:var(--serif);font-style:italic;color:var(--muted)}
 .wt{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
