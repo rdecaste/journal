@@ -7,6 +7,8 @@
 // moment after Roy stops typing (and on the buttons), and a copy stays in the
 // browser until the save is through.
 
+import { MOOD_ART_VERSION } from './moodart.js';
+
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // JSON inside a <script> element: no "</script>" or "<!--" can end it early.
 const safeJson = v => JSON.stringify(v).replace(/</g, '\\u003c').replace(/[\u2028\u2029]/g, c => (c === '\u2028' ? '\\u2028' : '\\u2029'));
@@ -478,8 +480,8 @@ const SCRIPT = String.raw`
 
   // ---- The folded morning ----
   // ---- Mood: five pictures, 1 Sucky to 5 On fire; saved like the writing ----
-  var MOODS = ['Sucky', 'Meh', 'Normal', 'Good', 'On fire'];
-  var moodSrc = function (v) { return '/journal/mood/' + v + '.webp'; };
+  var MOODS = ['Sucky', 'Tired', 'Normal', 'Good', 'On fire'];
+  var moodSrc = function (v) { return '/journal/mood/' + v + '.webp?v=${MOOD_ART_VERSION}'; };
   function moodText(w) { var v = V['mood_' + w]; return v ? MOODS[v - 1] : ''; }
   function moodHtml(w) { var v = V['mood_' + w]; return v ? '<img class="mini" src="' + moodSrc(v) + '" alt="">' + MOODS[v - 1] : ''; }
   function drawMoods() {

@@ -231,3 +231,5 @@ Step 1 leads with one or two AI sentences on whether Roy is ready to train (Ques
 A 9-exercise routine fits in about one phone screen. Timed blocks show minutes, and the workout history uses the same "6 @ 70 kg" notation.
 
 2 Oct 2026: **Gym page: lighter after a break** (Roy's request). A lift not done for 2–4 weeks is planned 10% lighter, 1–2 months 20%, 2–3 months 30%, longer 40%, aiming for 8 reps. Its label reads "↓ after break" (amber); tapping it shows how long it has been. The rule is in the Quest Engine's `src/hevy.js`.
+
+2 Oct 2026: **Journal page: new mood pictures, Meh becomes Tired** (Roy's request). Roy's second set of five pictures replaces the first; 2 is now a tired face with Zzz, called Tired (still stored as 2). The page asks for the pictures with `?v=` and `MOOD_ART_VERSION` from `src/moodart.js`, so browsers that kept the old ones for a year fetch the new ones; bump it whenever the pictures change.
