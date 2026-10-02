@@ -25,9 +25,11 @@ export const FEELINGS = [[1, 'Wrecked'], [2, 'Tired'], [3, 'OK'], [4, 'Good'], [
 export const VERDICTS = { good: 'Recovered', steady: 'Mostly recovered', easy: 'Take it easier' };
 export const LEVELS = { push: ['Good day', 'Follow the progression'], normal: ['Normal', 'Follow the progression'], easy: ['Easy', 'Last time’s weights, two sets, no extra reps'] };
 
-// "3 × 8 @ 80 kg" for identical sets in a row.
+// "3 × 8 @ 80 kg" for identical sets in a row; a block without numbers (a
+// warm-up or cool-down) reads "As in the routine".
 export function setsLine(sets) {
-  const one = s => (s.weight_kg > 0 ? `${s.reps ?? '?'} @ ${n(s.weight_kg, 2)} kg` : s.reps !== null && s.reps !== undefined ? `${s.reps} reps` : s.duration_seconds ? `${s.duration_seconds}s` : s.distance_meters ? `${s.distance_meters} m` : '—');
+  if (sets.every(s => !(s.weight_kg > 0) && !(s.reps > 0) && !(s.duration_seconds > 0) && !(s.distance_meters > 0))) return 'As in the routine';
+  const one = s => (s.weight_kg > 0 ? `${s.reps ?? '?'} @ ${n(s.weight_kg, 2)} kg` : s.reps > 0 ? `${s.reps} reps` : s.duration_seconds ? `${s.duration_seconds}s` : s.distance_meters ? `${s.distance_meters} m` : '—');
   const out = [];
   for (const s of sets) {
     const t = one(s), last = out[out.length - 1];

@@ -27,6 +27,7 @@ test('sets are grouped: "3 × 8 @ 80 kg"', () => {
   assert.equal(setsLine([{ weight_kg: 80, reps: 8 }, { weight_kg: 80, reps: 8 }, { weight_kg: 80, reps: 7 }]), '2 × 8 @ 80 kg, 7 @ 80 kg');
   assert.equal(setsLine([{ weight_kg: null, reps: 12 }, { weight_kg: null, reps: 12 }]), '2 × 12 reps');
   assert.equal(setsLine([{ weight_kg: null, reps: null, duration_seconds: 60 }]), '60s');
+  assert.equal(setsLine([{ weight_kg: 0, reps: 0, duration_seconds: null }]), 'As in the routine');
 });
 
 test('the coach\'s "- " lines become a list, escaped', () => {
