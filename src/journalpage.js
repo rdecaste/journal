@@ -130,7 +130,11 @@ textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400
 .qcard textarea,.checkin textarea{background-color:var(--write-quest)}
 .qcard textarea:focus,.checkin textarea:focus{border-color:color-mix(in srgb,var(--gold) 60%,transparent)}
 .stamp{margin:0;font-size:13.5px;color:var(--muted)}
-/* Daily theme: layered hills behind the header. */
+/* Daily theme: layered hills behind the header, and the day's colour washing
+   down the whole page (set by the script as --day-top / --day-end). */
+body{min-height:100vh;background:linear-gradient(180deg,var(--day-top,var(--bg)) 0,var(--day-top,var(--bg)) 360px,var(--day-end,var(--bg)) 100%)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) body{background:linear-gradient(180deg,var(--day-top-dark,var(--bg)) 0,var(--day-end-dark,var(--bg)) 100%)}}
+:root[data-theme="dark"] body{background:linear-gradient(180deg,var(--day-top-dark,var(--bg)) 0,var(--day-end-dark,var(--bg)) 100%)}
 .scene{position:absolute;inset:0 0 auto 0;height:360px;z-index:0;pointer-events:none;overflow:hidden;
   -webkit-mask-image:linear-gradient(to bottom,#000 55%,transparent);mask-image:linear-gradient(to bottom,#000 55%,transparent)}
 .scene svg{width:100%;height:100%;display:block}
@@ -496,7 +500,7 @@ const SCRIPT = String.raw`
     ['Ember', ['#faeae0', '#f3cdb7', '#e9ac8c', '#d98b68']]
   ];
   var themeDay = new Date(D.day + 'T12:00:00Z').getUTCDay();
-  function mix(a, b, t) { var x = parseInt(a.slice(1), 16), y = parseInt(b.slice(1), 16); var r = function (s) { return Math.round(((x >> s) & 255) * (1 - t) + ((y >> s) & 255) * t); }; return 'rgb(' + r(16) + ',' + r(8) + ',' + r(0) + ')'; }
+  function mix(a, b, t) { var x = parseInt(a.slice(1), 16), y = parseInt(b.slice(1), 16); var r = function (s) { return Math.round(((x >> s) & 255) * (1 - t) + ((y >> s) & 255) * t); }; return '#' + ((1 << 24) + (r(16) << 16) + (r(8) << 8) + r(0)).toString(16).slice(1); }
   function scene(evening) {
     var t = THEMES[themeDay], c = t[1], W = 1200, Hh = 360;
     var tint = function (col) { return evening ? mix(col, '#5b5f8f', .28) : col; };
@@ -509,6 +513,14 @@ const SCRIPT = String.raw`
     $('scene').innerHTML = '<svg viewBox="0 0 ' + W + ' ' + Hh + '" preserveAspectRatio="xMidYMax slice"><defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + sky[0] + '"/><stop offset="1" stop-color="' + sky[1] + '"/></linearGradient></defs>' +
       '<rect width="' + W + '" height="' + Hh + '" fill="url(#sky)"/>' + orb + hill(200, 26, tint(c[1])) + hill(240, 22, tint(c[2])) + hill(282, 18, tint(c[3])) + '</svg>';
     $('theme-name').textContent = ' · ' + t[0];
+    // The same colours down the whole page: the hills fade into the day's
+    // softest tone, which pales towards the bottom (a touch of dusk at night).
+    var top = evening ? mix(c[0], '#5b5f8f', .16) : c[0], root = document.documentElement.style;
+    root.setProperty('--day-top', top);
+    root.setProperty('--day-end', mix(top, '#ffffff', .5));
+    root.setProperty('--day-top-dark', mix('#0e1219', c[3], .14));
+    root.setProperty('--day-end-dark', mix('#0e1219', c[3], .05));
+    var meta = document.querySelector('meta[name="theme-color"][media*="light"]'); if (meta) meta.setAttribute('content', top);
   }
 
   // ---- Morning or evening: by the clock (evening from 15:00; the day ends at 03:00) ----
