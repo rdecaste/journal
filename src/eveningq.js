@@ -1,6 +1,6 @@
 // The evening question: one small OpenAI call writes the Reflection question
 // from the whole morning (headspace, looking forward, win if), when Roy
-// taps "Done for this morning" or first opens the evening. Kept in the Store
+// taps "Start my day ☀" or first opens the evening. Kept in the Store
 // per day; asked again only when the morning changed, at most a few times a
 // day. Off unless ADMIN_AI is "1"; the 03:00 question stays until then.
 
