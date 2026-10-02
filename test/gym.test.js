@@ -6,6 +6,7 @@ import { gymHtml, setsLine, feedbackHtml, sparkline } from '../src/gympage.js';
 // GET /gym as the Quest Engine answers it.
 const gym = {
   ok: 1, day: '2026-10-02', connected: true, ai: true, routines_error: null,
+  insight: { text: 'Fine for a normal session: HRV is a bit <low>, sleep was fine.', ai: true },
   templates: [{ id: 'r-push', title: 'Push <A>', exercises: 5 }, { id: 'r-pull', title: 'Pull', exercises: 4 }],
   readiness: { date: '2026-10-02', measured: true, verdict: 'steady', level: 'normal', feeling: null,
     hrv: { value: 41, usual: 50.2, low: true }, rhr: { value: 55, usual: 54.1, low: false }, sleep: { value: 7.5, usual: 7.4, low: false } },
@@ -43,7 +44,10 @@ test('a sparkline needs two points', () => {
 test('gym page: readiness, the plan, the last workout\'s feedback, older ones and lifts; text escaped', () => {
   const html = gymHtml(gym);
   assert.match(html, /Friday 2 October/);
-  assert.match(html, /Mostly recovered/);
+  assert.match(html, /<div class="insight steady"><div class="verdict">Mostly recovered<\/div><p>Fine for a normal session: HRV is a bit &lt;low&gt;, sleep was fine.<\/p><\/div>/);
+  assert.match(html, /<details class="nums"><summary>The numbers<\/summary>/);
+  const order = ['Your recovery', 'How do you feel?', 'Template', 'Recommended workout'].map(t => html.indexOf(t));
+  assert.ok(order.every((at, i) => at > 0 && (i === 0 || at > order[i - 1])), 'the four steps in order');
   assert.match(html, /class="sig low"><span class="sn">HRV<\/span><b>41 ms<\/b><span class="su">usual 50 ms/);
   assert.match(html, /<option value="r-push" selected>Push &lt;A&gt; \(5 exercises\)<\/option>/);
   assert.match(html, /Generate again/);

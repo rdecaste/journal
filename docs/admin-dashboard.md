@@ -22,8 +22,11 @@ The landing page, [https://admindashboard.quest-engine.workers.dev](https://admi
 
 ## Gym page
 `/gym` (since 2 Oct 2026, Roy's request), behind the same login, linked from the Quest log page (Gym ›). It is built for the phone before the gym. Code: `src/gym.js` (data and buttons) and `src/gympage.js` (page). Everything comes from the Quest Engine (`GET /gym` and its Hevy routes, `src/hevy.js` there, which holds the Hevy key), so this Worker never calls Hevy itself.
-- **Today's workout:**
-  - The page shows the morning's recovery (HRV, resting HR and sleep against the usual 30 nights; the same rules as Recovery today), asks how Roy feels (1–5) and offers a dropdown of his Hevy routines, read fresh from Hevy on every open.
+- **Today's workout,** as four numbered steps (Roy's order):
+  1. **Your recovery:** a short AI insight on whether Roy is ready to train, from last night's HRV, resting HR and sleep against the usual 30 nights (the same rules as Recovery today) and the last three days of training. The insight is written once a day in the Quest Engine. The numbers are folded under "The numbers".
+  2. **How do you feel?** (1–5).
+  3. **Template:** a dropdown of his Hevy routines, read fresh from Hevy on every open.
+  4. **Recommended workout:** Generate, the plan, and Send to Hevy.
   - **Generate** builds the day's workout from that routine with Roy's double progression (6–8 reps; weight up a step once every set reached 8; 10% lighter after three stuck sessions; on an easy day last time's weights, two sets). Each lift shows how it changed and why. It also writes a short briefing and a cue per exercise (one OpenAI call, in the Quest Engine). The workout is only shown on the page.
   - **Send to Hevy** writes it to Hevy as the routine **Today · <template>**, which is overwritten each time. The page then shows ✓ In Hevy. If Roy generates again, the page says which plan Hevy still has until he sends the new one.
 - **Last workout:** its sets and the coach's feedback, written when the Strava sync brings the session in. If a workout has no feedback, a **Write feedback** button writes it. Older workouts are listed below it.
@@ -208,3 +211,11 @@ rdecaste/journal PR #12, merged `f28a69a`; Roy deploys with `npx wrangler deploy
 Each lift shows a label (↑ weight, +1 rep, ↓ 10%, 2 sets) and a one-line reason. The rule itself is in the Quest Engine's `src/hevy.js`.
 
 2 Oct 2026: **Journal page: mood, morning and evening** (Roy's request, designed with him in the mockup https://claude.ai/artifact/5BA8rZUCEBuc36yWH7qdTD). A 💭 Mood row opens each half: five pictures Roy made, from a green face throwing up to a face on fire (1 Sucky, 2 Meh, 3 Normal, 4 Good, 5 On fire). The pick sits on a soft tile with its word beneath, saves at once to the day's journal row (`mood_morning`, `mood_evening`; Quest Engine migration 0009, applied with Roy's ok) and shows first in that half's summary; tapping it again clears it. The pictures are served by the Worker from `src/moodart.js` (`GET /journal/mood/1.webp` … `5.webp`). `src/areas.js` copied over from the Quest Engine (also brings the boss designs' `lore`).
+
+2 Oct 2026: **Gym page: four steps and a recovery insight** (Roy's request). Today's workout is now four numbered cards:
+1. Your recovery.
+2. How do you feel?
+3. Template.
+4. Recommended workout.
+
+Step 1 leads with one or two AI sentences on whether Roy is ready to train (Quest Engine `hevy_insight`, one small OpenAI call a day). The HRV, resting HR and sleep numbers are folded underneath.

@@ -1,7 +1,9 @@
 // GET /gym: the gym page (data: src/gym.js). One column for the phone before
 // the gym and the Mac afterwards:
-//   Today: the morning's recovery (HRV, resting HR, sleep against the usual
-//   30 nights), how Roy feels (1–5) and a Hevy routine as the template →
+//   Today, as four steps (Roy, 2 Oct): 1 the morning's recovery, led by a
+//   short AI insight on whether he is ready to train (the HRV, resting HR and
+//   sleep numbers folded underneath), 2 how Roy feels (1–5), 3 a Hevy
+//   routine as the template, 4 the recommended workout →
 //   Generate shows the day's workout here, each lift with why it changed
 //   (Roy's double progression, src/hevy.js in the Quest Engine) → Send to
 //   Hevy writes it there as "Today · …" (one routine, overwritten each time).
@@ -51,12 +53,15 @@ function signalHtml(name, s, fmt, unit) {
   return `<div class="sig${s.low ? ' low' : ''}"><span class="sn">${name}</span><b>${esc(fmt(s.value))}${unit}</b>${s.usual !== null ? `<span class="su">usual ${esc(fmt(s.usual))}${unit}</span>` : ''}</div>`;
 }
 
-function readinessHtml(r) {
+// Step 1: the insight first (AI, or the verdict in a sentence), the numbers
+// folded away underneath (Roy: on their own they mean little).
+function readinessHtml(r, insight) {
   if (!r) return '';
   const verdict = r.measured ? (r.verdict ? VERDICTS[r.verdict] : 'Too few nights to compare yet') : 'No recovery data for today yet';
+  const text = insight && insight.text;
   return `<div class="ready">
-    <div class="verdict ${esc(r.verdict || 'none')}">${esc(verdict)}</div>
-    <div class="sigs">${signalHtml('HRV', r.hrv, v => n(v), ' ms')}${signalHtml('Resting HR', r.rhr, v => n(v), ' bpm')}${signalHtml('Sleep', r.sleep, hm, '')}</div>
+    <div class="insight ${esc(r.verdict || 'none')}"><div class="verdict">${esc(verdict)}</div>${text ? `<p>${esc(text)}</p>` : ''}</div>
+    ${r.measured ? `<details class="nums"><summary>The numbers</summary><div class="sigs">${signalHtml('HRV', r.hrv, v => n(v), ' ms')}${signalHtml('Resting HR', r.rhr, v => n(v), ' bpm')}${signalHtml('Sleep', r.sleep, hm, '')}</div></details>` : ''}
   </div>`;
 }
 
@@ -143,14 +148,28 @@ h2{font-family:var(--serif);font-weight:600;font-size:22px;margin:0}
 .card{background:var(--surface);border-radius:22px;padding:22px;display:flex;flex-direction:column;gap:16px;box-shadow:0 1px 2px rgba(20,26,36,.04)}
 .sec{display:flex;flex-direction:column;gap:10px}
 .ready{display:flex;flex-direction:column;gap:10px}
-.verdict{font-family:var(--serif);font-size:20px;font-weight:600}
-.verdict.good{color:var(--ok)} .verdict.easy{color:var(--warn)} .verdict.steady{color:var(--gold)}
+.insight{border-left:4px solid var(--line);border-radius:4px;padding:2px 0 2px 14px;display:flex;flex-direction:column;gap:4px}
+.insight p{margin:0;font-family:var(--serif);font-size:18px;line-height:1.5}
+.verdict{font-weight:700;font-size:14px;color:var(--muted)}
+.insight.good{border-color:var(--ok)} .insight.good .verdict{color:var(--ok)}
+.insight.steady{border-color:var(--gold)} .insight.steady .verdict{color:var(--gold)}
+.insight.easy{border-color:var(--warn)} .insight.easy .verdict{color:var(--warn)}
+.nums summary{cursor:pointer;font-size:14px;color:var(--muted);font-weight:600;min-height:32px;display:flex;align-items:center;gap:6px;list-style:none}
+.nums summary::-webkit-details-marker{display:none}
+.nums summary::before{content:'▸';font-size:12px} .nums[open] summary::before{content:'▾'}
+.nums[open] summary{margin-bottom:8px}
 .sigs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .sig{background:var(--bg);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;min-width:0}
 .sig b{font-size:18px;font-variant-numeric:tabular-nums}
 .sig.low{background:var(--warn-soft)} .sig.low b{color:var(--warn)}
 .sn,.su{font-size:12.5px;color:var(--muted)}
 .label{font-weight:600;font-size:15px}
+.steps{display:flex;flex-direction:column;gap:10px}
+.step{gap:14px}
+.sh{display:flex;align-items:center;gap:10px}
+.sh h2{font-size:20px}
+.sh label{cursor:pointer}
+.num{flex:none;width:28px;height:28px;border-radius:50%;background:var(--ki-soft);color:var(--ki);font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center}
 .feel{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
 .feel button{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 2px;display:flex;flex-direction:column;align-items:center;cursor:pointer;min-height:56px}
 .feel button b{font-size:18px} .feel button span{font-size:12px;color:var(--muted)}
@@ -262,17 +281,27 @@ export function gymHtml(d) {
   ${!d.connected ? '<p class="err">HEVY_API_KEY is not set on the Quest Engine.</p>' : ''}
   ${d.routines_error ? `<p class="err">Hevy did not answer, so these are the routines from the last time: ${esc(d.routines_error)}</p>` : ''}
 
-  <article class="card" aria-labelledby="today-h">
-    <h2 id="today-h">Today’s workout</h2>
-    ${readinessHtml(d.readiness)}
-    <div class="label" id="feel-l">How do you feel?</div>
-    <div class="feel" role="group" aria-labelledby="feel-l">${FEELINGS.map(([v, t]) => `<button type="button" data-v="${v}" aria-pressed="false"><b>${v}</b><span>${t}</span></button>`).join('')}</div>
-    <label class="label" for="tpl">Template</label>
-    <select id="tpl">${(d.templates || []).length ? `<option value="">Pick a Hevy routine…</option>${d.templates.map(t => `<option value="${esc(t.id)}"${d.plan && d.plan.routine_id === t.id ? ' selected' : ''}>${esc(t.title)} (${t.exercises} exercises)</option>`).join('')}` : '<option value="">No routines in Hevy yet</option>'}</select>
-    <button class="btn" id="gen" type="button"${(d.templates || []).length ? '' : ' disabled'}>${d.plan ? 'Generate again' : 'Generate today’s workout'}</button>
-    <p class="status" id="status" role="status" aria-live="polite"></p>
-    ${planHtml(d.plan, d.sent)}
-  </article>
+  <section class="steps" aria-label="Today’s workout">
+    <article class="card step" aria-labelledby="s1-h">
+      <div class="sh"><span class="num" aria-hidden="true">1</span><h2 id="s1-h">Your recovery</h2></div>
+      ${readinessHtml(d.readiness, d.insight)}
+    </article>
+    <article class="card step" aria-labelledby="feel-l">
+      <div class="sh"><span class="num" aria-hidden="true">2</span><h2 id="feel-l">How do you feel?</h2></div>
+      <div class="feel" role="group" aria-labelledby="feel-l">${FEELINGS.map(([v, t]) => `<button type="button" data-v="${v}" aria-pressed="false"><b>${v}</b><span>${t}</span></button>`).join('')}</div>
+    </article>
+    <article class="card step">
+      <div class="sh"><span class="num" aria-hidden="true">3</span><h2><label for="tpl">Template</label></h2></div>
+      <select id="tpl">${(d.templates || []).length ? `<option value="">Pick a Hevy routine…</option>${d.templates.map(t => `<option value="${esc(t.id)}"${d.plan && d.plan.routine_id === t.id ? ' selected' : ''}>${esc(t.title)} (${t.exercises} exercises)</option>`).join('')}` : '<option value="">No routines in Hevy yet</option>'}</select>
+    </article>
+    <article class="card step" aria-labelledby="s4-h">
+      <div class="sh"><span class="num" aria-hidden="true">4</span><h2 id="s4-h">Recommended workout</h2></div>
+      ${d.plan ? '' : '<p class="muted" style="margin:0">Built from your recovery, how you feel and the template, with your progression rule.</p>'}
+      <button class="btn" id="gen" type="button"${(d.templates || []).length ? '' : ' disabled'}>${d.plan ? 'Generate again' : 'Generate today’s workout'}</button>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+      ${planHtml(d.plan, d.sent)}
+    </article>
+  </section>
 
   ${last ? workoutHtml(last, true, d.ai) : `<article class="card"><h2>Last workout</h2><p class="muted" style="margin:0">${empty ? 'No Hevy workouts in the dashboard yet. Import your history below; after that, every gym session arrives with the Strava sync.' : ''}</p></article>`}
   ${older.length ? `<section class="sec"><h2>Before that</h2>${older.map(w => workoutHtml(w, false, d.ai)).join('')}</section>` : ''}
