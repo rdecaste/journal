@@ -236,3 +236,5 @@ A 9-exercise routine fits in about one phone screen. Timed blocks show minutes, 
 - **Generate:** the button is just "Generate", and nothing is chosen in advance. A plan made earlier today stays folded ("Earlier today: …") until a new one is generated (`/gym?plan=<id>` opens the new one).
 - **Removed:** "Before that" and "Lifts". Roy looks at those in Hevy.
 - **Skills:** holds such as the planche, human flag and one-arm handstand show "+2 s" and "↑ next stage".
+
+2 Oct 2026: **Journal page: new mood pictures, Meh becomes Tired** (Roy's request). Roy's second set of five pictures replaces the first; 2 is now a tired face with Zzz, called Tired (still stored as 2). The page asks for the pictures with `?v=` and `MOOD_ART_VERSION` from `src/moodart.js`, so browsers that kept the old ones for a year fetch the new ones; bump it whenever the pictures change.
