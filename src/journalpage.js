@@ -103,10 +103,16 @@ textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400
 .recap.night .link{color:var(--night)}
 .link{border:0;background:none;padding:4px 0;color:var(--ki);font-family:var(--sans);font-style:normal;font-size:14px;font-weight:500;cursor:pointer;align-self:flex-start;min-height:32px}
 .later{margin:0;color:var(--muted);font-family:var(--serif);font-style:italic;font-size:17px;line-height:1.5}
-.end{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding-top:4px}
-.endbtn{font-size:15px;font-weight:600;min-height:44px;padding:0 20px;border-radius:999px;border:0;cursor:pointer;background:var(--ink);color:var(--paper)}
+/* Start my day / End my day: a full-width pill, sunrise in the morning and dusk at night
+   (Roy picked option A, 2 Oct). */
+.end{display:flex;flex-direction:column;align-items:stretch;gap:8px;padding-top:4px}
+.endbtn{min-height:54px;padding:0 24px;border-radius:999px;border:0;cursor:pointer;font-family:var(--serif);font-size:18px;font-weight:600;letter-spacing:.005em;
+  color:#4a2c0c;background:linear-gradient(120deg,#ffe3a3 0%,#fbc483 55%,#f4a483 100%);box-shadow:0 10px 24px -14px rgba(220,120,50,.9),inset 0 1px 0 rgba(255,255,255,.55);
+  transition:transform .12s ease;-webkit-tap-highlight-color:transparent}
+.endbtn:active{transform:scale(.97)}
+#e-done{color:#f5f2ff;background:linear-gradient(120deg,#3c4377 0%,#5d4f8f 55%,#8a6098 100%);box-shadow:0 10px 24px -14px rgba(50,40,110,.9),inset 0 1px 0 rgba(255,255,255,.18)}
 .bye{margin:0;font-family:var(--serif);font-style:italic;font-size:17px;line-height:1.5;color:var(--muted)}
-.close{align-items:center;padding:6px 0 0}
+.close{padding:6px 0 0}
 /* Main quest: a page card with a warm gold wash (light by day, dark at night). */
 .checkin{background:linear-gradient(180deg,var(--gold-soft),var(--paper) 75%);color:var(--ink);border-radius:22px;padding:22px 24px;display:flex;flex-direction:column;gap:14px;position:relative;box-shadow:0 1px 2px rgba(20,26,36,.04);transition:box-shadow .3s}
 .ci-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
@@ -232,7 +238,7 @@ export function journalHtml(d) {
     ${d.sections.headspace ? entry('headspace') : ''}
     ${d.sections.forward ? entry('forward', { small: true }) : ''}
     ${entry('winif', { small: true })}
-    <div class="end"><button type="button" class="endbtn" id="m-done">Done for this morning</button></div>
+    <div class="end"><button type="button" class="endbtn" id="m-done">Start my day ☀</button></div>
   </section>
 
   <h2>🌙 Evening</h2>
@@ -245,7 +251,7 @@ export function journalHtml(d) {
       ${d.sections.tomorrow ? entry('tomorrow', { small: true }) : ''}
       ${d.work ? '<div class="entry small" data-entry="work"><div class="label">🚗 Commute</div><div id="work"></div></div>' : ''}
     </section>
-    <div class="end close"><button type="button" class="endbtn" id="e-done">Close the day</button></div>
+    <div class="end close"><button type="button" class="endbtn" id="e-done">End my day</button></div>
   </div>
 
   <h2>🔥 Main quest</h2>
@@ -554,7 +560,7 @@ const SCRIPT = String.raw`
         var el = $('reflection-q'); if (el && !(UI.n_reflection > 0)) el.textContent = j.q;
       }).catch(function () {});
   }
-  // Done / Close the day: the open half shrinks to its recap while it fades, the recap lines rise in,
+  // Start my day / End my day: the open half shrinks to its recap while it fades, the recap lines rise in,
   // then a small sun rises (morning) or a few stars twinkle (evening) in its corner.
   function fold(openEl, recapEl, mark, finish) {
     if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) { finish(); recapEl.scrollIntoView({ block: 'nearest' }); return; }
