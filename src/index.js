@@ -9,6 +9,8 @@
 //                  to write, morning and evening (signed in; src/journald1.js)
 //   POST /journal/save  writes what changed on the journal page into the day's
 //                  journal row in D1 (signed in; JSON)
+//   GET  /journal/mood/1.webp … 5.webp  the mood row's pictures (signed in;
+//                  src/moodart.js)
 //   GET  /gym      the gym page: today's recovery, a button that builds the
 //                  day's workout from a Hevy routine and one that sends it to Hevy, the
 //                  last workouts with the coach's feedback, lift trends
@@ -42,6 +44,7 @@ import { todayHtml } from './todaypage.js';
 import { loadJournal, saveJournal, journalDay } from './journal.js';
 import { writeEveningQuestion, aiOn } from './eveningq.js';
 import { journalHtml } from './journalpage.js';
+import { MOOD_ART } from './moodart.js';
 import { loadGym, gymAction } from './gym.js';
 import { gymHtml } from './gympage.js';
 import { summaryDue, writeSummary, isSummaryHour } from './summary.js';
@@ -126,6 +129,12 @@ export default {
       if (pathname === '/journal') {
         if (!signedIn) return redirect('/login?next=/journal');
         return new Response(journalHtml(await loadJournal(env)), { headers: PAGE_HEADERS });
+      }
+      const mood = pathname.match(/^\/journal\/mood\/([1-5])\.webp$/);
+      if (mood) {
+        if (!signedIn) return new Response('Not found', { status: 404 });
+        const bytes = Uint8Array.from(atob(MOOD_ART[mood[1] - 1]), c => c.charCodeAt(0));
+        return new Response(bytes, { headers: { 'Content-Type': 'image/webp', 'Cache-Control': 'private, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff' } });
       }
       if (pathname === '/journal/save' && request.method === 'POST') {
         if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);

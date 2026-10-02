@@ -206,3 +206,5 @@ rdecaste/journal PR #12, merged `f28a69a`; Roy deploys with `npx wrangler deploy
 - On an easy day: last time's weights, two working sets, no extra reps.
 
 Each lift shows a label (↑ weight, +1 rep, ↓ 10%, 2 sets) and a one-line reason. The rule itself is in the Quest Engine's `src/hevy.js`.
+
+2 Oct 2026: **Journal page: mood, morning and evening** (Roy's request, designed with him in the mockup https://claude.ai/artifact/5BA8rZUCEBuc36yWH7qdTD). A 💭 Mood row opens each half: five pictures Roy made, from a green face throwing up to a face on fire (1 Sucky, 2 Meh, 3 Normal, 4 Good, 5 On fire). The pick sits on a soft tile with its word beneath, saves at once to the day's journal row (`mood_morning`, `mood_evening`; Quest Engine migration 0009, applied with Roy's ok) and shows first in that half's summary; tapping it again clears it. The pictures are served by the Worker from `src/moodart.js` (`GET /journal/mood/1.webp` … `5.webp`). `src/areas.js` copied over from the Quest Engine (also brings the boss designs' `lore`).

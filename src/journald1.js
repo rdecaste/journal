@@ -15,6 +15,8 @@ import { healthStore, journalStore } from './healthstore.js';
 const SLOT = { d1: true };
 // The page's keys for the ✍️ boxes → the journal's columns.
 export const EXTRA_COLUMNS = { winif: 'win_if', did: 'did_it_happen', park: 'park_it', mq: 'main_quest_checkin', mqnote: 'main_quest_note' };
+// The mood row: 1 Sucky to 5 On fire, morning and evening (migration 0009).
+export const MOOD_COLUMNS = { m: 'mood_morning', e: 'mood_evening' };
 
 const ID = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
 const isId = s => typeof s === 'string' && ID.test(s);
@@ -46,6 +48,7 @@ export async function readDay(db, row) {
   return {
     sections, focus: groups, extras, extras_box: 'd1',
     quests: notes.map(n => ({ id: n.id, title: n.title || '', icon: n.icon || JOURNAL.questIcon, text: n.note || '', at: n.edited_at || null, slot: SLOT })),
+    mood: { m: row.mood_morning || 0, e: row.mood_evening || 0 },
     main_quest: row.main_quest_name || '',
     checkin: mq.includes('Success') ? 'win' : mq.includes('Relapse') ? 'lose' : null
   };
@@ -163,7 +166,7 @@ export async function saveJournalD1(env, body) {
   if (!isId(pageId)) throw Object.assign(new Error('No journal page'), { code: 'bad_request' });
   const row = await js.get('journal', pageId);
   if (!row) throw Object.assign(new Error('No journal page'), { code: 'bad_request' });
-  const out = { sections: {}, extras: {}, quests: {}, focus: {} };
+  const out = { sections: {}, extras: {}, quests: {}, focus: {}, mood: {} };
   const failed = [];
   const attempt = async (key, write) => {
     try { return await write(); }
@@ -189,6 +192,13 @@ export async function saveJournalD1(env, body) {
   if (Object.keys(columns).length || Object.keys(properties).length) {
     const r = await attempt('answers', () => js.update('journal', row.id, properties, columns));
     if (!r) { out.sections = {}; out.extras = {}; }
+  }
+
+  // The mood, each half on its own: a whole 1 to 5, or empty (0 or null) when unpicked.
+  for (const [w, v] of Object.entries(body.mood && typeof body.mood === 'object' ? body.mood : {})) {
+    if (!MOOD_COLUMNS[w] || !(v === null || (Number.isInteger(v) && v >= 0 && v <= 5))) continue;
+    const r = await attempt('mood_' + w, () => js.update('journal', row.id, {}, { [MOOD_COLUMNS[w]]: v || null }));
+    if (r) out.mood[w] = SLOT;
   }
 
   for (const [key, v] of Object.entries(body.quests || {})) {

@@ -136,6 +136,24 @@ textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400
 .qcard textarea,.checkin textarea{background-color:var(--write-quest)}
 .qcard textarea:focus,.checkin textarea:focus{border-color:color-mix(in srgb,var(--gold) 60%,transparent)}
 .stamp{margin:0;font-size:13.5px;color:var(--muted)}
+/* Mood: Roy's five pictures in a row at the top of each half, 1 Sucky to 5 On fire
+   (Roy's design, 2 Oct). The pick sits on a soft tile with its word beneath; tap
+   it again to clear. */
+.entry.mood{gap:6px;margin-bottom:-14px}
+.moods{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;justify-items:center;align-items:center;margin:4px 0 0}
+.mood-c{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%}
+.mood-b{width:100%;max-width:76px;aspect-ratio:1;border:0;border-radius:22px;padding:0;background:transparent;cursor:pointer;display:grid;place-items:center;
+  -webkit-tap-highlight-color:transparent;transition:transform .12s ease,opacity .2s ease,background-color .2s ease}
+.mood-b:active{transform:scale(.94)}
+.mood-b img{width:84%;height:84%;object-fit:contain;display:block;transition:transform .2s ease}
+.mood-b[data-v="5"] img{width:96%;height:96%}
+.mood-b[aria-checked="true"]{background:var(--ki-soft)}
+.evening .mood-b[aria-checked="true"]{background:var(--night-soft)}
+.mood-b[aria-checked="true"] img{transform:scale(1.06)}
+.moods.picked .mood-b:not([aria-checked="true"]){opacity:.5}
+.mood-n{font-family:var(--serif);font-style:italic;font-size:15px;line-height:1.3;color:var(--ink);white-space:nowrap;visibility:hidden}
+.mood-b[aria-checked="true"]+.mood-n{visibility:visible}
+.recap .mini{width:22px;height:22px;vertical-align:-5px;display:inline-block;margin-right:4px}
 /* Daily theme: layered hills behind the header, and the day's colour washing
    down the whole page (set by the script as --day-top / --day-end). */
 body{min-height:100vh;background:linear-gradient(180deg,var(--day-top,var(--bg)) 0,var(--day-top,var(--bg)) 360px,var(--day-end,var(--bg)) 100%)}
@@ -195,6 +213,13 @@ const entry = (id, { small = false, evening = false, after = '' } = {}) => {
       </div>`;
 };
 
+// The mood row (the script draws the five pictures).
+const moodEntry = w => `<div class="entry small mood" data-entry="mood-${w}">
+        <div class="label">💭 Mood</div>
+        <p class="q">${w === 'm' ? 'How are you feeling this morning?' : 'How are you feeling tonight?'}</p>
+        <div class="moods" role="radiogroup" aria-label="Mood ${w === 'm' ? 'this morning' : 'tonight'}" data-mood="${w}"></div>
+      </div>`;
+
 const head = title => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -235,6 +260,7 @@ export function journalHtml(d) {
   <h2>☀️ Morning</h2>
   <div id="m-recap" hidden></div>
   <section class="sheet morning" id="m-open" aria-label="Morning">
+    ${d.mood ? moodEntry('m') : ''}
     ${d.sections.headspace ? entry('headspace') : ''}
     ${d.sections.forward ? entry('forward', { small: true }) : ''}
     ${entry('winif', { small: true })}
@@ -246,6 +272,7 @@ export function journalHtml(d) {
   <div id="e-recap" hidden></div>
   <div id="e-open" class="evening" style="display:flex;flex-direction:column;gap:22px">
     <section class="sheet" aria-label="Evening">
+      ${d.mood ? moodEntry('e') : ''}
       ${d.sections.reflection ? entry('reflection') : ''}
       ${entry('park', { small: true })}
       ${d.sections.tomorrow ? entry('tomorrow', { small: true }) : ''}
@@ -311,6 +338,7 @@ const SCRIPT = String.raw`
   if (D.work) V.work = { am: D.work.am || '', pm: D.work.pm || '', commute: D.work.commute || '' };
   var checkin = D.checkin || (D.success ? 'win' : null);
   V.mq = checkin || '';
+  if (D.mood) { V.mood_m = D.mood.m || 0; V.mood_e = D.mood.e || 0; }
   var SECTION = { headspace: 1, forward: 1, reflection: 1, tomorrow: 1 };
   var EXTRA = { winif: 1, did: 1, park: 1, mq: 1, mqnote: 1 };
 
@@ -354,6 +382,7 @@ const SCRIPT = String.raw`
       else if (k.indexOf('q:') === 0) b.quests[k.slice(2)] = { slot: S.quests[k.slice(2)], text: V[k] };
       else if (k.indexOf('f:') === 0) b.focus[k.slice(2)] = { slot: S.focus[k.slice(2)], items: F[k.slice(2)] };
       else if (k === 'work' && D.work) b.work = { id: D.work.id, am: V.work.am, pm: V.work.pm, commute: V.work.commute };
+      else if (k === 'mood_m' || k === 'mood_e') { b.mood = b.mood || {}; b.mood[k.slice(5)] = V[k] || null; }
       // The win is also a To-Do for the Quest Engine; its Status follows "The win".
       if (k === 'winif') b.win = { text: V.winif || '', day: D.day };
     });
@@ -400,7 +429,7 @@ const SCRIPT = String.raw`
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flush(true); });
   window.addEventListener('pagehide', function () { flush(true); });
   if (Object.keys(dirty).length || todoOps.length || success !== null) setTimeout(flush, 500);
-  var NAMES = { headspace: 'Headspace', forward: 'Looking forward', winif: 'the win', reflection: 'Reflection', park: 'Park it', tomorrow: 'For tomorrow', work: 'the commute', mq: 'the main quest', mqnote: 'the main quest note', success: 'the main quest', did: 'the win' };
+  var NAMES = { headspace: 'Headspace', forward: 'Looking forward', winif: 'the win', reflection: 'Reflection', park: 'Park it', tomorrow: 'For tomorrow', work: 'the commute', mq: 'the main quest', mqnote: 'the main quest note', success: 'the main quest', did: 'the win', mood_m: 'the morning mood', mood_e: 'the evening mood' };
 
   // ---- Writing boxes ----
   var grow = function (el) { if (!el.offsetParent) return; el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight + el.offsetHeight - el.clientHeight, 30) + 'px'; };
@@ -448,11 +477,35 @@ const SCRIPT = String.raw`
   });
 
   // ---- The folded morning ----
+  // ---- Mood: five pictures, 1 Sucky to 5 On fire; saved like the writing ----
+  var MOODS = ['Sucky', 'Meh', 'Normal', 'Good', 'On fire'];
+  var moodSrc = function (v) { return '/journal/mood/' + v + '.webp'; };
+  function moodText(w) { var v = V['mood_' + w]; return v ? MOODS[v - 1] : ''; }
+  function moodHtml(w) { var v = V['mood_' + w]; return v ? '<img class="mini" src="' + moodSrc(v) + '" alt="">' + MOODS[v - 1] : ''; }
+  function drawMoods() {
+    Array.prototype.forEach.call(document.querySelectorAll('.moods'), function (box) {
+      var w = box.getAttribute('data-mood'), v = V['mood_' + w] || 0;
+      box.classList.toggle('picked', !!v);
+      box.innerHTML = MOODS.map(function (n, i) {
+        var on = v === i + 1;
+        return '<div class="mood-c"><button type="button" class="mood-b" role="radio" aria-checked="' + on + '" aria-label="' + n + '" data-v="' + (i + 1) + '">' +
+          '<img src="' + moodSrc(i + 1) + '" alt=""></button><span class="mood-n"' + (on ? '' : ' aria-hidden="true"') + '>' + n + '</span></div>';
+      }).join('');
+    });
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('.mood-b'); if (!b) return;
+    var key = 'mood_' + b.closest('.moods').getAttribute('data-mood'), v = Number(b.getAttribute('data-v'));
+    change(key, V[key] === v ? 0 : v, true); drawMoods();
+    if (navigator.vibrate) try { navigator.vibrate(8); } catch (x) {}
+  });
+  drawMoods();
+
   function recap() {
-    var bits = [['Headspace', V.headspace], ['Looking forward', V.forward], ['Win if', V.winif]]
+    var bits = [['Mood', moodText('m'), moodHtml('m')], ['Headspace', V.headspace], ['Looking forward', V.forward], ['Win if', V.winif]]
       .filter(function (b) { return b[1] && String(b[1]).trim(); });
     $('m-recap').innerHTML = '<div class="recap">' + (UI.bye ? '<p class="bye" style="margin-bottom:6px">Have a good day, Roy.</p>' : '') +
-      (bits.length ? bits.map(function (b) { return '<p><b>' + b[0] + '</b>' + esc(b[1]) + '</p>'; }).join('') : '<p class="later" style="font-size:17px">Nothing written this morning.</p>') +
+      (bits.length ? bits.map(function (b) { return '<p><b>' + b[0] + '</b>' + (b[2] || esc(b[1])) + '</p>'; }).join('') : '<p class="later" style="font-size:17px">Nothing written this morning.</p>') +
       '<button type="button" class="link" id="edit-m">' + (bits.length ? 'Open the morning ›' : 'Write it now ›') + '</button></div>';
     $('edit-m').addEventListener('click', function () { UI.mopen = true; UI.bye = false; saveUI(); layout(); });
   }
@@ -490,10 +543,10 @@ const SCRIPT = String.raw`
 
   // The evening folds the same way once the day is closed.
   function eveningRecap() {
-    var bits = [['Reflection', V.reflection], ['Park it', V.park], ['For tomorrow', V.tomorrow]]
+    var bits = [['Mood', moodText('e'), moodHtml('e')], ['Reflection', V.reflection], ['Park it', V.park], ['For tomorrow', V.tomorrow]]
       .filter(function (b) { return b[1] && String(b[1]).trim(); });
     $('e-recap').innerHTML = '<div class="recap night"><p class="bye" style="margin-bottom:6px">Saved. Sleep well, Roy.</p>' +
-      bits.map(function (b) { return '<p><b>' + b[0] + '</b>' + esc(b[1]) + '</p>'; }).join('') +
+      bits.map(function (b) { return '<p><b>' + b[0] + '</b>' + (b[2] || esc(b[1])) + '</p>'; }).join('') +
       '<button type="button" class="link" id="edit-e">Open the evening ›</button></div>';
     $('edit-e').addEventListener('click', function () { UI.edone = false; saveUI(); layout(); });
   }
