@@ -120,7 +120,9 @@ AREAS.journal = {
       // The page's answers: D1 columns with no Notion property (written by
       // the 03:30 setup and the journal page; read from the blocks by the copy).
       plain: ['headspace_q', 'headspace', 'forward_q', 'forward', 'reflection_q', 'reflection', 'tomorrow_q', 'tomorrow',
-        'win_if', 'did_it_happen', 'park_it', 'main_quest_name', 'main_quest_checkin', 'main_quest_note'],
+        'win_if', 'did_it_happen', 'park_it', 'main_quest_name', 'main_quest_checkin', 'main_quest_note',
+        // The mood row, 1 (Sucky) to 5 (On fire); D1 only (migration 0009, 2 Oct 2026).
+        'mood_morning', 'mood_evening'],
       // Rollups no code reads, and the other side of relations kept on the
       // health tables and the updates.
       ignore: ['Weight', 'Body Fat %', 'Workouts', 'Body Metrics', 'Sleep', 'Work Location', 'Journal Updates', 'Quest Updates']
@@ -329,12 +331,14 @@ AREAS.battle = {
         character_description: 'Character Description', hair_face: 'Hair / Face', outfit: 'Outfit', aura_energy: 'Aura / Energy',
         expression: 'Expression', pose: 'Pose', environment: 'Environment', camera_lighting: 'Camera & Lighting',
         motion_style: 'Motion Style', signature_move: 'Signature Move', core_voice: 'Core Voice', level_voice: 'Level Voice', avoid: 'Avoid',
+        // Lore exists only in D1 (added 2 Oct 2026, after the Notion copy).
+        lore: 'Lore',
         image_url: 'Image URL', reference_image: 'Reference Image', video_url: 'Video URL'
       },
       types: {
         Form: 'title', Character: 'select', 'Character Description': 'rich_text', 'Hair / Face': 'rich_text', Outfit: 'rich_text',
         'Aura / Energy': 'rich_text', Expression: 'rich_text', Pose: 'rich_text', Environment: 'rich_text', 'Camera & Lighting': 'rich_text',
-        'Motion Style': 'rich_text', 'Signature Move': 'rich_text', 'Core Voice': 'rich_text', 'Level Voice': 'rich_text', Avoid: 'rich_text',
+        'Motion Style': 'rich_text', 'Signature Move': 'rich_text', 'Core Voice': 'rich_text', 'Level Voice': 'rich_text', Avoid: 'rich_text', Lore: 'rich_text',
         'Image URL': 'url', 'Reference Image': 'url', 'Video URL': 'url'
       },
       ignore: []

@@ -116,3 +116,21 @@ test('D1 journal page: bad input is refused', async () => {
   assert.equal(r.failed[0].code, 'bad_request');
   assert.deepEqual(r.slots.extras, {});
 });
+
+test('D1 journal page: the mood row saves each half on its own, 1 to 5, and clears', async () => {
+  const { db, env } = await setup();
+  assert.deepEqual((await withoutNotion(() => loadJournal(env, { now: NOW }))).mood, { m: 0, e: 0 });
+  let r = await withoutNotion(() => saveJournal(env, { page: J, mood: { m: 5 } }));
+  assert.deepEqual([r.failed, Object.keys(r.slots.mood)], [[], ['m']]);
+  r = await withoutNotion(() => saveJournal(env, { page: J, mood: { e: 2, x: 3 } }));
+  assert.deepEqual(Object.keys(r.slots.mood), ['e']);
+  // Not a whole 1 to 5: left alone.
+  await withoutNotion(() => saveJournal(env, { page: J, mood: { m: 7, e: '4' } }));
+  let row = await db.prepare('SELECT mood_morning, mood_evening FROM journal WHERE id = ?').bind(J).first();
+  assert.deepEqual(row, { mood_morning: 5, mood_evening: 2 });
+  assert.deepEqual((await withoutNotion(() => loadJournal(env, { now: NOW }))).mood, { m: 5, e: 2 });
+  // Tapping the pick again clears it.
+  await withoutNotion(() => saveJournal(env, { page: J, mood: { m: null, e: 0 } }));
+  row = await db.prepare('SELECT mood_morning, mood_evening FROM journal WHERE id = ?').bind(J).first();
+  assert.deepEqual(row, { mood_morning: null, mood_evening: null });
+});
