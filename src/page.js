@@ -62,6 +62,17 @@ svg text{fill:var(--muted);font-size:11px;font-family:inherit}
 .proc .n{font-weight:600}.proc .d{grid-column:2/4;color:var(--ink2);font-size:13px}
 .proc .p{grid-column:2/4;font-size:13px}
 .proc .when{color:var(--muted);font-size:12px;text-align:right;white-space:nowrap}
+.proc .open{all:unset;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px}.proc .open:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.proc .chev{color:var(--muted);font-size:11px;transition:transform .15s}.proc.opened .chev{transform:rotate(90deg)}
+.jobs{grid-column:2/4;margin-top:8px;border-top:1px dashed var(--grid)}
+.job{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:9px 0;border-bottom:1px solid var(--grid);align-items:center}.job:last-child{border-bottom:0}
+.job .jn{font-size:14px;font-weight:500}.job .jm{font-size:12px;color:var(--muted)}
+.job .paid{font-size:11px;color:var(--warn);background:var(--wash-warn);border-radius:999px;padding:1px 7px;margin-left:6px;font-weight:500;white-space:nowrap}
+.jbtn{font:inherit;font-size:13px;padding:6px 12px;border-radius:8px;border:1px solid var(--grid);background:var(--surface);color:var(--accent);cursor:pointer;white-space:nowrap}
+.jbtn.go{background:var(--accent);color:#fff;border-color:var(--accent)}.jbtn:disabled{opacity:.5;cursor:default}
+.job .ask,.job .res{grid-column:1/3;border-radius:8px;padding:9px 12px;font-size:13px}
+.job .ask{background:var(--grid);display:flex;flex-direction:column;gap:8px}.job .ask .row{display:flex;gap:8px;flex-wrap:wrap}
+.job .res.ok{background:var(--wash-good, var(--grid))}.job .res.bad{background:var(--wash-crit)}
 .links{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
 .links ul{list-style:none;margin:0;padding:0}
 .links li a{display:block;padding:11px 0;text-decoration:none;border-bottom:1px solid var(--grid)}
@@ -493,11 +504,58 @@ function renderSystem(s) {
   html += '<div class="card"><h3>Stale integrations</h3><div class="big">' + s.processes.filter(p => (p.key === 'strava' || p.key === 'withings') && p.level !== 'ok').length + '</div><div class="sub">Strava and Withings syncs (Quest Engine)</div></div>';
   html += '<div class="card"><h3>API / AI cost, ' + esc(u.month) + '</h3><div class="big">$' + fmt(u.cost, 2) + '</div><div class="sub">Estimate · ' + u.chat_calls + ' chat calls, ' + u.images + ' images, ' + u.videos + ' clips' + (u.previous_cost !== null ? ' · last month $' + fmt(u.previous_cost, 2) : '') + (u.since ? ' · counted since ' + day(u.since) : ' · counting starts with the next paid call') + '</div></div>';
   html += '</div>';
-  html += '<h2>Processes</h2><div class="card">' + s.processes.map(p => '<div class="proc"><span class="dot" style="margin-top:7px;background:var(--' + (p.level === 'attention' ? 'crit' : p.level === 'watch' ? 'warnfill' : 'good') + ')" data-tip="' + LABEL[p.level] + '"></span><span class="n">' + esc(p.name) + (p.enabled === false ? ' <span class="muted" style="font-weight:400">(switched off)</span>' : '') + '</span><span class="when" data-tip="' + esc(p.last_ok || '') + '">' + (p.last_ok ? ago(p.last_ok) : '–') + '</span><span class="d">' + esc(p.detail) + (p.note ? ' · ' + esc(p.note) : '') + '</span>' + (p.problem ? '<span class="p">' + esc(p.problem) + '</span>' : '') + '</div>').join('') + '</div>';
+  html += '<h2>Processes</h2><div class="card">' + s.processes.map(p => {
+    const jobs = p.jobs || [];
+    const name = jobs.length ? '<button type="button" class="open" aria-expanded="' + opened.has(p.key) + '" data-proc="' + esc(p.key) + '">' + esc(p.name) + '<span class="chev" aria-hidden="true">▸</span></button>' : esc(p.name);
+    return '<div class="proc' + (opened.has(p.key) ? ' opened' : '') + '"><span class="dot" style="margin-top:7px;background:var(--' + (p.level === 'attention' ? 'crit' : p.level === 'watch' ? 'warnfill' : 'good') + ')" data-tip="' + LABEL[p.level] + '"></span><span class="n">' + name + (p.enabled === false ? ' <span class="muted" style="font-weight:400">(switched off)</span>' : '') + '</span><span class="when" data-tip="' + esc(p.last_ok || '') + '">' + (p.last_ok ? ago(p.last_ok) : '–') + '</span><span class="d">' + esc(p.detail) + (p.note ? ' · ' + esc(p.note) : '') + '</span>' + (p.problem ? '<span class="p">' + esc(p.problem) + '</span>' : '') +
+      (jobs.length ? '<div class="jobs"' + (opened.has(p.key) ? '' : ' hidden') + '>' + jobs.map(j => '<div class="job" data-job="' + esc(j.id) + '" data-name="' + esc(j.name) + '" data-paid="' + (j.paid ? 1 : 0) + '" data-dry="' + (j.dry ? 1 : 0) + '"><div><span class="jn">' + esc(j.name) + '</span>' + (j.paid ? '<span class="paid">paid</span>' : '') + '<div class="jm">' + esc(j.note) + '</div></div><button type="button" class="jbtn" data-act="ask">Rerun</button></div>').join('') + '</div>' : '') + '</div>';
+  }).join('') + '</div>';
   if (s.checks.length) html += '<h2>healthchecks.io</h2><div class="card scroll"><table><thead><tr><th>Check</th><th>State</th><th class="num">Last ping</th></tr></thead><tbody>' + s.checks.map(c => '<tr><td>' + esc(c.name) + '</td><td>' + esc(c.status) + '</td><td class="num">' + ago(c.last_ping) + '</td></tr>').join('') + '</tbody></table></div>';
   if (s.failures.recent.length) html += '<h2>Recent failures</h2><div class="card scroll"><table><tbody>' + s.failures.recent.map(f => '<tr><td>' + ago(f.at) + '</td><td>' + esc(f.slug) + '</td><td>' + esc(f.message) + '</td></tr>').join('') + '</tbody></table></div>';
   return html + '<p><a class="src" href="https://dash.cloudflare.com/" target="_blank" rel="noopener">Cloudflare ↗</a> · <a class="src" href="https://eu2.make.com/" target="_blank" rel="noopener">Make ↗</a> · <a class="src" href="' + QUEST_ENGINE_DOC + '" target="_blank" rel="noopener">Quest Engine doc ↗</a></p>';
 }
+
+// ---- rerun a scheduled job (System health; POST /run) ----
+const opened = new Set();
+document.addEventListener('click', async e => {
+  const open = e.target.closest('button.open');
+  if (open) {
+    const k = open.dataset.proc, proc = open.closest('.proc');
+    if (opened.has(k)) opened.delete(k); else opened.add(k);
+    proc.classList.toggle('opened', opened.has(k));
+    open.setAttribute('aria-expanded', opened.has(k));
+    proc.querySelector('.jobs').hidden = !opened.has(k);
+    return;
+  }
+  const b = e.target.closest('.job button[data-act]');
+  if (!b) return;
+  const job = b.closest('.job'), act = b.dataset.act;
+  job.querySelectorAll('.ask,.res').forEach(x => x.remove());
+  if (act === 'cancel') return;
+  if (act === 'ask') {
+    const ask = document.createElement('div');
+    ask.className = 'ask';
+    ask.innerHTML = '<div><b>Rerun ' + esc(job.dataset.name) + ' now?</b> ' + (job.dataset.paid === '1' ? 'This makes a paid OpenAI call.' : 'No paid calls.') + '</div><div class="row"><button type="button" class="jbtn go" data-act="run">Rerun</button>' + (job.dataset.dry === '1' ? '<button type="button" class="jbtn" data-act="dry">Test first</button>' : '') + '<button type="button" class="jbtn" data-act="cancel">Cancel</button></div>';
+    job.appendChild(ask);
+    return;
+  }
+  const res = document.createElement('div');
+  res.className = 'res';
+  res.textContent = act === 'dry' ? 'Testing…' : 'Running…';
+  job.appendChild(res);
+  job.querySelectorAll('button').forEach(x => { x.disabled = true; });
+  try {
+    const r = await fetch('/run', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job: job.dataset.job, dry: act === 'dry' }) });
+    if (r.status === 401) { location.href = '/login?next=/admin'; return; }
+    const out = await r.json().catch(() => ({ ok: 0, text: 'No answer (' + r.status + ').' }));
+    res.className = 'res ' + (out.ok ? 'ok' : 'bad');
+    res.textContent = out.text || (out.ok ? 'Done.' : 'It did not run.');
+    if (out.ok && act === 'run') { const keep = res.textContent; await load(true); const again = document.querySelector('.job[data-job="' + job.dataset.job + '"]'); if (again) { const r2 = document.createElement('div'); r2.className = 'res ok'; r2.textContent = keep; again.appendChild(r2); } }
+  } catch (err) {
+    res.className = 'res bad';
+    res.textContent = 'Could not reach the dashboard: ' + err.message;
+  } finally { job.querySelectorAll('button').forEach(x => { x.disabled = false; }); }
+});
 
 // ---- shell ----
 const TABS = ['cross', 'health', 'system', 'links'];

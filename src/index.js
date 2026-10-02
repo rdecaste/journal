@@ -17,6 +17,8 @@
 //   POST /logout   signs out
 //   GET  /data     everything the page shows, as JSON (signed in)
 //   POST /summary  rewrite today's AI summary now (signed in; one OpenAI call)
+//   POST /run      rerun a scheduled Quest Engine job from the System health
+//                  tab (signed in; JSON { job, dry }; the jobs are in src/rerun.js)
 //
 // All data is in the Quest Engine's D1 database `quest` (binding DB) since
 // 1 Oct 2026; Notion is a read-only backup this Worker never calls. It reads
@@ -36,6 +38,7 @@ import { writeEveningQuestion, aiOn } from './eveningq.js';
 import { journalHtml } from './journalpage.js';
 import { summaryDue, writeSummary, isSummaryHour } from './summary.js';
 import { store } from './usage.js';
+import { runJob } from './rerun.js';
 export { Store } from './store.js';
 
 const PAGE_HEADERS = {
@@ -79,6 +82,18 @@ export default {
         const summary = await writeSummary(env, await loadDashboard(env, { fresh: true }), { force: true });
         if (searchParams.get('back') === '1') return redirect('/?fresh=1'); // the form on the Quest log page
         return json({ ok: 1, summary });
+      }
+      if (pathname === '/run' && request.method === 'POST') {
+        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+        if (!(request.headers.get('Content-Type') || '').includes('application/json')) return json({ ok: 0, code: 'bad_request' }, 400);
+        const body = await request.json().catch(() => null);
+        try {
+          const result = await runJob(env, String(body && body.job || ''), { dry: !!(body && body.dry) });
+          return json({ ok: result.ok ? 1 : 0, text: result.text });
+        } catch (e) {
+          console.error('run', e && e.stack || e);
+          return json({ ok: 0, code: e.code || 'server_error', text: String(e.message || e) }, e.code === 'bad_request' ? 400 : 500);
+        }
       }
       if (pathname === '/' || pathname === '/questlog') {
         if (!signedIn) return redirect(pathname === '/' ? '/login' : '/login?next=/questlog');

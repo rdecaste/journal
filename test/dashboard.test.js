@@ -362,5 +362,43 @@ test('the dashboard page\'s script parses and defines every constant it uses (1 
   new vm.Script(script);
   const defined = new Set([...script.matchAll(/(?:const|let|var|function)\s+([A-Z][A-Z0-9_]+)/g)].map(m => m[1]));
   const used = [...new Set([...script.replace(/'[^'\n]*'|"[^"\n]*"/g, '').matchAll(/\b([A-Z][A-Z0-9_]{2,})\b/g)].map(m => m[1]))];
-  assert.deepEqual(used.filter(u => !defined.has(u) && !['JSON', 'NaN', 'URL', 'TSB', 'HRV'].includes(u)), []);
+  assert.deepEqual(used.filter(u => !defined.has(u) && !['JSON', 'NaN', 'URL', 'TSB', 'HRV', 'POST'].includes(u)), []);
+});
+
+test('rerun: each process lists only its own scheduled jobs; the page gets no wiring', async () => {
+  const { jobsFor, JOBS } = await import('../src/rerun.js');
+  assert.deepEqual(jobsFor('journal').map(j => j.id), ['journal-win', 'journal-digest', 'journal-setup', 'journal-notes']);
+  assert.deepEqual(jobsFor('vault'), []);
+  assert.equal(jobsFor('journal')[0].path, undefined);
+  // Jobs that would count twice never pass force.
+  for (const id of ['journal-win', 'boss-nightly']) assert.equal(JOBS[id].fields.force, undefined);
+  // The setup reruns even when it already ran today.
+  assert.equal(JOBS['journal-setup'].fields.force, '1');
+});
+
+test('rerun: the Quest Engine gets the job with the admin token; a test run adds dry=1', async () => {
+  const { runJob } = await import('../src/rerun.js');
+  const sent = [];
+  const env = { QUEST_ENGINE_URL: 'https://qe.example', QUEST_ENGINE_TOKEN: 'tok',
+    QUEST_ENGINE: { fetch: async req => { sent.push({ url: req.url, token: req.headers.get('X-Admin-Token'), body: await req.text() }); return new Response(JSON.stringify({ ok: 1, report: { day: '2026-10-02', steps: { setup: { journal: 'x' } } } })); } } };
+  const at = Date.parse('2026-10-02T05:00:00Z'); // 07:00 Amsterdam
+  assert.deepEqual(await runJob(env, 'journal-setup', { now: at }), { ok: true, text: 'Done.' });
+  assert.deepEqual(sent[0], { url: 'https://qe.example/journal', token: 'tok', body: 'only=setup&force=1' });
+  const dry = await runJob(env, 'journal-setup', { dry: true, now: at });
+  assert.equal(sent[1].body, 'only=setup&force=1&dry=1');
+  assert.match(dry.text, /^Test run: nothing was changed/);
+  await assert.rejects(runJob(env, 'nope', { now: at }), /No such job/);
+  await assert.rejects(runJob(env, 'publish-boss', { dry: true, now: at }), /no test run/);
+});
+
+test('rerun: journal jobs wait for 03:00 Amsterdam; errors and skips are reported plainly', async () => {
+  const { runJob, summarize } = await import('../src/rerun.js');
+  const env = { QUEST_ENGINE_URL: 'https://qe.example', QUEST_ENGINE_TOKEN: 'tok', QUEST_ENGINE: { fetch: async () => { throw new Error('should not be called'); } } };
+  const r = await runJob(env, 'journal-digest', { now: Date.parse('2026-10-01T22:22:00Z') }); // 00:22 Amsterdam
+  assert.equal(r.ok, false);
+  assert.match(r.text, /03:00/);
+  assert.deepEqual(summarize({ ok: 1, report: { steps: { setup: { error: 'OpenAI 500' } } } }), { ok: false, text: 'setup: OpenAI 500' });
+  assert.deepEqual(summarize({ ok: 1, report: { steps: { setup: 'done earlier' } } }), { ok: true, text: 'Already done today; nothing was changed.' });
+  assert.deepEqual(summarize({ ok: 1, report: { skipped: 'already ran today' } }), { ok: true, text: 'Skipped: already ran today.' });
+  assert.deepEqual(summarize({ ok: 0, code: 'unauthorized', message: 'wrong passcode' }), { ok: false, text: 'wrong passcode' });
 });

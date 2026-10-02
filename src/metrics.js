@@ -5,6 +5,7 @@
 // 'attention' (needs attention), plus the specific flags that caused it. There
 // is no combined score: the Overview lists the flagged areas themselves.
 
+import { jobsFor } from './rerun.js';
 import { CROSS_BORDER, LOCATIONS, TRAINING, RECOVERY, INTERVAL_PATTERN, SPORTS, SYNCS, PRICES, ENGINE, D1_CONSOLE } from './config.js';
 
 const DAY = 86400000;
@@ -452,7 +453,8 @@ export function system({ status, checks, ledger, latest }, now = Date.now()) {
   const check = slug => (checks || []).find(c => c.slug === slug) || null;
   const fromCheck = c => (!c ? null : c.status === 'down' ? 'attention' : c.status === 'grace' ? 'watch' : 'ok');
   const processes = [];
-  const add = (p) => processes.push({ ...p, level: p.level || 'ok' });
+  // Each process carries its scheduled jobs the page can rerun (src/rerun.js).
+  const add = (p) => processes.push({ ...p, level: p.level || 'ok', jobs: jobsFor(p.key) });
   const s = status || {};
 
   // The boss card is rebuilt from D1 when opened and checked once an hour
