@@ -25,6 +25,16 @@ of `src/journal.js` lists where each piece goes); the Quest Engine's 03:00
 digest reads the same row. Each quest's question
 comes from the Quest Engine's 03:00 AI call (`GET /journal/questions`, with
 `QUEST_ENGINE_TOKEN`); until it has one for today, a plain fallback shows.
+The **gym page** at `/gym` (`src/gym.js` buttons, `src/gympage.js` page) is
+for the phone before the gym, in four steps:
+1. Today's recovery, led by a short AI insight.
+2. How Roy feels.
+3. A Hevy routine, or Custom with free text.
+4. The recommended workout, built by his progression rules, with **Send to Hevy**.
+
+It also shows the last workout with the coach's feedback. Everything comes
+from the Quest Engine (`GET /gym` and its Hevy routes, `src/hevy.js` there),
+which holds the Hevy key.
 Full description and change log: `docs/admin-dashboard.md` (moved from the
 Notion page "🧭 Admin Dashboard" on 1 Oct 2026); keep it up to date with
 each change.
@@ -71,7 +81,9 @@ the same store.
 | `GET /admin` | The dashboard (signed in), otherwise the login |
 | `GET /journal` | The journal page for today (the day starts at 03:00 Amsterdam; signed in), otherwise the login |
 | `POST /journal/save` | Writes what changed on the journal page into the day's journal row (signed in, JSON) |
-| `GET /login`, `POST /login` | Login with `DASHBOARD_PASSWORD` (`next` = `/`, `/questlog`, `/admin` or `/journal`); a signed cookie lasts 30 days |
+| `GET /gym` | The gym page (signed in; `?plan=<id>` opens a plan just generated), otherwise the login |
+| `POST /gym/generate`, `/gym/send`, `/gym/feedback`, `/gym/sync` | The gym page's buttons, passed on to the Quest Engine (signed in, JSON): build today's workout (a routine id, or `custom` with `request`), send it to Hevy, write a workout's feedback, sync from Hevy |
+| `GET /login`, `POST /login` | Login with `DASHBOARD_PASSWORD` (`next` = `/`, `/questlog`, `/admin`, `/journal` or `/gym`); a signed cookie lasts 30 days |
 | `POST /logout` | Signs out |
 | `GET /data` | Everything the dashboard shows, as JSON (signed in; cached 5 minutes, `?fresh=1` reloads) |
 | `POST /summary` | Rewrite today's AI summary (signed in, at most once a minute); `?back=1` returns to `/` |
