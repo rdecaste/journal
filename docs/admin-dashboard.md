@@ -7,7 +7,7 @@
 > the README and the Quest Engine's `docs/d1-migration.md`): where the text
 > below names a Notion database, read the D1 table of the same name.
 
-A private, read-only cockpit with the detail behind Cross Border, Health and System Health (tabs; it opens on Cross Border). The daily overview (what needs Roy, the AI summary, today's work location) is on the Quest log page below. It is its own Cloudflare Worker and is separate from the quest system. The Quest Engine is only one of the systems it watches.
+A private cockpit with the detail behind Cross Border, Health and System Health (tabs; it opens on Cross Border). The daily overview (what needs Roy, the AI summary, today's work location) is on the Quest log page below. It is its own Cloudflare Worker and is separate from the quest system. The Quest Engine is only one of the systems it watches.
 
 ## Where it lives
 - Code: GitHub rdecaste/journal, branch `main`
@@ -27,7 +27,7 @@ Everything comes from the D1 database `quest` (binding `DB`) or the Quest Engine
 |---|---|
 | Cross Border | D1 `work_location` (from 2026-07-01) |
 | Health | D1 `workouts` (Strava) and `body_metrics` (Withings), `sleep_recovery` (Apple Health: sleep, awake time, HRV, resting HR; last 60 days) and the active `quests` on the 🏃 Health Journey (never the Main Quest). |
-| System Health | Quest Engine GET /status and GET /ledger (quest-engine PR #3), [healthchecks.io](http://healthchecks.io) (read-only key) |
+| System Health | Quest Engine GET /status and GET /ledger (quest-engine PR #3), [healthchecks.io](http://healthchecks.io) (read-only key); rerun buttons call the Quest Engine's job routes with `QUEST_ENGINE_TOKEN` (`src/rerun.js`) |
 | Quick Links | Fixed list in src/config.js |
 
 The dashboard caches the combined data for 5 minutes. It has no database of its own except a tiny Durable Object that holds the daily AI summary and its own API usage.
@@ -172,3 +172,5 @@ rdecaste/journal PR #12, merged `f28a69a`; Roy deploys with `npx wrangler deploy
 1 Oct 2026: **No Make-era switches.** The Quest Engine no longer has its on/off switches (`JOURNAL_ENABLED`, `NIGHTLY_ENABLED`, `VAULT_ENABLED`, `FAMILY_ENABLED`, `family_from`; Make is off), so `/admin` watches every job every day instead of reading them from `/status`. The sync rows say "the newest row" instead of "the newest Notion row".
 
 1 Oct 2026: **Journal page: autosave is back** (Roy's request). Writing saves itself to D1 a moment after he stops typing, when he leaves a box and when the page closes, as before PR #14; the Save quests and Save note buttons are gone. The buttons (Done for this morning, Close the day, Success/Relapse) still save too. Kept from PR #14: each piece saves on its own, so one refused piece never holds up the rest, and the status line names it.
+
+2 Oct 2026: **Rerun a job from System Health** (Roy's request; he picked layout A in the mockup https://claude.ai/artifact/Ww1FBAgg5j2J2gvCV95ve2). Tapping a process opens its scheduled jobs, each with a Rerun button. Rerun asks first, says when a job makes a paid OpenAI call, and offers Test first (a dry run that changes nothing). The page sends `POST /run` and the dashboard calls the Quest Engine with its own token, so no command line is needed. Jobs that would count twice only run when today's run is missing (yesterday's win, the nightly run); the setup, notes, digest, match and Questboard are redone with `force=1`. The journal jobs refuse before 03:00 Amsterdam, when yesterday isn't over. Left out on purpose: the Vault Monday evaluation, the family rollover and the family images (portrait, daily image, weekly posters). The list is `JOBS` in `src/rerun.js`.
