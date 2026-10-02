@@ -26,7 +26,10 @@ The landing page, [https://admindashboard.quest-engine.workers.dev](https://admi
   1. **Your recovery:** a short AI insight on whether Roy is ready to train, from last night's HRV, resting HR and sleep against the usual 30 nights (the same rules as Recovery today) and the last three days of training. The insight is written once a day in the Quest Engine. The numbers are folded under "The numbers".
   2. **How do you feel?** (1–5).
   3. **Template:** a dropdown of his Hevy routines, read fresh from Hevy on every open.
-  4. **Recommended workout:** Generate, the plan, and Send to Hevy.
+  4. **Recommended workout:** Generate, the plan, and Send to Hevy. The plan is dense (Roy's request), three short lines per exercise:
+     - the name and its change label (↑ weight, +1 rep, ↓ 10%, 2 sets; tapping it shows the reason);
+     - all sets in Roy's notation, warm-ups grey first: `warm-up 8@35 · 4@52.5 kg`, then `7@70 · 6@70 · 6@70 kg`;
+     - last time and the AI tip.
   - **Generate** builds the day's workout from that routine with Roy's double progression (6–8 reps; weight up a step once every set reached 8; 10% lighter after three stuck sessions; on an easy day last time's weights, two sets). Each lift shows how it changed and why. It also writes a short briefing and a cue per exercise (one OpenAI call, in the Quest Engine). The workout is only shown on the page.
   - **Send to Hevy** writes it to Hevy as the routine **Today · <template>**, which is overwritten each time. The page then shows ✓ In Hevy. If Roy generates again, the page says which plan Hevy still has until he sends the new one.
 - **Last workout:** its sets and the coach's feedback, written when the Strava sync brings the session in. If a workout has no feedback, a **Write feedback** button writes it. Older workouts are listed below it.
@@ -219,3 +222,10 @@ Each lift shows a label (↑ weight, +1 rep, ↓ 10%, 2 sets) and a one-line rea
 4. Recommended workout.
 
 Step 1 leads with one or two AI sentences on whether Roy is ready to train (Quest Engine `hevy_insight`, one small OpenAI call a day). The HRV, resting HR and sleep numbers are folded underneath.
+
+2 Oct 2026: **Gym page: dense recommended workout** (Roy's request: "or it'll take me an hour to scroll"). Each exercise is three short lines:
+- its name and change label (the reason when the label is tapped);
+- all sets in Roy's reps@weight notation (`warm-up 8@35 · 4@52.5 kg`, then `7@70 · 6@70 · 6@70 kg`);
+- last time and the AI tip.
+
+A 9-exercise routine fits in about one phone screen. Timed blocks show minutes, and the workout history uses the same "6 @ 70 kg" notation.

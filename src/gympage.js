@@ -76,19 +76,54 @@ function sendHtml(p, sent) {
     <p class="muted small" style="margin:0">Saves it in Hevy as ${name}, replacing the one there.${sent ? ` Hevy still has the ${esc(sent.routine_title)} you sent at ${esc(clock(sent.sent_at))}.` : ''}</p>`;
 }
 
+// Dense (Roy, 2 Oct: "or it'll take me an hour to scroll"): all of an
+// exercise's sets on one line, "7@70 · 6@70 · 6@70 kg", the unit once.
+const compactOne = s => (s.weight_kg > 0 ? `${s.reps ?? '?'}@${n(s.weight_kg, 2)}` : s.reps > 0 ? `${s.reps}` : s.duration_seconds >= 60 ? `${Math.floor(s.duration_seconds / 60)}:${String(Math.round(s.duration_seconds % 60)).padStart(2, '0')}` : s.duration_seconds > 0 ? `${s.duration_seconds}s` : '—');
+export function compactSets(sets) {
+  if (!sets.length) return '';
+  const unit = sets.every(s => s.weight_kg > 0) ? ' kg' : sets.every(s => !(s.weight_kg > 0) && s.reps > 0) ? ' reps' : sets.every(s => s.duration_seconds >= 60 && !(s.reps > 0)) ? ' min' : '';
+  return sets.map(compactOne).join(' · ') + unit;
+}
+export const compactNotation = text => String(text || '').replace(/(\d+(?:\.\d+)?)kg×(\d+|\?)/g, '$2@$1').replace(/(\d+) reps/g, '$1').replace(/, /g, ' · ');
+
+// The Quest Engine's "70kg×6" in Roy's notation, "6 @ 70 kg".
+export const notation = text => String(text || '').replace(/(\d+(?:\.\d+)?)kg×(\d+|\?)/g, '$2 @ $1 kg');
+
+// One set as a line, Roy's notation (2 Oct): "warm-up  8 @ 35 kg", "set 1  7 @ 70 kg".
+export function setValue(s) {
+  return s.weight_kg > 0 ? `${s.reps ?? '?'} @ ${n(s.weight_kg, 2)} kg`
+    : s.reps > 0 ? `${s.reps} reps`
+    : s.duration_seconds >= 60 ? `${Math.floor(s.duration_seconds / 60)}:${String(Math.round(s.duration_seconds % 60)).padStart(2, '0')} min`
+    : s.duration_seconds > 0 ? `${s.duration_seconds} s`
+    : s.distance_meters > 0 ? `${s.distance_meters} m` : '—';
+}
+export function setRows(sets) {
+  let k = 0;
+  return `<ol class="setlist">${sets.map(s => {
+    const warm = s.type === 'warmup';
+    const timed = !(s.weight_kg > 0) && !(s.reps > 0) && s.duration_seconds > 0 && sets.length === 1;
+    return `<li${warm ? ' class="warm"' : ''}><span class="lbl">${warm ? 'warm-up' : timed ? 'time' : `set ${++k}`}</span><span class="val">${esc(setValue(s))}</span></li>`;
+  }).join('')}</ol>`;
+}
+
+// Step 4: three short lines per exercise: name and change (the reason when
+// the label is tapped), all sets on one line (warm-ups first, grey), then last
+// time and the cue. A warm-up or cool-down block without numbers is one line.
 function planHtml(p, sent) {
   if (!p || !p.plan) return '';
   const lvl = LEVELS[p.plan.level] || LEVELS.normal;
   return `<div class="plan" id="plan">
-    <div class="planhead"><span class="lvl ${esc(p.plan.level)}">${esc(lvl[0])}</span><span class="pt">${esc(p.routine_title)}</span><span class="muted">${esc(lvl[1])}</span></div>
-    ${p.briefing ? `<p class="brief">${esc(p.briefing)}</p>` : ''}
+    <div class="planhead"><span class="lvl ${esc(p.plan.level)}">${esc(lvl[0])}</span><span class="pt">${esc(p.routine_title)}</span></div>
+    <p class="brief">${esc(p.briefing || lvl[1])}</p>
     <ol class="exs">${p.plan.exercises.map(e => {
+      if (setsLine(e.sets) === 'As in the routine') return `<li class="ex block"><span>${esc(e.title)}</span><span class="muted">as in the routine</span></li>`;
       const warm = e.sets.filter(s => s.type === 'warmup'), work = e.sets.filter(s => s.type !== 'warmup');
-      return `<li class="ex"><div class="exh"><b>${esc(e.title)}</b><span class="chg ${esc(e.change)}" title="Compared with last time">${esc(CHANGES[e.change] || '')}</span></div>
-        <div class="exs-sets">${esc(setsLine(work))}${warm.length ? `<span class="muted"> · warm-up ${esc(setsLine(warm))}</span>` : ''}</div>
-        ${e.last ? `<div class="muted small">Last time (${esc(shortDay(e.last.day))}): ${esc(e.last.sets)}</div>` : ''}
-        ${e.reason ? `<div class="why small">${esc(e.reason)}</div>` : ''}
-        ${e.cue ? `<div class="cue">${esc(e.cue)}</div>` : ''}</li>`;
+      // "0 reps" is what Hevy logs for a timed block: not worth saying.
+      const lastUseful = e.last && !/^0 reps(, 0 reps)*$/.test(e.last.sets);
+      const note = [lastUseful ? `last ${esc(compactNotation(e.last.sets))}` : null, e.cue ? `<i>${esc(e.cue)}</i>` : null].filter(Boolean).join(' — ');
+      return `<li class="ex"><div class="exh"><b>${esc(e.title)}</b><span class="chg ${esc(e.change)}" title="${esc(e.reason || 'Compared with last time')}">${esc(CHANGES[e.change] || '')}</span></div>
+        <div class="sl">${warm.length ? `<span class="w">warm-up ${esc(compactSets(warm))}</span>` : ''}<span class="k">${esc(compactSets(work))}</span></div>
+        ${note ? `<div class="why">${note}</div>` : ''}</li>`;
     }).join('')}</ol>
     ${sendHtml(p, sent)}
   </div>`;
@@ -97,7 +132,7 @@ function planHtml(p, sent) {
 function workoutHtml(w, first, ai) {
   const facts = [w.duration_min ? `${Math.round(w.duration_min)} min` : null, w.volume_kg ? `${Math.round(w.volume_kg).toLocaleString('en-GB')} kg moved` : null, w.sets ? `${w.sets} sets` : null].filter(Boolean).join(' · ');
   const body = `<div class="wfacts muted">${esc(facts)}</div>
-    <ul class="wex">${w.exercises.map(e => `<li><b>${esc(e.title)}</b> <span class="muted">${esc(e.sets)}</span></li>`).join('')}</ul>
+    <ul class="wex">${w.exercises.map(e => `<li><b>${esc(e.title)}</b> <span class="muted">${esc(notation(e.sets))}</span></li>`).join('')}</ul>
     ${w.feedback ? `<div class="coach"><div class="ch">Coach</div>${feedbackHtml(w.feedback)}</div>`
       : ai ? `<button class="btn ghost" data-act="feedback" data-workout="${esc(w.id)}">Write feedback</button>` : ''}`;
   if (first) return `<article class="card"><div class="wt"><h2>${esc(w.title || 'Workout')}</h2><span class="muted">${esc(shortDay(w.day))}</span></div>${body}</article>`;
@@ -181,15 +216,29 @@ select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);b
 .sentok{margin:0;background:var(--ok-soft);color:var(--ok);border-radius:14px;padding:12px 16px;font-weight:600;font-size:15px}
 .sentok b{color:inherit}
 .status{font-size:14px;min-height:1.3em;margin:0} .status.bad{color:var(--warn);font-weight:600}
-.plan{display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:16px}
+.plan{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:14px}
 .planhead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .pt{font-family:var(--serif);font-weight:600;font-size:20px}
 .lvl{font-size:12.5px;font-weight:700;border-radius:999px;padding:3px 10px;background:var(--ki-soft);color:var(--ki)}
 .lvl.push{background:var(--ok-soft);color:var(--ok)} .lvl.easy{background:var(--warn-soft);color:var(--warn)}
-.brief{margin:0;font-family:var(--serif);font-size:17px;line-height:1.55}
-.exs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
-.ex{display:flex;flex-direction:column;gap:2px}
-.exh{display:flex;justify-content:space-between;gap:8px}
+.brief{margin:0;font-family:var(--serif);font-size:15.5px;line-height:1.45;background:var(--bg);border-radius:12px;padding:10px 12px}
+.exs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;counter-reset:ex}
+.ex{display:flex;flex-direction:column;gap:1px;padding:7px 0;border-top:1px solid var(--line)}
+.ex:first-child{border-top:0;padding-top:0}
+.ex.block{flex-direction:row;justify-content:space-between;gap:8px;padding:6px 0;font-size:14px}
+.exh{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.exh b{font-size:15px;line-height:1.3}
+.sl{display:flex;flex-wrap:wrap;column-gap:12px;font-variant-numeric:tabular-nums;line-height:1.35}
+.sl .k{font-size:16px;font-weight:700}
+.sl .w{font-size:13.5px;color:var(--muted)}
+.ex .why{font-size:12.5px;line-height:1.35}
+.ex .why i{font-family:var(--serif);font-size:13.5px}
+.setlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;font-variant-numeric:tabular-nums}
+.setlist li{display:flex;align-items:baseline;gap:12px;padding:3px 0}
+.setlist .lbl{width:64px;flex:none;font-size:14px;color:var(--muted)}
+.setlist .val{font-size:17px;font-weight:600}
+.setlist .warm .val{font-weight:400;color:var(--muted)}
+.why{font-size:13.5px;color:var(--muted);line-height:1.45}
 .exs-sets{font-variant-numeric:tabular-nums}
 .chg{font-size:13px;font-weight:700;color:var(--muted);white-space:nowrap} .chg.up,.chg.weight,.chg.reps{color:var(--ok)} .chg.down,.chg.deload{color:var(--warn)}
 .why{color:var(--ink)}

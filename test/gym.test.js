@@ -51,11 +51,11 @@ test('gym page: readiness, the plan, the last workout\'s feedback, older ones an
   assert.match(html, /class="sig low"><span class="sn">HRV<\/span><b>41 ms<\/b><span class="su">usual 50 ms/);
   assert.match(html, /<option value="r-push" selected>Push &lt;A&gt; \(5 exercises\)<\/option>/);
   assert.match(html, /Generate again/);
-  assert.match(html, /2 × 8 @ 80 kg, 7 @ 80 kg<span class="muted"> · warm-up 10 @ 40 kg/);
-  assert.match(html, /Last time \(Mon 28 Sep\): 80kg×8, 80kg×8, 80kg×7/);
+  assert.match(html, /<div class="sl"><span class="w">warm-up 10@40 kg<\/span><span class="k">8@80 · 8@80 · 7@80 kg<\/span><\/div>/);
+  assert.match(html, /<div class="why">last 8@80 · 8@80 · 7@80 — <i>Elbows tucked<\/i><\/div>/);
+  assert.match(html, /title="80 kg again, one more rep on set 3.">\+1 rep<\/span>/);
   assert.match(html, /Elbows tucked/);
-  assert.match(html, /<span class="chg reps" title="Compared with last time">\+1 rep<\/span>/);
-  assert.match(html, /<div class="why small">80 kg again, one more rep on set 3.<\/div>/);
+
   assert.match(html, /data-act="send" data-plan="p1">Send to Hevy<\/button>/);
   assert.match(html, /Saves it in Hevy as <b>Today · Push &lt;A&gt;<\/b>, replacing the one there.<\/p>/);
   assert.match(html, /<li>Keep the pause &lt;tight&gt;.<\/li>/);
@@ -120,4 +120,19 @@ test('the buttons pass only their own fields on', async () => {
   await assert.rejects(gymAction(env, 'delete', {}), /No such action/);
   await assert.rejects(gymAction(env, 'generate', {}), /Pick a template/);
   assert.deepEqual(await gymAction(engineEnv({ ok: 0, code: 'hevy_error', message: 'Hevy PUT /routines/x: 400' }).env, 'sync', {}), { ok: 0, code: 'hevy_error', message: 'Hevy PUT /routines/x: 400' });
+});
+
+test('set lines: reps @ weight, reps, minutes; a timed block hides "Last time 0 reps"', async () => {
+  const { setValue } = await import('../src/gympage.js');
+  assert.equal(setValue({ weight_kg: 35, reps: 8 }), '8 @ 35 kg');
+  const { notation } = await import('../src/gympage.js');
+  assert.equal(notation('70kg×6, 52.5kg×4, 9 reps'), '6 @ 70 kg, 4 @ 52.5 kg, 9 reps');
+  assert.equal(setValue({ weight_kg: 52.5, reps: 4 }), '4 @ 52.5 kg');
+  assert.equal(setValue({ weight_kg: null, reps: 9 }), '9 reps');
+  assert.equal(setValue({ weight_kg: null, reps: null, duration_seconds: 477 }), '7:57 min');
+  const html = gymHtml({ ...gym, plan: { ...gym.plan, plan: { level: 'normal', exercises: [{ title: 'Warm Up', change: 'same', reason: null, sets: [{ type: 'normal', weight_kg: null, reps: null, duration_seconds: 477 }], last: { day: '2026-07-08', sets: '0 reps' } }] } } });
+  assert.doesNotMatch(html, /Last time 0 reps/);
+  assert.match(html, /<span class="k">7:57 min<\/span>/);
+  const { compactSets } = await import('../src/gympage.js');
+  assert.equal(compactSets([{ weight_kg: null, reps: 9 }, { weight_kg: null, reps: 7 }]), '9 · 7 reps');
 });
