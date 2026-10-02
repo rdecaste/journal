@@ -11,7 +11,7 @@ A private, read-only cockpit with the detail behind Cross Border, Health and Sys
 
 ## Where it lives
 - Code: GitHub rdecaste/journal, branch `main`
-- Worker: `admindashboard` (created 28 Sep). **Not** connected to Workers Builds: pushing to `main` does not deploy it. After merging, run `npx wrangler deploy` in `~/code/journal` (its deployment history shows every version went out that way).
+- Worker: `admindashboard` (created 28 Sep). Connected to Workers Builds (Cloudflare dashboard → admindashboard → Settings → Builds): a push to `main` deploys it. Preview builds stay off, since a preview would use the live D1 database.
 - Local copy: `~/code/journal` (cloned 30 Sep).
 - URL: [https://admindashboard.quest-engine.workers.dev](https://admindashboard.quest-engine.workers.dev): `/` is the Quest log page, `/admin` the dashboard
 - Timer: 03:00–06:00 UTC; the run that is 05:00 in Amsterdam writes the AI summary, the one at 07:00 the 🌍 buffer line (opening the page does either if its timer missed)
@@ -172,3 +172,5 @@ rdecaste/journal PR #12, merged `f28a69a`; Roy deploys with `npx wrangler deploy
 1 Oct 2026: **No Make-era switches.** The Quest Engine no longer has its on/off switches (`JOURNAL_ENABLED`, `NIGHTLY_ENABLED`, `VAULT_ENABLED`, `FAMILY_ENABLED`, `family_from`; Make is off), so `/admin` watches every job every day instead of reading them from `/status`. The sync rows say "the newest row" instead of "the newest Notion row".
 
 1 Oct 2026: **Journal page: autosave is back** (Roy's request). Writing saves itself to D1 a moment after he stops typing, when he leaves a box and when the page closes, as before PR #14; the Save quests and Save note buttons are gone. The buttons (Done for this morning, Close the day, Success/Relapse) still save too. Kept from PR #14: each piece saves on its own, so one refused piece never holds up the rest, and the status line names it.
+
+2 Oct 2026: **Pushes to `main` deploy automatically.** The Worker had been connected to Workers Builds from the start, but its branch control pointed at an old working branch (`claude/project-thread-dbggnx`, since deleted), so nothing pushed to `main` ever deployed and every version went out by hand. Roy set the branch to `main`.
