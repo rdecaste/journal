@@ -9,8 +9,7 @@
 //   Hevy writes it there as "Today · …" (one routine, overwritten each time).
 //   Last workout: its sets and the coach's feedback (written when the Strava
 //   sync brings the session in; a button writes it when missing).
-//   Lifts: the best estimated one-rep max per day of the four most-done lifts
-//   of the last 12 months (done at least twice).
+//   Older workouts and lift trends are left to the Hevy app (Roy, 2 Oct).
 // Drawn on the server; the buttons post JSON and reload the page.
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -66,7 +65,7 @@ function readinessHtml(r, insight) {
 }
 
 // How each lift changed against last time (the generator's `change`).
-export const CHANGES = { weight: '↑ weight', reps: '+1 rep', deload: '↓ 10%', return: '↓ after break', easy: '2 sets', same: '=', new: 'new', up: '↑', down: '↓' };
+export const CHANGES = { weight: '↑ weight', reps: '+1 rep', hold: '+2 s', stage: '↑ next stage', deload: '↓ 10%', return: '↓ after break', easy: '2 sets', same: '=', new: 'new', up: '↑', down: '↓' };
 
 // Under the plan: the Send to Hevy button, or that Hevy has it.
 function sendHtml(p, sent) {
@@ -78,10 +77,12 @@ function sendHtml(p, sent) {
 
 // Dense (Roy, 2 Oct: "or it'll take me an hour to scroll"): all of an
 // exercise's sets on one line, "7@70 · 6@70 · 6@70 kg", the unit once.
-const compactOne = s => (s.weight_kg > 0 ? `${s.reps ?? '?'}@${n(s.weight_kg, 2)}` : s.reps > 0 ? `${s.reps}` : s.duration_seconds >= 60 ? `${Math.floor(s.duration_seconds / 60)}:${String(Math.round(s.duration_seconds % 60)).padStart(2, '0')}` : s.duration_seconds > 0 ? `${s.duration_seconds}s` : '—');
+const compactOne = s => (s.weight_kg > 0 ? `${s.reps ?? '?'}@${n(s.weight_kg, 2)}` : s.reps > 0 ? `${s.reps}` : s.duration_seconds >= 60 ? `${Math.floor(s.duration_seconds / 60)}:${String(Math.round(s.duration_seconds % 60)).padStart(2, '0')}` : s.duration_seconds > 0 ? `${s.duration_seconds}` : '—');
 export function compactSets(sets) {
   if (!sets.length) return '';
-  const unit = sets.every(s => s.weight_kg > 0) ? ' kg' : sets.every(s => !(s.weight_kg > 0) && s.reps > 0) ? ' reps' : sets.every(s => s.duration_seconds >= 60 && !(s.reps > 0)) ? ' min' : '';
+  const timed = sets.every(s => !(s.weight_kg > 0) && !(s.reps > 0) && s.duration_seconds > 0);
+  const unit = sets.every(s => s.weight_kg > 0) ? ' kg' : sets.every(s => !(s.weight_kg > 0) && s.reps > 0) ? ' reps'
+    : timed && sets.every(s => s.duration_seconds >= 60) ? ' min' : timed && sets.every(s => s.duration_seconds < 60) ? ' s' : '';
   return sets.map(compactOne).join(' · ') + unit;
 }
 export const compactNotation = text => String(text || '').replace(/(\d+(?:\.\d+)?)kg×(\d+|\?)/g, '$2@$1').replace(/(\d+) reps/g, '$1').replace(/, /g, ' · ');
@@ -114,6 +115,7 @@ function planHtml(p, sent) {
   const lvl = LEVELS[p.plan.level] || LEVELS.normal;
   return `<div class="plan" id="plan">
     <div class="planhead"><span class="lvl ${esc(p.plan.level)}">${esc(lvl[0])}</span><span class="pt">${esc(p.routine_title)}</span></div>
+    ${p.plan.request ? `<p class="muted small" style="margin:0">You asked: “${esc(p.plan.request)}”</p>` : ''}
     <p class="brief">${esc(p.briefing || lvl[1])}</p>
     <ol class="exs">${p.plan.exercises.map(e => {
       if (setsLine(e.sets) === 'As in the routine') return `<li class="ex block"><span>${esc(e.title)}</span><span class="muted">as in the routine</span></li>`;
@@ -129,30 +131,20 @@ function planHtml(p, sent) {
   </div>`;
 }
 
-function workoutHtml(w, first, ai) {
+// A plan made earlier today stays one tap away, folded, until a new one is generated.
+function earlierHtml(p, sent) {
+  if (!p || !p.plan) return '';
+  const state = p.sent_at ? `in Hevy since ${esc(clock(p.sent_at))}` : 'not sent';
+  return `<details class="earlier"><summary>Earlier today: ${esc(p.routine_title)} · ${state}</summary>${planHtml(p, sent)}</details>`;
+}
+
+function workoutHtml(w, ai) {
   const facts = [w.duration_min ? `${Math.round(w.duration_min)} min` : null, w.volume_kg ? `${Math.round(w.volume_kg).toLocaleString('en-GB')} kg moved` : null, w.sets ? `${w.sets} sets` : null].filter(Boolean).join(' · ');
   const body = `<div class="wfacts muted">${esc(facts)}</div>
     <ul class="wex">${w.exercises.map(e => `<li><b>${esc(e.title)}</b> <span class="muted">${esc(notation(e.sets))}</span></li>`).join('')}</ul>
     ${w.feedback ? `<div class="coach"><div class="ch">Coach</div>${feedbackHtml(w.feedback)}</div>`
       : ai ? `<button class="btn ghost" data-act="feedback" data-workout="${esc(w.id)}">Write feedback</button>` : ''}`;
-  if (first) return `<article class="card"><div class="wt"><h2>${esc(w.title || 'Workout')}</h2><span class="muted">${esc(shortDay(w.day))}</span></div>${body}</article>`;
-  return `<details class="older"><summary><b>${esc(w.title || 'Workout')}</b> <span class="muted">${esc(shortDay(w.day))} · ${Math.round(w.volume_kg || 0).toLocaleString('en-GB')} kg</span></summary>${body}</details>`;
-}
-
-export function sparkline(points, w = 132, h = 36) {
-  const v = points.map(p => p.e1rm).filter(x => x > 0);
-  if (v.length < 2) return '';
-  const lo = Math.min(...v), hi = Math.max(...v), span = hi - lo || 1;
-  const xy = v.map((y, i) => `${(i / (v.length - 1) * (w - 4) + 2).toFixed(1)},${(h - 3 - (y - lo) / span * (h - 6)).toFixed(1)}`);
-  return `<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true"><polyline points="${xy.join(' ')}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${xy[xy.length - 1].split(',')[0]}" cy="${xy[xy.length - 1].split(',')[1]}" r="2.5" fill="currentColor"/></svg>`;
-}
-
-function trendsHtml(trends) {
-  if (!trends || !trends.length) return '';
-  return `<section class="sec"><h2>Lifts</h2><p class="muted small">Best estimated one-rep max per session, last 12 months.</p><div class="lifts">${trends.map(t => {
-    const first = t.points[0].e1rm, last = t.points[t.points.length - 1].e1rm, d = n(last - first, 1);
-    return `<div class="lift"><div><b>${esc(t.title)}</b><div class="big">${esc(kg(last))}</div><div class="muted small">${d > 0 ? '+' : ''}${esc(d)} kg over ${t.points.length} sessions</div></div>${sparkline(t.points)}</div>`;
-  }).join('')}</div></section>`;
+  return `<article class="card"><div class="wt"><h2>${esc(w.title || 'Workout')}</h2><span class="muted">${esc(shortDay(w.day))}</span></div>${body}</article>`;
 }
 
 const STYLE = `
@@ -189,6 +181,10 @@ h2{font-family:var(--serif);font-weight:600;font-size:22px;margin:0}
 .insight.good{border-color:var(--ok)} .insight.good .verdict{color:var(--ok)}
 .insight.steady{border-color:var(--gold)} .insight.steady .verdict{color:var(--gold)}
 .insight.easy{border-color:var(--warn)} .insight.easy .verdict{color:var(--warn)}
+.req{display:flex;flex-direction:column;gap:6px}
+textarea{width:100%;font:inherit;font-size:16px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);resize:vertical;min-height:72px}
+.earlier summary{cursor:pointer;font-size:14px;color:var(--muted);font-weight:600;min-height:36px;display:flex;align-items:center}
+.earlier[open]{display:flex;flex-direction:column;gap:10px}
 .nums summary{cursor:pointer;font-size:14px;color:var(--muted);font-weight:600;min-height:32px;display:flex;align-items:center;gap:6px;list-style:none}
 .nums summary::-webkit-details-marker{display:none}
 .nums summary::before{content:'▸';font-size:12px} .nums[open] summary::before{content:'▾'}
@@ -240,7 +236,7 @@ select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);b
 .setlist .warm .val{font-weight:400;color:var(--muted)}
 .why{font-size:13.5px;color:var(--muted);line-height:1.45}
 .exs-sets{font-variant-numeric:tabular-nums}
-.chg{font-size:13px;font-weight:700;color:var(--muted);white-space:nowrap} .chg.up,.chg.weight,.chg.reps{color:var(--ok)} .chg.down,.chg.deload{color:var(--warn)} .chg.return{color:var(--gold)}
+.chg{font-size:13px;font-weight:700;color:var(--muted);white-space:nowrap} .chg.up,.chg.weight,.chg.reps,.chg.hold,.chg.stage{color:var(--ok)} .chg.down,.chg.deload{color:var(--warn)} .chg.return{color:var(--gold)}
 .why{color:var(--ink)}
 .cue{font-family:var(--serif);font-style:italic;color:var(--muted)}
 .wt{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
@@ -249,13 +245,6 @@ select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);b
 .ch{font-weight:700;font-size:13px;color:var(--muted);margin-bottom:4px}
 .fb{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-family:var(--serif);font-size:16.5px;line-height:1.5}
 .fbp{margin:0 0 6px;font-family:var(--serif)}
-.older{background:var(--surface);border-radius:16px;padding:14px 18px}
-.older summary{cursor:pointer;list-style-position:outside}
-.older[open]{display:flex;flex-direction:column;gap:12px}
-.lifts{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
-.lift{background:var(--surface);border-radius:16px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px}
-.big{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
-.spark{color:var(--ki);flex:none}
 .err{background:var(--warn-soft);color:var(--warn);border-radius:14px;padding:12px 16px;margin:0}
 .foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:13.5px;color:var(--muted)}
 @media (max-width:420px){h1{font-size:30px}.sig b{font-size:16px}.card{padding:18px}}
@@ -273,9 +262,11 @@ const SCRIPT = `
       document.querySelectorAll('.feel button').forEach(function (x) { x.setAttribute('aria-pressed', String(Number(x.dataset.v) === feeling)); });
     });
   });
-  var sel = document.getElementById('tpl');
-  try { var keep = localStorage.getItem('gym_tpl'); if (sel && keep && sel.querySelector('option[value="' + CSS.escape(keep) + '"]')) sel.value = keep; } catch (e) {}
-  function post(action, body, btn, busy) {
+  var sel = document.getElementById('tpl'), req = document.getElementById('req'), reqBox = document.getElementById('req-box');
+  // Custom: a text box for what Roy wants to train. Nothing is chosen in advance (Roy, 2 Oct).
+  function showReq() { if (reqBox) reqBox.hidden = !(sel && sel.value === 'custom'); if (sel && sel.value === 'custom' && req) req.focus(); }
+  if (sel) sel.addEventListener('change', showReq);
+  function post(action, body, btn, busy, done) {
     var label = btn.textContent;
     btn.disabled = true; btn.textContent = busy;
     say('');
@@ -283,16 +274,18 @@ const SCRIPT = `
       .then(function (r) { if (r.status === 401) { location.href = '/login?next=/gym'; return null; } return r.json(); })
       .then(function (d) {
         if (!d) return;
-        if (d.ok === 1) { location.reload(); return; }
+        if (d.ok === 1) { if (done) done(d); else location.reload(); return; }
         btn.disabled = false; btn.textContent = label; say(d.message || 'That did not work.', true);
       })
       .catch(function () { btn.disabled = false; btn.textContent = label; say('No connection. Try again.', true); });
   }
   var gen = document.getElementById('gen');
   if (gen) gen.addEventListener('click', function () {
-    if (!sel || !sel.value) { say('Pick a template first.', true); return; }
-    try { localStorage.setItem('gym_tpl', sel.value); } catch (e) {}
-    post('generate', { routine_id: sel.value, feeling: feeling }, gen, 'Building your workout…');
+    if (!sel || !sel.value) { say('Pick a template or Custom first.', true); return; }
+    var custom = sel.value === 'custom';
+    if (custom && !(req && req.value.trim())) { say('Say what you want to train today.', true); if (req) req.focus(); return; }
+    post('generate', { routine_id: sel.value, feeling: feeling, request: custom ? req.value.trim() : '' }, gen, custom ? 'Putting your workout together…' : 'Building your workout…',
+      function (d) { location.href = '/gym?plan=' + encodeURIComponent(d.id || ''); });
   });
   document.querySelectorAll('[data-act="send"]').forEach(function (b) {
     b.addEventListener('click', function () { post('send', { plan_id: b.dataset.plan }, b, 'Sending to Hevy…'); });
@@ -322,7 +315,10 @@ export function gymHtml(d) {
     return `${head}<body><main class="page">${top}<h1>Gym</h1><p class="err">${esc(d.error)}</p><p class="foot"><a href="/gym">Try again</a></p></main></body></html>`;
   }
   const empty = !d.history || !d.history.workouts;
-  const [last, ...older] = d.workouts || [];
+  // The plan opens only right after Generate (/gym?plan=<id>); otherwise it waits folded.
+  const shown = !!(d.plan && d.open_plan && d.plan.id === d.open_plan);
+  // Only the last workout: older ones and lift trends are in Hevy (Roy, 2 Oct).
+  const [last] = d.workouts || [];
   const sync = d.sync ? `Last synced ${esc(new Date(d.sync.at).toLocaleString('en-GB', { timeZone: 'Europe/Amsterdam', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}` : 'Not synced yet';
   return `${head}<body><main class="page">
   ${top}
@@ -341,20 +337,23 @@ export function gymHtml(d) {
     </article>
     <article class="card step">
       <div class="sh"><span class="num" aria-hidden="true">3</span><h2><label for="tpl">Template</label></h2></div>
-      <select id="tpl">${(d.templates || []).length ? `<option value="">Pick a Hevy routine…</option>${d.templates.map(t => `<option value="${esc(t.id)}"${d.plan && d.plan.routine_id === t.id ? ' selected' : ''}>${esc(t.title)} (${t.exercises} exercises)</option>`).join('')}` : '<option value="">No routines in Hevy yet</option>'}</select>
+      <select id="tpl"><option value="">Pick a template…</option>${(d.templates || []).map(t => `<option value="${esc(t.id)}">${esc(t.title)} (${t.exercises} exercises)</option>`).join('')}${d.ai ? '<option value="custom">Custom: say what you want…</option>' : ''}</select>
+      <div id="req-box" class="req" hidden>
+        <label class="label" for="req">What do you want to train?</label>
+        <textarea id="req" rows="3" maxlength="500" placeholder="e.g. super in the mood for bench and some one-arm handstand"></textarea>
+        <p class="muted small" style="margin:0">OpenAI picks the exercises from your own history; your progression rule sets the weights.</p>
+      </div>
     </article>
     <article class="card step" aria-labelledby="s4-h">
       <div class="sh"><span class="num" aria-hidden="true">4</span><h2 id="s4-h">Recommended workout</h2></div>
-      ${d.plan ? '' : '<p class="muted" style="margin:0">Built from your recovery, how you feel and the template, with your progression rule.</p>'}
-      <button class="btn" id="gen" type="button"${(d.templates || []).length ? '' : ' disabled'}>${d.plan ? 'Generate again' : 'Generate today’s workout'}</button>
+      ${shown ? '' : '<p class="muted" style="margin:0">Pick a template or Custom above, then Generate.</p>'}
+      <button class="btn" id="gen" type="button"${(d.templates || []).length || d.ai ? '' : ' disabled'}>Generate</button>
       <p class="status" id="status" role="status" aria-live="polite"></p>
-      ${planHtml(d.plan, d.sent)}
+      ${shown ? planHtml(d.plan, d.sent) : earlierHtml(d.plan, d.sent)}
     </article>
   </section>
 
-  ${last ? workoutHtml(last, true, d.ai) : `<article class="card"><h2>Last workout</h2><p class="muted" style="margin:0">${empty ? 'No Hevy workouts in the dashboard yet. Import your history below; after that, every gym session arrives with the Strava sync.' : ''}</p></article>`}
-  ${older.length ? `<section class="sec"><h2>Before that</h2>${older.map(w => workoutHtml(w, false, d.ai)).join('')}</section>` : ''}
-  ${trendsHtml(d.trends)}
+  ${last ? workoutHtml(last, d.ai) : `<article class="card"><h2>Last workout</h2><p class="muted" style="margin:0">${empty ? 'No Hevy workouts in the dashboard yet. Import your history below; after that, every gym session arrives with the Strava sync.' : ''}</p></article>`}
 
   <div class="foot"><span>${d.history && d.history.workouts ? `${d.history.workouts} workouts since ${esc(shortDay(d.history.since))} · ` : ''}${sync}</span>
     <button class="btn ghost" id="sync" type="button" data-full="${empty ? '1' : '0'}">${empty ? 'Import my Hevy history' : 'Sync from Hevy'}</button></div>

@@ -162,7 +162,8 @@ export default {
       }
       if (pathname === '/gym') {
         if (!signedIn) return redirect('/login?next=/gym');
-        return new Response(gymHtml(await loadGym(env)), { headers: PAGE_HEADERS });
+        const gym = await loadGym(env);
+        return new Response(gymHtml({ ...gym, open_plan: searchParams.get('plan') || null }), { headers: PAGE_HEADERS });
       }
       const gymButton = pathname.match(/^\/gym\/(generate|send|feedback|sync)$/);
       if (gymButton && request.method === 'POST') {
