@@ -11,7 +11,7 @@ const gym = {
     hrv: { value: 41, usual: 50.2, low: true }, rhr: { value: 55, usual: 54.1, low: false }, sleep: { value: 7.5, usual: 7.4, low: false } },
   sent: null,
   plan: { id: 'p1', sent_at: null, routine_id: 'r-push', routine_title: 'Push <A>', briefing: 'HRV is down a bit, so match last time.',
-    plan: { level: 'normal', exercises: [{ title: 'Bench Press (Barbell)', change: 'same', cue: 'Elbows tucked',
+    plan: { level: 'normal', exercises: [{ title: 'Bench Press (Barbell)', change: 'reps', reason: '80 kg again, one more rep on set 3.', cue: 'Elbows tucked',
       sets: [{ type: 'warmup', weight_kg: 40, reps: 10 }, { type: 'normal', weight_kg: 80, reps: 8 }, { type: 'normal', weight_kg: 80, reps: 8 }, { type: 'normal', weight_kg: 80, reps: 7 }],
       last: { day: '2026-09-28', sets: '80kg×8, 80kg×8, 80kg×7' } }] } },
   workouts: [
@@ -49,6 +49,8 @@ test('gym page: readiness, the plan, the last workout\'s feedback, older ones an
   assert.match(html, /2 × 8 @ 80 kg, 7 @ 80 kg<span class="muted"> · warm-up 10 @ 40 kg/);
   assert.match(html, /Last time \(Mon 28 Sep\): 80kg×8, 80kg×8, 80kg×7/);
   assert.match(html, /Elbows tucked/);
+  assert.match(html, /<span class="chg reps" title="Compared with last time">\+1 rep<\/span>/);
+  assert.match(html, /<div class="why small">80 kg again, one more rep on set 3.<\/div>/);
   assert.match(html, /data-act="send" data-plan="p1">Send to Hevy<\/button>/);
   assert.match(html, /Saves it in Hevy as <b>Today · Push &lt;A&gt;<\/b>, replacing the one there.<\/p>/);
   assert.match(html, /<li>Keep the pause &lt;tight&gt;.<\/li>/);

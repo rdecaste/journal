@@ -2,8 +2,9 @@
 // the gym and the Mac afterwards:
 //   Today: the morning's recovery (HRV, resting HR, sleep against the usual
 //   30 nights), how Roy feels (1–5) and a Hevy routine as the template →
-//   Generate shows the day's workout here → Send to Hevy writes it there as
-//   "Today · …" (one routine, overwritten each time).
+//   Generate shows the day's workout here, each lift with why it changed
+//   (Roy's double progression, src/hevy.js in the Quest Engine) → Send to
+//   Hevy writes it there as "Today · …" (one routine, overwritten each time).
 //   Last workout: its sets and the coach's feedback (written when the Strava
 //   sync brings the session in; a button writes it when missing).
 //   Lifts: the best estimated one-rep max per day of the four most-done lifts
@@ -22,7 +23,7 @@ const clock = iso => new Date(iso).toLocaleTimeString('en-GB', { timeZone: 'Euro
 
 export const FEELINGS = [[1, 'Wrecked'], [2, 'Tired'], [3, 'OK'], [4, 'Good'], [5, 'Great']];
 export const VERDICTS = { good: 'Recovered', steady: 'Mostly recovered', easy: 'Take it easier' };
-export const LEVELS = { push: ['Push', 'A little more than last time'], normal: ['Normal', 'Match last time'], easy: ['Easy', 'Lighter, one set fewer'] };
+export const LEVELS = { push: ['Good day', 'Follow the progression'], normal: ['Normal', 'Follow the progression'], easy: ['Easy', 'Last time’s weights, two sets, no extra reps'] };
 
 // "3 × 8 @ 80 kg" for identical sets in a row.
 export function setsLine(sets) {
@@ -57,7 +58,8 @@ function readinessHtml(r) {
   </div>`;
 }
 
-const ARROWS = { up: '↑', same: '=', down: '↓', new: 'new' };
+// How each lift changed against last time (the generator's `change`).
+export const CHANGES = { weight: '↑ weight', reps: '+1 rep', deload: '↓ 10%', easy: '2 sets', same: '=', new: 'new', up: '↑', down: '↓' };
 
 // Under the plan: the Send to Hevy button, or that Hevy has it.
 function sendHtml(p, sent) {
@@ -75,9 +77,10 @@ function planHtml(p, sent) {
     ${p.briefing ? `<p class="brief">${esc(p.briefing)}</p>` : ''}
     <ol class="exs">${p.plan.exercises.map(e => {
       const warm = e.sets.filter(s => s.type === 'warmup'), work = e.sets.filter(s => s.type !== 'warmup');
-      return `<li class="ex"><div class="exh"><b>${esc(e.title)}</b><span class="chg ${esc(e.change)}" title="Compared with last time">${esc(ARROWS[e.change] || '')}</span></div>
+      return `<li class="ex"><div class="exh"><b>${esc(e.title)}</b><span class="chg ${esc(e.change)}" title="Compared with last time">${esc(CHANGES[e.change] || '')}</span></div>
         <div class="exs-sets">${esc(setsLine(work))}${warm.length ? `<span class="muted"> · warm-up ${esc(setsLine(warm))}</span>` : ''}</div>
         ${e.last ? `<div class="muted small">Last time (${esc(shortDay(e.last.day))}): ${esc(e.last.sets)}</div>` : ''}
+        ${e.reason ? `<div class="why small">${esc(e.reason)}</div>` : ''}
         ${e.cue ? `<div class="cue">${esc(e.cue)}</div>` : ''}</li>`;
     }).join('')}</ol>
     ${sendHtml(p, sent)}
@@ -167,7 +170,8 @@ select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);b
 .ex{display:flex;flex-direction:column;gap:2px}
 .exh{display:flex;justify-content:space-between;gap:8px}
 .exs-sets{font-variant-numeric:tabular-nums}
-.chg{font-size:13px;font-weight:700;color:var(--muted)} .chg.up{color:var(--ok)} .chg.down{color:var(--warn)}
+.chg{font-size:13px;font-weight:700;color:var(--muted);white-space:nowrap} .chg.up,.chg.weight,.chg.reps{color:var(--ok)} .chg.down,.chg.deload{color:var(--warn)}
+.why{color:var(--ink)}
 .cue{font-family:var(--serif);font-style:italic;color:var(--muted)}
 .wt{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .wex{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;font-variant-numeric:tabular-nums}
