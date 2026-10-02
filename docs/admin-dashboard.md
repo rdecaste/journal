@@ -11,7 +11,7 @@ A private cockpit with the detail behind Cross Border, Health and System Health 
 
 ## Where it lives
 - Code: GitHub rdecaste/journal, branch `main`
-- Worker: `admindashboard` (created 28 Sep). **Not** connected to Workers Builds: pushing to `main` does not deploy it. After merging, run `npx wrangler deploy` in `~/code/journal` (its deployment history shows every version went out that way).
+- Worker: `admindashboard` (created 28 Sep). Connected to Workers Builds: merging to `main` deploys it (Roy fixed the build and set branch control to `main`, 2 Oct 2026). Before that, every version went out by hand with `npx wrangler deploy` in `~/code/journal`.
 - Local copy: `~/code/journal` (cloned 30 Sep).
 - URL: [https://admindashboard.quest-engine.workers.dev](https://admindashboard.quest-engine.workers.dev): `/` is the Quest log page, `/admin` the dashboard
 - Timer: 03:00–06:00 UTC; the run that is 05:00 in Amsterdam writes the AI summary, the one at 07:00 the 🌍 buffer line (opening the page does either if its timer missed)

@@ -23,7 +23,7 @@ Roy's admin dashboard and landing page as one Cloudflare Worker
 - `git pull --rebase` before committing.
 - Tests: `npm test`. The `/admin` page's script runs in the browser, so a
   constant it uses must be handed to it in `src/page.js` (a test checks).
-- **A push does not deploy this Worker**: run `npx wrangler deploy` after
-  merging.
+- **Merging to `main` deploys this Worker** (Cloudflare Workers Builds,
+  branch control set to main by Roy, 2 Oct 2026).
 - Roy's rules: step by step, no data loss, and ask him before any change to
   live data.
