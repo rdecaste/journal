@@ -56,12 +56,13 @@ test('questlog page: renders full and empty data, escapes text', () => {
     cross: { be_share: 62, minimum: 50, buffer_days: 13, be_days_needed: 0, missing: 1 }, errors: [] });
   assert.match(html, /Tuesday 29 September/);
   assert.match(html, /🔥 20 days in a row/);
-  assert.match(html, /283 \/ 315/);
+  // The main quest card left the page (2 Oct 2026, Roy).
+  assert.doesNotMatch(html, /283 \/ 315|class="hero"/);
   assert.match(html, /&lt;Half&gt; &amp; Co/);
   assert.match(html, /<a href="https:\/\/questboard\.quest-engine\.workers\.dev\/" target="_blank" rel="noopener" class="quest focus">[\s\S]*?<\/a>/);
   assert.match(html, /1 work day to fill in/);
   assert.match(html, /Oldest waiting 49 days, since 11 Aug/);
-  assert.match(html, /Break the PMO Cycle/);
+  assert.doesNotMatch(html, /Break the PMO Cycle/);
   // Since the D1 move nothing on the page opens Notion's frozen copy.
   assert.doesNotMatch(html, /notion\.(com|so)/);
   const empty = todayHtml({ built_at: '2026-09-29T05:00:00Z', today: '2026-09-29', spark: '', journal: null, main_quest: null, notes: {}, training: null, todo: null, hero: null, quests: [], cross: null, errors: ['Hero: down'] });
