@@ -19,6 +19,9 @@
 //                  Engine's GET /gym)
 //   POST /gym/generate|send|feedback|sync  the gym page's buttons, passed on to the
 //                  Quest Engine (signed in; JSON)
+//   POST /journal/review  Start my day / End my day: registers the Morning or
+//                  Evening review habit in the Quest Engine, once per game day
+//                  (signed in; JSON { which: morning|evening }; src/review.js)
 //   POST /journal/evening-question  writes the evening's Reflection question
 //                  from the morning (signed in; JSON { headspace, forward, winif };
 //                  one OpenAI call, only when the morning changed)
@@ -52,6 +55,7 @@ import { gymHtml } from './gympage.js';
 import { summaryDue, writeSummary, isSummaryHour } from './summary.js';
 import { store } from './usage.js';
 import { runJob } from './rerun.js';
+import { registerReview } from './review.js';
 export { Store } from './store.js';
 
 const PAGE_HEADERS = {
@@ -147,6 +151,16 @@ export default {
           console.error('journal save', e && e.stack || e);
           const message = String(e.message || e);
           return json({ ok: 0, code: e.code || 'server_error', message }, e.code === 'bad_request' ? 400 : 500);
+        }
+      }
+      if (pathname === '/journal/review' && request.method === 'POST') {
+        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+        const body = await request.json().catch(() => null);
+        try {
+          return json(await registerReview(env, String(body && body.which || '')));
+        } catch (e) {
+          console.error('journal review', e && e.stack || e);
+          return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, e.code === 'bad_request' ? 400 : 500);
         }
       }
       if (pathname === '/journal/evening-question' && request.method === 'POST') {
