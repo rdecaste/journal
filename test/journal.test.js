@@ -124,3 +124,27 @@ test('Start my day / End my day register the review in the Quest Engine with the
     extras: {}, quests: [], main_quest: 'Q', last: null, suggestions: [], sub: {} });
   assert.ok(html.includes("review('morning')") && html.includes("review('evening')") && html.includes("fetch('/journal/review'"));
 });
+
+test('folded halves: kept per day on the server, the same on every device, until Roy opens them', async () => {
+  const { mergeFold, readFold, writeFold } = await import('../src/fold.js');
+  assert.deepEqual(mergeFold(null, '2026-10-03', { m: true }), { day: '2026-10-03', m: true, e: false });
+  assert.deepEqual(mergeFold({ day: '2026-10-03', m: true, e: false }, '2026-10-03', { e: true, m: 'x' }), { day: '2026-10-03', m: true, e: true });
+  // Yesterday's folds are dropped on the new day.
+  assert.deepEqual(mergeFold({ day: '2026-10-02', m: true, e: true }, '2026-10-03', {}), { day: '2026-10-03', m: false, e: false });
+  const kept = new Map();
+  const stub = { get: async k => kept.get(k) ?? null, fold: async (day, patch) => { const n = mergeFold(kept.get('journal_fold'), day, patch); kept.set('journal_fold', n); return n; } };
+  const env = { STORE: { idFromName: () => 'main', get: () => stub } };
+  assert.equal(await readFold(env, '2026-10-03'), null);
+  assert.deepEqual(await writeFold(env, '2026-10-03', { m: true }), { m: true, e: false });
+  assert.deepEqual(await readFold(env, '2026-10-03'), { m: true, e: false });
+  assert.deepEqual(await writeFold(env, '2026-10-03', { m: false }), { m: false, e: false });
+  assert.equal(await readFold(env, '2026-10-04'), null);
+  assert.equal(await readFold({}, '2026-10-03'), null);
+  // The page takes the server's folds and keeps every fold and open there.
+  const html = journalHtml({ day: '2026-10-03', page: PAGE, title: '3 October 2026', url: null, errors: [], run: 1, fold: { m: true, e: false },
+    sections: { headspace: null, forward: null, reflection: null, tomorrow: null },
+    focus: { must: { items: [], slot: {} }, can: { items: [], slot: {} }, cool: { items: [], slot: {} } },
+    extras: {}, quests: [], main_quest: 'Q', last: null, suggestions: [], sub: {} });
+  assert.ok(html.includes('"fold":{"m":true,"e":false}') && html.includes('takeFold(D.fold)'));
+  for (const k of ['keepFold({ m: true })', 'keepFold({ m: false })', 'keepFold({ e: true })', 'keepFold({ e: false })']) assert.ok(html.includes(k), k);
+});

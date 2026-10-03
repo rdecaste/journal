@@ -350,6 +350,20 @@ const SCRIPT = String.raw`
   var load = function (k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
   var UI = load(UIKEY) || {};
   var saveUI = function () { store(UIKEY, UI); };
+  // Folded halves are kept on the server too, so a fold holds on every device until Roy opens it (src/fold.js).
+  function takeFold(f) {
+    if (!f) return false;
+    var was = [UI.mdone, UI.mopen, UI.edone].join();
+    UI.mdone = !!f.m; if (f.m) UI.mopen = false; UI.edone = !!f.e;
+    saveUI();
+    return was !== [UI.mdone, UI.mopen, UI.edone].join();
+  }
+  takeFold(D.fold);
+  function keepFold(patch) {
+    patch.day = D.day;
+    fetch('/journal/fold', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch), credentials: 'same-origin', keepalive: true })
+      .catch(function () {});
+  }
   var dirty = {}, todoOps = [], success = null;
   var draft = load(KEY);
   if (draft && draft.dirty) {
@@ -509,7 +523,7 @@ const SCRIPT = String.raw`
     $('m-recap').innerHTML = '<div class="recap">' + (UI.bye ? '<p class="bye" style="margin-bottom:6px">Have a good day, Roy.</p>' : '') +
       (bits.length ? bits.map(function (b) { return '<p><b>' + b[0] + '</b>' + (b[2] || esc(b[1])) + '</p>'; }).join('') : '<p class="later" style="font-size:17px">Nothing written this morning.</p>') +
       '<button type="button" class="link" id="edit-m">' + (bits.length ? 'Open the morning ›' : 'Write it now ›') + '</button></div>';
-    $('edit-m').addEventListener('click', function () { UI.mopen = true; UI.bye = false; saveUI(); layout(); });
+    $('edit-m').addEventListener('click', function () { UI.mopen = true; UI.mdone = false; UI.bye = false; saveUI(); keepFold({ m: false }); layout(); });
   }
   // ---- Commute: today's Work Location Log row, as two drop-downs ----
   var PLACES = ['🇳🇱 Home', '🇧🇪 Beerse', '🇧🇪 Ghent', '🏖️ Holiday'];
@@ -550,7 +564,7 @@ const SCRIPT = String.raw`
     $('e-recap').innerHTML = '<div class="recap night"><p class="bye" style="margin-bottom:6px">Saved. Sleep well, Roy.</p>' +
       bits.map(function (b) { return '<p><b>' + b[0] + '</b>' + (b[2] || esc(b[1])) + '</p>'; }).join('') +
       '<button type="button" class="link" id="edit-e">Open the evening ›</button></div>';
-    $('edit-e').addEventListener('click', function () { UI.edone = false; saveUI(); layout(); });
+    $('edit-e').addEventListener('click', function () { UI.edone = false; saveUI(); keepFold({ e: false }); layout(); });
   }
 
   // ---- Daily theme: layered hills, one palette per weekday; dawn in the morning, dusk at night ----
@@ -593,7 +607,7 @@ const SCRIPT = String.raw`
     $('sub').textContent = (D.sub && (evening ? D.sub.evening : D.sub.morning)) || '';
     var folded = !UI.mopen && (evening || UI.mdone);
     $('m-open').hidden = folded; $('m-recap').hidden = !folded;
-    var eOpen = evening || UI.eopen, eClosed = eOpen && UI.edone;
+    var eOpen = evening || UI.eopen || UI.edone, eClosed = eOpen && UI.edone;
     $('e-open').hidden = !eOpen || eClosed; $('e-later').hidden = eOpen; $('e-recap').hidden = !eClosed;
     recap(); if (eClosed) eveningRecap(); growAll();
     if (eOpen && !eClosed && !D.evening_q && !asked) askEvening();
@@ -645,14 +659,26 @@ const SCRIPT = String.raw`
   }
   $('m-done').addEventListener('click', function () {
     fold($('m-open'), $('m-recap'), '☀', function () { UI.mdone = true; UI.mopen = false; UI.bye = true; saveUI(); flush(); layout(); });
+    keepFold({ m: true });
     askEvening();
     review('morning');
   });
   $('e-done').addEventListener('click', function () {
     fold($('e-open'), $('e-recap'), '✦✧✦', function () { UI.edone = true; saveUI(); flush(); layout(); });
+    keepFold({ e: true });
     review('evening');
   });
   layout();
+  // Back on a tab left open (another device may have folded or opened a half since): fetch the folds again,
+  // but never move the page while Roy is typing.
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    fetch('/journal/fold', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+      var a = document.activeElement;
+      if (!j || !j.ok || j.day !== D.day || (a && /^(TEXTAREA|INPUT|SELECT)$/.test(a.tagName))) return;
+      if (takeFold(j.fold)) layout();
+    }).catch(function () {});
+  });
 
   // ---- Main quest check-in ----
   var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;

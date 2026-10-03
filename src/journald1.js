@@ -6,6 +6,7 @@
 // and rows.
 import { cached, remember } from './cache.js';
 import { eveningQuestion } from './eveningq.js';
+import { readFold } from './fold.js';
 import {
   SECTIONS, EXTRAS, GROUPS, DID, CHECKIN, JOURNAL, QUEST_FALLBACK,
   journalDay, dayBefore, amsterdamHour, activeQuests, mergeQuests, todoSuggestions, subLines, isWin, syncWin, linkTodo, setTodoDone, writeWork, workFor
@@ -73,7 +74,7 @@ export async function loadJournalD1(env, { now = Date.now() } = {}) {
   const errors = [];
   const safe = (p, label) => p.catch(e => { errors.push(`${label}: ${e.message || e}`); return null; });
   const day = journalDay(now);
-  const [page, before, open, hero, asked, quests, work, evening] = await Promise.all([
+  const [page, before, open, hero, asked, quests, work, evening, fold] = await Promise.all([
     dayRow(js, day),
     safe(dayRow(js, dayBefore(day)), 'Yesterday'),
     safe(js.query('todos', {
@@ -86,9 +87,10 @@ export async function loadJournalD1(env, { now = Date.now() } = {}) {
     js.query('quests', { filter: { property: 'Active Quest', checkbox: { equals: true } }, page_size: 100 })
       .then(activeQuests).catch(e => { console.warn('Quests:', e.message || e); return null; }),
     safe(workFor(health, day), 'Work Location Log'),
-    eveningQuestion(env, day).catch(e => { console.warn('Evening question:', e.message || e); return null; })
+    eveningQuestion(env, day).catch(e => { console.warn('Evening question:', e.message || e); return null; }),
+    readFold(env, day).catch(e => { console.warn('Folded halves:', e.message || e); return null; })
   ]);
-  const data = { day, hour: amsterdamHour(now), page: null, errors, work };
+  const data = { day, hour: amsterdamHour(now), page: null, errors, work, fold };
   data.run = hero && hero.records && typeof hero.records.current_run === 'number' ? hero.records.current_run : null;
   data.run_includes_today = !!(hero && Array.isArray(hero.days) && hero.days.some(x => x && x.date === day && x.movement));
   if (!page) return data;
