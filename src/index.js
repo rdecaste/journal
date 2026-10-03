@@ -22,6 +22,9 @@
 //   POST /journal/review  Start my day / End my day: registers the Morning or
 //                  Evening review habit in the Quest Engine, once per game day
 //                  (signed in; JSON { which: morning|evening }; src/review.js)
+//   GET|POST /journal/fold  whether the journal page's morning and evening are
+//                  folded today, the same on every device (signed in; POST JSON
+//                  { day, m?, e? } with true or false; src/fold.js)
 //   POST /journal/evening-question  writes the evening's Reflection question
 //                  from the morning (signed in; JSON { headspace, forward, winif };
 //                  one OpenAI call, only when the morning changed)
@@ -56,6 +59,7 @@ import { summaryDue, writeSummary, isSummaryHour } from './summary.js';
 import { store } from './usage.js';
 import { runJob } from './rerun.js';
 import { registerReview } from './review.js';
+import { readFold, writeFold } from './fold.js';
 export { Store } from './store.js';
 
 const PAGE_HEADERS = {
@@ -151,6 +155,21 @@ export default {
           console.error('journal save', e && e.stack || e);
           const message = String(e.message || e);
           return json({ ok: 0, code: e.code || 'server_error', message }, e.code === 'bad_request' ? 400 : 500);
+        }
+      }
+      if (pathname === '/journal/fold') {
+        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+        const day = journalDay();
+        try {
+          if (request.method === 'GET') return json({ ok: 1, day, fold: await readFold(env, day) });
+          if (request.method !== 'POST') return json({ ok: 0, code: 'bad_request' }, 405);
+          const body = await request.json().catch(() => null);
+          // A page left open from yesterday must not fold or open today's halves.
+          if (!body || body.day !== day) return json({ ok: 0, code: 'old_day', day });
+          return json({ ok: 1, day, fold: await writeFold(env, day, body) });
+        } catch (e) {
+          console.error('journal fold', e && e.stack || e);
+          return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, 500);
         }
       }
       if (pathname === '/journal/review' && request.method === 'POST') {
