@@ -637,12 +637,20 @@ const SCRIPT = String.raw`
       recapEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }, 520);
   }
+  // Each also registers the Morning / Evening review habit (a boss hit); the Quest Engine counts it
+  // once per game day, so pressing again changes nothing.
+  function review(which) {
+    fetch('/journal/review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ which: which }), credentials: 'same-origin', keepalive: true })
+      .catch(function () {});
+  }
   $('m-done').addEventListener('click', function () {
     fold($('m-open'), $('m-recap'), '☀', function () { UI.mdone = true; UI.mopen = false; UI.bye = true; saveUI(); flush(); layout(); });
     askEvening();
+    review('morning');
   });
   $('e-done').addEventListener('click', function () {
     fold($('e-open'), $('e-recap'), '✦✧✦', function () { UI.edone = true; saveUI(); flush(); layout(); });
+    review('evening');
   });
   layout();
 

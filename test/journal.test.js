@@ -107,3 +107,20 @@ test('evening question: written once from the whole morning, again only when the
   } finally { globalThis.fetch = real; }
 });
 
+
+test('Start my day / End my day register the review in the Quest Engine with the admin token', async () => {
+  const { registerReview } = await import('../src/review.js');
+  const sent = [];
+  const env = { QUEST_ENGINE_URL: 'https://qe.example', QUEST_ENGINE_TOKEN: 'tok',
+    QUEST_ENGINE: { fetch: async req => { sent.push({ url: req.url, token: req.headers.get('X-Admin-Token'), body: await req.text() }); return new Response(JSON.stringify({ ok: 1, code: 'daily_done', key: 'morning_review' })); } } };
+  assert.deepEqual(await registerReview(env, 'morning'), { ok: 1, code: 'daily_done', damage: undefined, text: '' });
+  assert.deepEqual(sent[0], { url: 'https://qe.example/journal/review', token: 'tok', body: 'which=morning' });
+  await assert.rejects(registerReview(env, 'noon'), /No such review/);
+  await assert.rejects(registerReview({ ...env, QUEST_ENGINE_TOKEN: '' }, 'evening'), /QUEST_ENGINE_TOKEN/);
+  // The page calls it from both buttons.
+  const html = journalHtml({ day: '2026-10-03', page: PAGE, title: '3 October 2026', url: null, errors: [], run: 1,
+    sections: { headspace: null, forward: null, reflection: null, tomorrow: null },
+    focus: { must: { items: [], slot: {} }, can: { items: [], slot: {} }, cool: { items: [], slot: {} } },
+    extras: {}, quests: [], main_quest: 'Q', last: null, suggestions: [], sub: {} });
+  assert.ok(html.includes("review('morning')") && html.includes("review('evening')") && html.includes("fetch('/journal/review'"));
+});
