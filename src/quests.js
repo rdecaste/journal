@@ -16,6 +16,7 @@ import { journalStore } from './healthstore.js';
 import { journalDay } from './journal.js';
 import { store, addUsage } from './usage.js';
 import { aiOn } from './eveningq.js';
+import { registerReview } from './review.js';
 
 export const ATTENTION = ['Background', 'Active', 'Focus', 'Spotlight'];
 export const PHASES = ['Start', 'Build', 'Push', 'Finish'];
@@ -288,6 +289,9 @@ export async function questAction(env, body, { now = Date.now() } = {}) {
 
 // POST /quests/review/save: this week's verdicts, notes and next moves. One
 // quest_updates row per quest per week, updated when the review is saved again.
+// A review with at least one verdict that saved in full also hits the boss
+// with Quest review through the Quest Engine (once per game week there; a
+// second save that week answers weekly_done). `attack` says how that went.
 export async function saveReview(env, body, { now = Date.now() } = {}) {
   const items = body && Array.isArray(body.items) ? body.items.slice(0, 30) : null;
   if (!items) throw bad('Nothing to save');
@@ -322,7 +326,20 @@ export async function saveReview(env, body, { now = Date.now() } = {}) {
       out.failed.push({ id: it && it.id, message: String(e.message || e).slice(0, 200) });
     }
   }
+  if (!out.failed.length && out.pass + out.fail > 0) out.attack = await attackFor(env);
   return out;
+}
+
+// The Quest review hit: { state: 'hit' | 'done' | 'failed', damage?, message? }.
+async function attackFor(env) {
+  try {
+    const r = await registerReview(env, 'weekly');
+    if (r.ok && r.code === 'weekly_done') return { state: 'done' };
+    if (r.ok) return { state: 'hit', damage: typeof r.damage === 'number' ? r.damage : null };
+    return { state: 'failed', message: r.text || r.code || 'The Quest Engine did not count it.' };
+  } catch (e) {
+    return { state: 'failed', message: String(e.message || e).slice(0, 200) };
+  }
 }
 
 // ---- OpenAI ----

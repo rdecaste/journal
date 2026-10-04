@@ -323,7 +323,14 @@ export function newQuestHtml(d) {
 
 // ---- /quests/review ----
 
-export function reviewHtml(d, { done = false } = {}) {
+const attackLine = a => {
+  if (!a || !a.state) return '';
+  if (a.state === 'hit') return `<p class="hit">⚔️ Quest review hit the boss${a.damage ? ` for <b>${esc(a.damage)}</b> damage` : ''}.</p>`;
+  if (a.state === 'done') return '<p class="hit done">⚔️ Quest review already counted this week, so the boss was not hit again.</p>';
+  return '<p class="hit failed">The Quest review attack did not go through. Tap it on the boss card instead.</p>';
+};
+
+export function reviewHtml(d, { done = false, attack = null } = {}) {
   const items = d.items;
   const reviewed = items.filter(it => it.saved && it.saved.verdict).length;
   if (done) {
@@ -332,6 +339,7 @@ export function reviewHtml(d, { done = false } = {}) {
       <div class="crumb"><a class="btn quiet" href="/quests">← All quests</a><a class="btn" href="/quests/review">Change the review</a></div>
       <div class="done-hero"><span class="big">🗺️</span><h2>Week ${d.week.n} reviewed</h2>
         <div class="done-score"><span class="pill good">${pass} passed</span><span class="pill warn">${fail} missed</span>${items.length - pass - fail ? `<span class="pill idle">${items.length - pass - fail} without a verdict</span>` : ''}</div>
+        ${attackLine(attack)}
         <p class="hint" style="max-width:52ch">Each verdict is saved as a quest update, so it shows in the quest's evidence log. Next moves are saved on the quests.</p></div>
       <div class="panel"><span class="label">Your next moves for week ${d.week.n + 1}</span>
         <div class="related">${items.map(it => `<a class="rel" href="/quests/${esc(it.quest.id)}"><span class="emo">${esc(it.quest.icon || '◆')}</span><span><strong>${esc(it.quest.name)}</strong>${esc(it.quest.next || 'No next move set')}</span></a>`).join('')}</div></div>
@@ -368,7 +376,7 @@ export function reviewHtml(d, { done = false } = {}) {
     }).join('')}</div>
     ${upcoming.length ? `<section class="section"><div class="section-head"><h3>Anything to start next week?</h3><span class="hint">Planned quests that have started or have a target within 90 days</span></div>
       <div class="ledger">${upcoming.map(q => lrow(q, d)).join('')}</div></section>` : ''}
-    ${items.length ? `<div class="savebar"><span id="rv-left">${reviewed === items.length ? 'All quests reviewed' : `${items.length - reviewed} still need a verdict`}</span><div><button class="btn gold" type="button" data-act="rv-save">Finish review</button></div></div>` : ''}
+    ${items.length ? `<div class="savebar"><span><span id="rv-left">${reviewed === items.length ? 'All quests reviewed' : `${items.length - reviewed} still need a verdict`}</span> · Finishing also hits the boss with Quest review (once a week)</span><div><button class="btn gold" type="button" data-act="rv-save">Finish review</button></div></div>` : ''}
   </div>`;
   return page('Weekly review', body, { page: 'review', ai: d.ai });
 }
@@ -721,7 +729,11 @@ function CLIENT() {
         var items = $$('.rv').map(function (c) { var p = $('[data-verdict][aria-pressed="true"]', c); return { id: c.dataset.id, verdict: p ? p.dataset.verdict : '', next: $('[data-rv="next"]', c).value, note: $('[data-rv="note"]', c).value }; });
         var done2 = busy(a, 'Saving…');
         post('/quests/review/save', { items: items }).then(function (r) {
-          if (r.ok === 1 && !r.failed.length) { location.href = '/quests/review?done=1'; return; }
+          if (r.ok === 1 && !r.failed.length) {
+            var a = r.attack || {};
+            location.href = '/quests/review?done=1' + (a.state ? '&attack=' + encodeURIComponent(a.state) + (a.damage ? '&dmg=' + encodeURIComponent(a.damage) : '') : '');
+            return;
+          }
           done2(); var er = $('#rv-error'); er.textContent = r.message || ('Some quests did not save: ' + r.failed.map(function (f) { return f.message; }).join('; ')); er.hidden = false;
         });
       }
@@ -1029,6 +1041,8 @@ button:disabled{cursor:default;opacity:.55}
 .done-hero{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:40px 20px;background:radial-gradient(circle at 50% 0%,var(--gold-soft),transparent 70%),var(--surface);border:1px solid var(--line);border-radius:18px}
 .done-hero .big{font-size:46px} .done-hero h2{font-size:28px}
 .done-score{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.hit{margin:4px 0 0;font-size:15px;font-weight:600;color:var(--gold)} .hit b{font-family:var(--f-mono)}
+.hit.done{color:var(--muted);font-weight:500} .hit.failed{color:var(--warn);font-weight:500}
 .toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:all .2s;z-index:40;max-width:calc(100% - 32px)}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 @media (max-width:900px){.page-grid,.describe,.review{grid-template-columns:1fr}.side{position:static}.year-cols{grid-template-columns:1fr}}

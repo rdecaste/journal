@@ -1,8 +1,10 @@
 // Start my day / End my day on the journal page (Roy, 3 Oct 2026) register
 // the Morning review / Evening review habit: a boss hit through the Quest
 // Engine's POST /journal/review, which counts each at most once per game day
-// (04:00 to 04:00 Amsterdam), so pressing again changes nothing.
-export const WHICH = ['morning', 'evening'];
+// (04:00 to 04:00 Amsterdam), so pressing again changes nothing. And the quest
+// pages' Finish review (4 Oct 2026) registers Quest review, once per game week
+// (Monday 04:00): `weekly`.
+export const WHICH = ['morning', 'evening', 'weekly'];
 
 export async function registerReview(env, which) {
   if (!WHICH.includes(which)) throw Object.assign(new Error('No such review'), { code: 'bad_request' });

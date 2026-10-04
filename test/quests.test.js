@@ -248,3 +248,29 @@ test('questColumns ignores fields it does not know', () => {
   assert.equal(c.quest_attention, null);
   assert.equal('completed_at' in c, false);
 });
+
+test('Finish review hits the boss with Quest review once; no verdict, no hit', async () => {
+  const sent = [];
+  let answer = { ok: 1, result: null, damage: 47, text: 'hit' };
+  const { env } = await setup({
+    QUEST_ENGINE_URL: 'https://qe.example', QUEST_ENGINE_TOKEN: 'tok',
+    QUEST_ENGINE: { fetch: async req => { sent.push({ url: req.url, token: req.headers.get('X-Admin-Token'), body: await req.text() }); return Response.json(answer); } }
+  });
+  const none = await saveReview(env, { items: [{ id: RUN, verdict: '', next: '1 long run + 1 interval run', note: '' }] }, { now: NOW });
+  assert.equal(none.attack, undefined);
+  assert.equal(sent.length, 0);
+
+  const r = await saveReview(env, { items: [{ id: RUN, verdict: 'pass', next: '1 long run + 1 interval run' }] }, { now: NOW });
+  assert.deepEqual(r.attack, { state: 'hit', damage: 47 });
+  assert.deepEqual(sent[0], { url: 'https://qe.example/journal/review', token: 'tok', body: 'which=weekly' });
+
+  answer = { ok: 1, code: 'weekly_done' };
+  assert.deepEqual((await saveReview(env, { items: [{ id: RUN, verdict: 'fail', next: 'x' }] }, { now: NOW })).attack, { state: 'done' });
+  answer = { ok: 0, code: 'no_habit' };
+  assert.equal((await saveReview(env, { items: [{ id: RUN, verdict: 'fail', next: 'x' }] }, { now: NOW })).attack.state, 'failed');
+
+  const d = await loadReview(env, { now: NOW });
+  assert.match(reviewHtml(d, { done: true, attack: { state: 'hit', damage: 47 } }), /Quest review hit the boss for <b>47<\/b> damage/);
+  assert.match(reviewHtml(d, { done: true, attack: { state: 'done' } }), /already counted this week/);
+  assert.match(reviewHtml(d), /Finishing also hits the boss with Quest review/);
+});

@@ -289,7 +289,11 @@ async function questsRoute(request, env, pathname, searchParams, signedIn) {
   try {
     if (pathname === '/quests') return new Response(questsHtml(await loadQuests(env), { tab: searchParams.get('tab') || 'active' }), { headers: PAGE_HEADERS });
     if (id === 'new') return new Response(newQuestHtml(await loadQuests(env)), { headers: PAGE_HEADERS });
-    if (id === 'review') return new Response(reviewHtml(await loadReview(env), { done: searchParams.get('done') === '1' }), { headers: PAGE_HEADERS });
+    if (id === 'review') {
+      const state = searchParams.get('attack');
+      const attack = ['hit', 'done', 'failed'].includes(state) ? { state, damage: Number(searchParams.get('dmg')) || null } : null;
+      return new Response(reviewHtml(await loadReview(env), { done: searchParams.get('done') === '1', attack }), { headers: PAGE_HEADERS });
+    }
     const d = await loadQuest(env, id);
     if (!d) return new Response(questsErrorHtml('There is no such quest (or it is the main quest, which has its own card).'), { status: 404, headers: PAGE_HEADERS });
     return new Response(questHtml(d, { edit: searchParams.get('edit') === '1', need: searchParams.get('need') || '' }), { headers: PAGE_HEADERS });
