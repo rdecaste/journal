@@ -141,7 +141,9 @@ export function crossBorder(rows, today, cfg = CROSS_BORDER) {
     projection, trend, missing,
     months: [...months].map(([key, t]) => ({ month: key, ...finish(t) })),
     today: todayRow ? { am: todayRow.am, pm: todayRow.pm, commute: todayRow.commute, weekend: todayRow.weekend, url: todayRow.url } : null,
-    minimum: cfg.beMinimum, start: cfg.start
+    minimum: cfg.beMinimum, start: cfg.start, day: today, trend_weeks: cfg.trendWeeks,
+    // Every weekday row, for the Border days view on /admin (it edits them).
+    days: days.filter(d => !d.weekend && weekday(d.date) !== 0 && weekday(d.date) !== 6).map(d => ({ date: d.date, am: d.am, pm: d.pm, commute: d.commute, ebike: d.ebike }))
   };
 }
 

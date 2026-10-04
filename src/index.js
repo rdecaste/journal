@@ -33,6 +33,10 @@
 //   POST /logout   signs out
 //   GET  /data     everything the page shows, as JSON (signed in)
 //   POST /summary  rewrite today's AI summary now (signed in; one OpenAI call)
+//   POST /border/save  saves the days changed in the Border days view (Cross
+//                  Border tab): AM, PM and Commute on each day's Work Location
+//                  Log row (signed in; JSON { days: [{ date, am, pm, commute }] };
+//                  src/border.js)
 //   POST /run      rerun a scheduled Quest Engine job from the System health
 //                  tab (signed in; JSON { job, dry }; the jobs are in src/rerun.js)
 //
@@ -43,7 +47,8 @@
 // for GET /status, /ledger, /questlog, /mainquest, /hero, /questboard and
 // /journal/questions; and healthchecks.io. It writes only what Roy saves on
 // the journal page: that day's journal row, its focus and quest notes, its
-// To-Dos ("Win if") and the day's Work Location Log row, all in D1.
+// To-Dos ("Win if") and the day's Work Location Log row, all in D1, and the
+// Work Location Log days changed in the Cross Border tab.
 import { isSignedIn, sessionCookie, clearCookie, sameText } from './auth.js';
 import { loadDashboard } from './load.js';
 import { dashboardHtml, loginHtml } from './page.js';
@@ -60,6 +65,7 @@ import { store } from './usage.js';
 import { runJob } from './rerun.js';
 import { registerReview } from './review.js';
 import { readFold, writeFold } from './fold.js';
+import { saveBorder } from './border.js';
 export { Store } from './store.js';
 
 const PAGE_HEADERS = {
@@ -103,6 +109,17 @@ export default {
         const summary = await writeSummary(env, await loadDashboard(env, { fresh: true }), { force: true });
         if (searchParams.get('back') === '1') return redirect('/?fresh=1'); // the form on the Quest log page
         return json({ ok: 1, summary });
+      }
+      if (pathname === '/border/save' && request.method === 'POST') {
+        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+        if (!(request.headers.get('Content-Type') || '').includes('application/json')) return json({ ok: 0, code: 'bad_request' }, 400);
+        try {
+          // The page then reloads /data?fresh=1, which rebuilds the cached data.
+          return json(await saveBorder(env, await request.json().catch(() => null)));
+        } catch (e) {
+          console.error('border save', e && e.stack || e);
+          return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, e.code === 'bad_request' ? 400 : 500);
+        }
       }
       if (pathname === '/run' && request.method === 'POST') {
         if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);

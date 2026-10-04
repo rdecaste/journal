@@ -36,16 +36,25 @@ The landing page, [https://admindashboard.quest-engine.workers.dev](https://admi
 - **Sync from Hevy** (the first time: **Import my Hevy history**) pulls workouts changed in Hevy. It is also a Rerun button under Strava in System Health.
 
 ## What it reads
-Everything comes from the D1 database `quest` (binding `DB`) or the Quest Engine (service binding `QUEST_ENGINE`); the Worker never calls Notion. Its only writes are what Roy saves on the journal page: the day's `journal` row with its `journal_focus` and `journal_quest_notes` rows, its `todos` ("Win if" and linked to-dos) and the day's `work_location` row. (Until 1 Oct it also wrote a 🌍 buffer line on the Notion Quest log at 07:00; that has stopped.)
+Everything comes from the D1 database `quest` (binding `DB`) or the Quest Engine (service binding `QUEST_ENGINE`); the Worker never calls Notion. Its only writes are what Roy saves: on the journal page, the day's `journal` row with its `journal_focus` and `journal_quest_notes` rows, its `todos` ("Win if" and linked to-dos) and the day's `work_location` row; in the Cross Border tab (Border days), the `work_location` days he changed and saved. (Until 1 Oct it also wrote a 🌍 buffer line on the Notion Quest log at 07:00; that has stopped.)
 
 | Area | Source |
 |---|---|
-| Cross Border | D1 `work_location` (from 2026-07-01) |
+| Cross Border | D1 `work_location` (from 2026-07-01), shown and edited as Border days (below) |
 | Health | D1 `workouts` (Strava) and `body_metrics` (Withings), `sleep_recovery` (Apple Health: sleep, awake time, HRV, resting HR; last 60 days) and the active `quests` on the 🏃 Health Journey (never the Main Quest). |
 | System Health | Quest Engine GET /status and GET /ledger (quest-engine PR #3), [healthchecks.io](http://healthchecks.io) (read-only key); rerun buttons call the Quest Engine's job routes with `QUEST_ENGINE_TOKEN` (`src/rerun.js`) |
 | Quick Links | Fixed list in src/config.js |
 
 The dashboard caches the combined data for 5 minutes. It has no database of its own except a tiny Durable Object that holds the daily AI summary and its own API usage.
+
+## Cross Border tab: Border days
+Since 4 Oct 2026 (Roy's request, from the mockup https://claude.ai/artifact/MiRWaZN6kiy2GRku3PgiDq) the tab is a calm page to see and edit the Work Location Log:
+- One card on top: the Belgium share since 1 July in big type, a Belgium/Netherlands bar with the 50% line, then the buffer (NL days left before 50%, or BE days short), where 31 Dec is heading and the past days still to fill in (a link opens the first). These are the same sums as `crossBorder()` in `src/metrics.js`, worked out again in the browser while Roy edits, with "was …" beside a number his edits moved.
+- Three views (the last one used is remembered on the device): **Calendar** (a month of weekdays; tap a day), **Week list** (one row per day with Morning / Afternoon / Commute drop-downs; "Only days to fill in" and "Include planned weeks" filters) and **Year planner** (every weekday as a dot; pick a place and tap or drag to paint days, optionally half days).
+- Tapping a day opens a sheet: the place (or a split morning/afternoon), Getting there, and Clear day.
+- Changes collect in a Save pill at the bottom (Undo drops them). Save sends only the changed days to `POST /border/save` (`src/border.js`), which writes AM, PM and Commute through the journal page's `writeWork` (a weekday without a row gets one; E-bike € follows Commute; weekends are refused); a day that fails is named and stays unsaved. The page then reloads its data fresh.
+- "Totals, e-bike and each month" keeps the old tab's totals, e-bike compensation and month table in a fold.
+- Code: `src/borderpage.js` (style and browser script, mounted by `src/page.js`), `src/border.js` (save).
 
 ## Targets and thresholds (src/config.js)
 - Belgium share must stay above 50%. Buffer: watch below 8 NL days, attention below 3.
@@ -244,3 +253,5 @@ A 9-exercise routine fits in about one phone screen. Timed blocks show minutes, 
 3 Oct 2026: **Journal page: Start my day / End my day register the reviews** (Roy's request). Pressing Start my day ☀ registers the Morning review habit, End my day the Evening review: a boss hit, as a tap on the boss card, through the Quest Engine's `POST /journal/review` (`src/review.js`, route `POST /journal/review`). The Quest Engine counts each at most once per game day (04:00 to 04:00 Amsterdam), so pressing again, or after tapping the habit on the boss card, changes nothing. Needs the Quest Engine change deployed first.
 
 3 Oct 2026: **Journal page: folds hold on every device** (Roy's request). After Start my day or End my day, that half stays folded after a reload and on his other devices until he opens it with "Open the morning ›" or "Open the evening ›" (opening is shared the same way). The page keeps the day's folds in the Store (`journal_fold`, `{ day, m, e }`, `src/fold.js`; `GET|POST /journal/fold`), reads them with the day and fetches them again when a tab left open comes back into view (never while Roy is typing). A fold made before this went live stays on that browser only.
+
+4 Oct 2026: **Cross Border tab becomes Border days** (Roy's request: a page to see and edit his cross-border data, built from the mockup he approved). The tab now shows the Belgium share card and the Calendar, Week list and Year planner views, all editable, with a Save pill that writes the changed days to `work_location` (`POST /border/save`, `src/border.js`, `src/borderpage.js`). The flags, trend chart and missing-days table are gone from the tab (the flags still show on the Quest log page); totals and the month table are in a fold. Same day, on Roy's choice, the 12 pre-planned Beerse/Car Thursdays (8 Oct to 31 Dec) were cleared in D1; holidays stayed (backup and restore line: project file `border-days/backup-2026-10-04-future-beerse.md`).
