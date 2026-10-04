@@ -25,6 +25,15 @@
 //   GET|POST /journal/fold  whether the journal page's morning and evening are
 //                  folded today, the same on every device (signed in; POST JSON
 //                  { day, m?, e? } with true or false; src/fold.js)
+//   GET  /quests   the quest pages (Roy, 4 Oct 2026): active quests as cards,
+//                  planned ones by year, completed (?tab=planned|completed);
+//                  /quests/<id> one quest (?edit=1 its form), /quests/new a new
+//                  quest drafted by OpenAI from Roy's description, /quests/review
+//                  the Sunday review (?done=1 its summary) (signed in;
+//                  src/quests.js, src/questspage.js)
+//   POST /quests/save|action|ai|review/save  the quest pages' buttons
+//                  (signed in; JSON): save a quest's form or create one, one
+//                  quick change, an OpenAI draft or suggestion, the review
 //   POST /journal/evening-question  writes the evening's Reflection question
 //                  from the morning (signed in; JSON { headspace, forward, winif };
 //                  one OpenAI call, only when the morning changed)
@@ -48,7 +57,8 @@
 // /journal/questions; and healthchecks.io. It writes only what Roy saves on
 // the journal page: that day's journal row, its focus and quest notes, its
 // To-Dos ("Win if") and the day's Work Location Log row, all in D1, and the
-// Work Location Log days changed in the Cross Border tab.
+// Work Location Log days changed in the Cross Border tab; and what he saves on
+// the quest pages: quests and their weekly review updates.
 import { isSignedIn, sessionCookie, clearCookie, sameText } from './auth.js';
 import { loadDashboard } from './load.js';
 import { dashboardHtml, loginHtml } from './page.js';
@@ -60,6 +70,8 @@ import { journalHtml } from './journalpage.js';
 import { MOOD_ART } from './moodart.js';
 import { loadGym, gymAction } from './gym.js';
 import { gymHtml } from './gympage.js';
+import { loadQuests, loadQuest, loadReview, saveQuest, questAction, questAi, saveReview, isId } from './quests.js';
+import { questsHtml, questHtml, newQuestHtml, reviewHtml, questsErrorHtml } from './questspage.js';
 import { summaryDue, writeSummary, isSummaryHour } from './summary.js';
 import { store } from './usage.js';
 import { runJob } from './rerun.js';
@@ -74,8 +86,8 @@ const PAGE_HEADERS = {
 };
 const redirect = (to, cookie) => new Response(null, { status: 303, headers: { Location: to, ...(cookie ? { 'Set-Cookie': cookie } : {}) } });
 // Where the login sends you back to: only the dashboard's own pages.
-const NEXT = new Set(['/', '/questlog', '/admin', '/journal', '/gym']);
-const nextPath = p => (NEXT.has(p) ? p : '/');
+const NEXT = new Set(['/', '/questlog', '/admin', '/journal', '/gym', '/quests', '/quests/new', '/quests/review']);
+const nextPath = p => (NEXT.has(p) || /^\/quests\/[0-9a-f-]{32,36}$/i.test(p) ? p : '/');
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 
 export default {
@@ -229,6 +241,10 @@ export default {
           return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, e.code === 'bad_request' ? 400 : 500);
         }
       }
+      if (pathname === '/quests' || pathname.startsWith('/quests/')) {
+        const quests = await questsRoute(request, env, pathname, searchParams, signedIn);
+        if (quests) return quests;
+      }
       if (pathname === '/admin') return signedIn ? new Response(dashboardHtml(), { headers: PAGE_HEADERS }) : redirect('/login?next=/admin');
       return new Response('Not found', { status: 404 });
     } catch (e) {
@@ -246,3 +262,39 @@ export default {
     if (summaryDue(env, data, event.scheduledTime)) await writeSummary(env, data);
   }
 };
+
+// The quest pages and their buttons (src/quests.js, src/questspage.js).
+// Answers null for a path that isn't one of them.
+const QUEST_POSTS = { '/quests/save': saveQuest, '/quests/action': questAction, '/quests/ai': questAi, '/quests/review/save': saveReview };
+async function questsRoute(request, env, pathname, searchParams, signedIn) {
+  const post = QUEST_POSTS[pathname];
+  if (post) {
+    if (request.method !== 'POST') return new Response('Not found', { status: 404 });
+    if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+    if (!(request.headers.get('Content-Type') || '').includes('application/json')) return json({ ok: 0, code: 'bad_request', message: 'Send JSON.' }, 400);
+    const body = await request.json().catch(() => null);
+    try {
+      return json(await post(env, body && typeof body === 'object' ? body : {}));
+    } catch (e) {
+      const status = e.code === 'bad_request' ? 400 : e.code === 'ai_off' || e.code === 'ai_limit' ? 409 : 500;
+      if (status === 500) console.error(pathname, e && e.stack || e);
+      return json({ ok: 0, code: e.code || 'server_error', message: status === 500 ? `Something went wrong: ${String(e.message || e).slice(0, 200)}` : String(e.message || e) }, status);
+    }
+  }
+  if (request.method !== 'GET') return null;
+  const id = pathname.slice('/quests/'.length);
+  const known = pathname === '/quests' || id === 'new' || id === 'review' || isId(id);
+  if (!known) return null;
+  if (!signedIn) return redirect(`/login?next=${encodeURIComponent(pathname)}`);
+  try {
+    if (pathname === '/quests') return new Response(questsHtml(await loadQuests(env), { tab: searchParams.get('tab') || 'active' }), { headers: PAGE_HEADERS });
+    if (id === 'new') return new Response(newQuestHtml(await loadQuests(env)), { headers: PAGE_HEADERS });
+    if (id === 'review') return new Response(reviewHtml(await loadReview(env), { done: searchParams.get('done') === '1' }), { headers: PAGE_HEADERS });
+    const d = await loadQuest(env, id);
+    if (!d) return new Response(questsErrorHtml('There is no such quest (or it is the main quest, which has its own card).'), { status: 404, headers: PAGE_HEADERS });
+    return new Response(questHtml(d, { edit: searchParams.get('edit') === '1', need: searchParams.get('need') || '' }), { headers: PAGE_HEADERS });
+  } catch (e) {
+    console.error(pathname, e && e.stack || e);
+    return new Response(questsErrorHtml(`The quests did not load: ${String(e.message || e).slice(0, 200)}`), { status: 500, headers: PAGE_HEADERS });
+  }
+}

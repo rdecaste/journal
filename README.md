@@ -35,6 +35,13 @@ for the phone before the gym, in four steps:
 It also shows the last workout with the coach's feedback. Everything comes
 from the Quest Engine (`GET /gym` and its Hevy routes, `src/hevy.js` there),
 which holds the Hevy key.
+
+The **quest pages** at `/quests` (`src/quests.js` data and saves,
+`src/questspage.js` pages) manage the quests in D1: active quests as cards
+with their visual stills, planned ones by year, completed; one page per quest
+with its next move, weekly check, evidence log, attention, phase and the
+character for its visual; a new quest drafted by OpenAI from a description;
+and the Sunday weekly review. Never the Main Quest.
 Full description and change log: `docs/admin-dashboard.md` (moved from the
 Notion page "🧭 Admin Dashboard" on 1 Oct 2026); keep it up to date with
 each change.
@@ -83,7 +90,9 @@ the same store.
 | `POST /journal/save` | Writes what changed on the journal page into the day's journal row (signed in, JSON) |
 | `GET /gym` | The gym page (signed in; `?plan=<id>` opens a plan just generated), otherwise the login |
 | `POST /gym/generate`, `/gym/send`, `/gym/feedback`, `/gym/sync` | The gym page's buttons, passed on to the Quest Engine (signed in, JSON): build today's workout (a routine id, or `custom` with `request`), send it to Hevy, write a workout's feedback, sync from Hevy |
-| `GET /login`, `POST /login` | Login with `DASHBOARD_PASSWORD` (`next` = `/`, `/questlog`, `/admin`, `/journal` or `/gym`); a signed cookie lasts 30 days |
+| `GET /quests` | The quest pages (signed in; `?tab=planned` or `completed`): `/quests/<id>` one quest (`?edit=1` its form), `/quests/new` a new quest, `/quests/review` the weekly review (`?done=1` its summary) |
+| `POST /quests/save`, `/quests/action`, `/quests/ai`, `/quests/review/save` | The quest pages' buttons (signed in, JSON): save a quest's form or create one, one quick change (`activate`, `plan`, `complete`, `reopen`, `attention`, `phase`, `next`, `character`), an OpenAI request (`draft`, `suggest`, `characters`, `review`; needs `ADMIN_AI=1`, at most 60 a day), the week's review |
+| `GET /login`, `POST /login` | Login with `DASHBOARD_PASSWORD` (`next` = `/`, `/questlog`, `/admin`, `/journal`, `/gym`, `/quests` or a quest page); a signed cookie lasts 30 days |
 | `POST /logout` | Signs out |
 | `GET /data` | Everything the dashboard shows, as JSON (signed in; cached 5 minutes, `?fresh=1` reloads) |
 | `POST /summary` | Rewrite today's AI summary (signed in, at most once a minute); `?back=1` returns to `/` |

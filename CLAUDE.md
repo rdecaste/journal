@@ -3,7 +3,8 @@
 Roy's admin dashboard and landing page as one Cloudflare Worker
 (`admindashboard`): `/` is the Quest log page, `/admin` the dashboard,
 `/journal` the journal page, `/gym` the gym page (Hevy; the work is done in
-the Quest Engine's `src/hevy.js`). Full description and change log:
+the Quest Engine's `src/hevy.js`), `/quests` the quest pages (`src/quests.js`,
+`src/questspage.js`; they never touch the Main Quest or Refresh visual). Full description and change log:
 `docs/admin-dashboard.md`. Keep it up to date with every change.
 
 ## The data is in D1, not Notion (since 1 Oct 2026)
