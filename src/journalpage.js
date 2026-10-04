@@ -86,7 +86,7 @@ h2{font-family:var(--serif);font-weight:600;font-size:22px;margin:14px 0 -6px;co
 .sheet{background:var(--paper);border-radius:22px;padding:24px 24px 22px;display:flex;flex-direction:column;gap:30px;box-shadow:0 1px 2px rgba(20,26,36,.04)}
 .entry{display:flex;flex-direction:column;gap:8px;position:relative}
 .label{font-family:var(--serif);font-size:18px;font-weight:600;line-height:1.35;color:var(--ink)}
-.q{margin:0;font-family:var(--serif);font-style:italic;font-size:18px;line-height:1.5;color:var(--muted);text-wrap:pretty;transition:opacity .6s ease}
+.q{margin:0;font-family:var(--serif);font-style:italic;font-size:18px;line-height:1.5;color:var(--muted);text-wrap:pretty;transition:opacity .6s ease,height .45s ease;overflow:hidden}
 .q.swap{opacity:0}
 /* Roy's writing: upright serif in full ink in a plain box: a soft fill and a hairline border
    that takes the half's colour while he writes. No ruled lines; two lines tall when empty,
@@ -479,7 +479,7 @@ const SCRIPT = String.raw`
     el.addEventListener('blur', function () { if (dirty[key]) flush(); });
     stamp(q.id, q.at ? new Date(q.at) : null);
   });
-  window.addEventListener('resize', function () { growAll(); roomForQuestions(); });
+  window.addEventListener('resize', growAll);
 
   // Questions: today's from the 03:00 run first, then the fixed ones.
   var Q = {};
@@ -489,25 +489,25 @@ const SCRIPT = String.raw`
     Q[id] = list.filter(function (x, i) { return x && list.indexOf(x) === i; });
     var q = $(id + '-q'); if (q) q.textContent = Q[id][(UI['n_' + id] || 0) % Q[id].length];
   });
-  // While a box is empty and Roy isn't in it, its question turns over by itself every 20 seconds, with a soft fade;
-  // once he writes, it stays. Each question keeps room for its longest one, so nothing below ever moves.
+  // While a box is empty and Roy isn't writing, its question turns over by itself every 20 seconds: it fades,
+  // and the space under it glides to the new question's height, so the box always sits right under its question.
+  // Only a question in view changes, never while Roy is typing anywhere, so nothing moves under his cursor.
   var ROTATE = 20000;
-  function roomForQuestions() {
-    Object.keys(Q).forEach(function (id) {
-      var q = $(id + '-q'); if (!q || !q.offsetParent) return;
-      var shown = q.textContent, h = 0; q.style.minHeight = '';
-      Q[id].forEach(function (t) { q.textContent = t; h = Math.max(h, q.offsetHeight); });
-      q.textContent = shown; q.style.minHeight = h + 'px';
-    });
-  }
   function turn(id, step) {
     var q = $(id + '-q'); if (!q) return;
     UI['n_' + id] = ((UI['n_' + id] || 0) + step + Q[id].length) % Q[id].length; saveUI();
     var next = Q[id][UI['n_' + id]];
     if (calm) { q.textContent = next; return; }
     q.classList.add('swap');
-    setTimeout(function () { q.textContent = next; q.classList.remove('swap'); }, 600);
+    setTimeout(function () {
+      var h0 = q.offsetHeight; q.textContent = next; var h1 = q.offsetHeight;
+      q.style.height = h0 + 'px'; void q.offsetHeight;
+      q.style.height = h1 + 'px'; q.classList.remove('swap');
+      setTimeout(function () { q.style.height = ''; }, 500);
+    }, 600);
   }
+  var typing = function () { var a = document.activeElement; return !!a && /^(TEXTAREA|INPUT|SELECT)$/.test(a.tagName); };
+  var inView = function (el) { var r = el.getBoundingClientRect(); return r.top >= 0 && r.bottom <= (window.innerHeight || 0); };
   var calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   Object.keys(Q).forEach(function (id, i) {
     // Staggered, so the boxes never all change at once.
@@ -515,7 +515,7 @@ const SCRIPT = String.raw`
       setInterval(function () {
         var q = $(id + '-q'), box = $(id);
         if (!q || !box || !q.offsetParent || document.hidden || Q[id].length < 2) return;
-        if ((V[id] || '').trim() || document.activeElement === box) return;
+        if ((V[id] || '').trim() || typing() || !inView(q)) return;
         turn(id, 1);
       }, ROTATE);
     }, i * 3000);
@@ -649,7 +649,7 @@ const SCRIPT = String.raw`
     $('m-open').hidden = folded; $('m-recap').hidden = !folded;
     var eOpen = evening || UI.eopen || UI.edone, eClosed = eOpen && UI.edone;
     $('e-open').hidden = !eOpen || eClosed; $('e-later').hidden = eOpen; $('e-recap').hidden = !eClosed;
-    recap(); if (eClosed) eveningRecap(); growAll(); roomForQuestions();
+    recap(); if (eClosed) eveningRecap(); growAll();
     if (eOpen && !eClosed && !D.evening_q && !asked) askEvening();
   }
   $('open-evening').addEventListener('click', function () { UI.eopen = true; saveUI(); layout(); });
@@ -667,7 +667,6 @@ const SCRIPT = String.raw`
         if (D.evening_q && Q.reflection[0] === D.evening_q) Q.reflection.shift();
         D.evening_q = j.q; Q.reflection.unshift(j.q);
         var el = $('reflection-q'); if (el && !(UI.n_reflection > 0)) el.textContent = j.q;
-        roomForQuestions();
       }).catch(function () {});
   }
   // Start my day / End my day: the open half shrinks to its recap while it fades, the recap lines rise in,

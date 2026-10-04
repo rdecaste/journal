@@ -154,6 +154,6 @@ test('guiding questions turn over by themselves while a box is empty, and the sh
     sections: { headspace: { q: 'From 03:00?', text: '' }, forward: null, reflection: null, tomorrow: null },
     focus: { must: { items: [], slot: {} }, can: { items: [], slot: {} }, cool: { items: [], slot: {} } },
     extras: {}, quests: [], main_quest: 'Q', last: null, suggestions: [], sub: {} });
-  assert.ok(html.includes('var ROTATE = 20000') && html.includes('roomForQuestions()') && html.includes("b.sections[k].q = $(k + '-q').textContent"));
+  assert.ok(html.includes('var ROTATE = 20000') && html.includes('!inView(q)') && !html.includes('minHeight') && html.includes("b.sections[k].q = $(k + '-q').textContent"));
   for (const p of Object.values(PROMPTS)) for (const q of p.more) assert.ok(q.split(/\s+/).length <= 18 || q.startsWith('Finish the sentence') || q.startsWith('What’s still spinning'), q);
 });
