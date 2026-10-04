@@ -567,14 +567,34 @@ function CLIENT() {
     });
 
     var picker = $('#picker'), P = null;
-    function openPicker() { P = { search: '', artOnly: false, picks: null, loading: false, error: '' }; drawPicker(true); document.body.style.overflow = 'hidden'; }
+    // Phones and tablets: no automatic focus on the search box (it opens the
+    // keyboard over the list and makes iPhone Safari zoom in).
+    var COARSE = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+    function openPicker() {
+      P = { search: '', artOnly: false, picks: null, loading: false, error: '' };
+      drawPicker(); document.body.style.overflow = 'hidden';
+      if (!COARSE) { var s = $('#picker-search'); if (s) s.focus({ preventScroll: true }); }
+    }
     function closePicker() { P = null; picker.hidden = true; picker.innerHTML = ''; document.body.style.overflow = ''; }
-    function drawPicker(focus) {
+    // The shell (title, search, toggle) is drawn once; typing, the toggle and
+    // the suggestions only redraw the list, so the search box keeps focus.
+    function drawPicker() {
       if (!P) return;
+      var withArt = D.characters.filter(function (c) { return c.enabled && c.avatar; }).length, enabled = D.characters.filter(function (c) { return c.enabled; }).length;
+      picker.innerHTML = '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="picker-title"><div class="modal-head">' +
+        '<div class="row"><div><span class="label">' + esc(D.quest.icon + ' ' + D.quest.name) + '</span><h2 id="picker-title">Choose a character</h2></div><button class="icon-btn" type="button" data-pclose aria-label="Close">×</button></div>' +
+        '<div class="modal-tools"><input class="search" id="picker-search" type="search" placeholder="Search name, franchise or power" aria-label="Search characters" autocomplete="off" autocorrect="off" spellcheck="false">' +
+        (D.ai ? '<button class="btn ai" type="button" data-psuggest><i class="spark">✦</i> Suggest for this quest</button>' : '') + '</div>' +
+        '<div class="art-note"><label class="toggle"><input type="checkbox" id="picker-art"> Only with artwork</label><span>· Artwork for ' + withArt + ' of ' + enabled + ' characters.</span></div></div>' +
+        '<div class="modal-body" id="picker-body"></div></div>';
+      picker.hidden = false;
+      drawList();
+    }
+    function drawList() {
+      var body = $('#picker-body'); if (!P || !body) return;
       var term = P.search.trim().toLowerCase();
       var list = D.characters.filter(function (c) { return (c.enabled || c.id === D.quest.character) && (!term || (c.name + ' ' + c.franchise + ' ' + c.vibe).toLowerCase().indexOf(term) >= 0) && (!P.artOnly || c.avatar); });
       var franchises = []; list.forEach(function (c) { if (franchises.indexOf(c.franchise) < 0) franchises.push(c.franchise); });
-      var withArt = D.characters.filter(function (c) { return c.enabled && c.avatar; }).length, enabled = D.characters.filter(function (c) { return c.enabled; }).length;
       var tile = function (c) {
         var used = D.used[c.id], cur = c.id === D.quest.character;
         return '<button type="button" class="ccard' + (used ? ' used' : '') + '" data-pick="' + esc(c.id) + '" aria-pressed="' + cur + '">' + (cur ? '<span class="pill gold plain cur">Current</span>' : '') +
@@ -583,18 +603,9 @@ function CLIENT() {
       var ai = P.loading ? '<p class="note ai-note">✦ Finding characters that fit “' + esc(D.quest.name) + '”…</p>'
         : P.picks && P.picks.length ? '<div class="ai-picks">' + P.picks.map(function (p) { var c = charById[p.id]; return c ? '<button type="button" class="ai-pick" data-pick="' + esc(c.id) + '">' + avatar(c, 38, 10) + '<span><strong>' + esc(c.name) + '</strong> <span class="fr-inline">· ' + esc(c.franchise) + '</span><span>' + esc(p.why) + '</span></span><em>Use</em></button>' : ''; }).join('') + '</div>'
         : P.error ? '<p class="ai-off">' + esc(P.error) + '</p>' : '';
-      var search = $('#picker-search'), pos = search ? search.selectionStart : null;
-      picker.innerHTML = '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="picker-title"><div class="modal-head">' +
-        '<div class="row"><div><span class="label">' + esc(D.quest.icon + ' ' + D.quest.name) + '</span><h2 id="picker-title">Choose a character</h2></div><button class="icon-btn" type="button" data-pclose aria-label="Close">×</button></div>' +
-        '<div class="modal-tools"><input class="search" id="picker-search" type="search" placeholder="Search name, franchise or power" aria-label="Search characters" value="' + esc(P.search) + '">' +
-        (D.ai ? '<button class="btn ai" type="button" data-psuggest' + (P.loading ? ' disabled' : '') + '><i class="spark">✦</i> Suggest for this quest</button>' : '') + '</div>' +
-        '<div class="art-note"><label class="toggle"><input type="checkbox" id="picker-art"' + (P.artOnly ? ' checked' : '') + '> Only with artwork</label><span>· Artwork for ' + withArt + ' of ' + enabled + ' characters so far.</span></div></div>' +
-        '<div class="modal-body">' + (ai ? '<section class="section"><span class="label ai-label">✦ Suggested for this quest</span>' + ai + '</section>' : '') +
-        (franchises.length ? franchises.map(function (f) { return '<section class="section"><span class="label">' + esc(f) + '</span><div class="char-grid">' + list.filter(function (c) { return c.franchise === f; }).map(tile).join('') + '</div></section>'; }).join('') : '<p class="empty">No characters match.</p>') +
-        '</div></div>';
-      picker.hidden = false;
-      var s2 = $('#picker-search');
-      if (focus) s2.focus({ preventScroll: true }); else if (pos !== null) { s2.focus({ preventScroll: true }); s2.setSelectionRange(pos, pos); }
+      body.innerHTML = (ai ? '<section class="section"><span class="label ai-label">✦ Suggested for this quest</span>' + ai + '</section>' : '') +
+        (franchises.length ? franchises.map(function (f) { return '<section class="section"><span class="label">' + esc(f) + '</span><div class="char-grid">' + list.filter(function (c) { return c.franchise === f; }).map(tile).join('') + '</div></section>'; }).join('') : '<p class="empty">No characters match.</p>');
+      var sb = $('[data-psuggest]'); if (sb) sb.disabled = !!P.loading;
     }
     picker.addEventListener('click', function (e) {
       if (e.target === picker || e.target.closest('[data-pclose]')) { closePicker(); return; }
@@ -607,17 +618,18 @@ function CLIENT() {
         return;
       }
       if (e.target.closest('[data-psuggest]')) {
-        P.loading = true; P.error = ''; drawPicker();
+        P.loading = true; P.error = ''; drawList();
         post('/quests/ai', { kind: 'characters', id: D.id }).then(function (r) {
           if (!P) return;
           P.loading = false;
           if (r.ok === 1) { P.picks = r.picks; if (!r.picks.length) P.error = 'No suggestions came back. Try again.'; } else P.error = r.message || 'That did not work.';
-          drawPicker();
+          drawList();
+          var body = $('#picker-body'); if (body) body.scrollTop = 0;
         });
       }
     });
-    picker.addEventListener('input', function (e) { if (e.target.id === 'picker-search') { P.search = e.target.value; drawPicker(); } });
-    picker.addEventListener('change', function (e) { if (e.target.id === 'picker-art') { P.artOnly = e.target.checked; drawPicker(); } });
+    picker.addEventListener('input', function (e) { if (e.target.id === 'picker-search' && P) { P.search = e.target.value; drawList(); } });
+    picker.addEventListener('change', function (e) { if (e.target.id === 'picker-art' && P) { P.artOnly = e.target.checked; drawList(); } });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && P) closePicker(); });
   }
 
@@ -1063,5 +1075,7 @@ button:disabled{cursor:default;opacity:.55}
 @media (max-width:900px){.page-grid,.describe,.review{grid-template-columns:1fr}.side{position:static}.year-cols{grid-template-columns:1fr}}
 @media (max-width:760px){.rv{grid-template-columns:1fr}.rv-thumb{max-height:160px}.rv-fields{grid-template-columns:1fr}}
 @media (max-width:640px){.hero{aspect-ratio:auto;min-height:300px}.hero-in{padding:18px}.two{grid-template-columns:1fr}.search{width:100%}.filters{width:100%}.jsel{flex:1}.lrow-side .phase-wrap{display:none}.cards{grid-template-columns:1fr}.seg button{font-size:11.5px}}
+@media (pointer:coarse){input,select,textarea,.search,.jsel{font-size:16px!important}}
+@media (max-width:640px){.modal-scrim{padding:0;align-items:stretch}.modal{width:100%;max-height:none;height:100%;border-radius:0;border:0;padding-top:env(safe-area-inset-top,0px)}.modal-body{padding-bottom:max(20px,env(safe-area-inset-bottom))}.modal-body{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}.char-grid{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}.orb{animation:none}}
 `;
