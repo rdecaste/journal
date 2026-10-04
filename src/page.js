@@ -1,9 +1,10 @@
-// The dashboard's HTML (/admin): four areas (Cross Border, Health, System
+// The dashboard's HTML (/admin): four areas (Cross Border = Border days, Health, System
 // Health, Quick Links); the daily overview lives on the Quest log page (/).
 // The page fetches /data and draws everything in the browser; nothing here
 // holds personal data.
 
 import { LINKS, D1_CONSOLE, QUEST_ENGINE_DOC } from './config.js';
+import { BORDER_STYLE, BORDER_SCRIPT, BORDER_LAYER } from './borderpage.js';
 
 const STYLE = `
 :root{color-scheme:light;--page:#f9f9f7;--surface:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;--grid:#e1e0d9;--axis:#c3c2b7;--ring:rgba(11,11,11,.10);
@@ -255,28 +256,8 @@ const flagList = flags => flags.length
   ? '<ul class="flags">' + flags.map(f => '<li class="flag ' + f.level + '"><span class="dot" style="margin-top:7px;background:var(--' + (f.level === 'attention' ? 'crit' : 'warnfill') + ')"></span><span class="t">' + esc(f.title) + '</span>' + (f.link ? '<a class="src" href="' + esc(f.link) + '" target="_blank" rel="noopener">Open ↗</a>' : '<span></span>') + '<span class="w">' + esc(f.why) + '</span></li>').join('') + '</ul>'
   : '<p class="calm">Nothing drifting here.</p>';
 
-// ---- Cross border ----
-function renderCross(c) {
-  if (!c) return '<p class="calm">The Work Location Log could not be read.</p>';
-  const Y = c.ytd, M = c.month, p = c.projection;
-  let html = '<h2 style="display:flex;justify-content:space-between;align-items:center">Position ' + tag(c.status) + '</h2>';
-  html += '<div class="grid">';
-  html += '<div class="card"><h3>Belgium share, since ' + day(c.start) + '</h3><div class="big">' + fmt(Y.be_share) + '%</div><div class="sub">Must stay above ' + c.minimum + '%. ' + fmt(Y.be) + ' BE vs ' + fmt(Y.nl) + ' NL days.</div></div>';
-  html += '<div class="card"><h3>Buffer</h3><div class="big">' + (c.buffer_days >= 0 ? fmt(c.buffer_days) + ' <span class="sub">NL days</span>' : fmt(c.be_days_needed) + ' <span class="sub">BE days short</span>') + '</div><div class="sub">' + (c.buffer_days >= 0 ? 'NL days you can still add before Belgium drops to ' + c.minimum + '%.' : 'Belgium days needed to get back above ' + c.minimum + '%.') + ' Each extra NL day moves the share by ' + fmt(c.share_per_nl_day, 2) + ' pts.</div></div>';
-  html += '<div class="card"><h3>This month (' + esc(c.month_key) + ')</h3><div class="big">' + fmt(M.be_share) + '% <span class="sub">BE</span></div><div class="sub">' + fmt(M.be) + ' BE · ' + fmt(M.nl) + ' NL · ' + fmt(M.travel) + ' travel · ' + fmt(M.holiday) + ' holiday</div></div>';
-  if (p) html += '<div class="card"><h3>Where you are heading</h3><div class="big">' + fmt(p.year_end_be_share) + '% <span class="sub">by 31 Dec</span></div><div class="sub">If the last weeks\\' ' + fmt(p.recent_be_share) + '% BE pattern continues on the ' + fmt(p.open_days) + ' unplanned days' + (p.planned_be + p.planned_nl ? ', plus ' + fmt(p.planned_be) + ' BE / ' + fmt(p.planned_nl) + ' NL days already planned' : '') + '.</div></div>';
-  html += '</div>';
-  html += '<h2>Flags</h2>' + flagList(c.flags);
-  html += '<h2>Belgium share over time</h2><div class="card">' + chart('line', c.trend.map(t => ({ label: 'Week of ' + day(t.week), y: t.be_share })), { ref: c.minimum, refLabel: c.minimum + '% line', unit: '%' }) + '</div>';
-  html += '<h2>Totals</h2><div class="grid"><div class="card"><h3>Since ' + day(c.start) + '</h3><dl class="kv">' +
-    [['Belgium work days', Y.be], ['Netherlands work days', Y.nl], ['Travel days', Y.travel], ['Holiday days', Y.holiday], ['Unclassified days', Y.unclassified], ['Accountable days', Y.accountable]].map(([k, v]) => '<dt>' + k + '</dt><dd>' + fmt(v) + '</dd>').join('') + '</dl></div>' +
-    '<div class="card"><h3>Commute</h3><dl class="kv"><dt>E-bike compensation, this month</dt><dd>€ ' + fmt(M.ebike, 2) + '</dd><dt>E-bike compensation, since ' + day(c.start) + '</dt><dd>€ ' + fmt(Y.ebike, 2) + '</dd></dl></div></div>';
-  html += '<h2>By month</h2><div class="card scroll"><div class="legend"><span><i style="background:var(--s1)"></i>Belgium</span><span><i style="background:var(--s2)"></i>Netherlands</span></div><table><thead><tr><th>Month</th><th>Split</th><th class="num">BE</th><th class="num">NL</th><th class="num">Travel</th><th class="num">Holiday</th><th class="num">Unclassified</th><th class="num">BE %</th><th class="num">E-bike €</th></tr></thead><tbody>' +
-    c.months.map(m => '<tr><td>' + esc(m.month) + '</td><td>' + (m.be + m.nl ? '<div class="split" data-tip="' + fmt(m.be_share) + '% Belgium"><span style="width:' + m.be_share + '%;background:var(--s1)"></span><span style="flex:1;background:var(--s2)"></span></div>' : '') + '</td><td class="num">' + fmt(m.be) + '</td><td class="num">' + fmt(m.nl) + '</td><td class="num">' + fmt(m.travel) + '</td><td class="num">' + fmt(m.holiday) + '</td><td class="num">' + fmt(m.unclassified) + '</td><td class="num">' + fmt(m.be_share) + '</td><td class="num">' + fmt(m.ebike, 2) + '</td></tr>').join('') + '</tbody></table></div>';
-  html += '<h2>Missing or unclassified days</h2>' + (c.missing.length ? '<div class="card scroll"><table><thead><tr><th>Date</th><th>AM</th><th>PM</th><th></th></tr></thead><tbody>' + c.missing.map(m => '<tr><td>' + day(m.date) + '</td><td>' + esc(m.am || '—') + '</td><td>' + esc(m.pm || '—') + '</td><td class="num">' + (!m.no_row ? '<a class="src" href="' + esc(m.url || D1_CONSOLE) + '" target="_blank" rel="noopener">Fix ↗</a>' : '<span class="muted">no row</span>') + '</td></tr>').join('') + '</tbody></table></div>' : '<p class="calm">Every past work day is classified.</p>');
-  return html + '<p><a class="src" href="' + D1_CONSOLE + '" target="_blank" rel="noopener">Work Location Log (D1) ↗</a></p>';
-}
-
+// ---- Cross border: the Border days view, src/borderpage.js ----
+${BORDER_SCRIPT}
 // ---- Health (Recovery today, quests, form, training, body) ----
 const attr = o => Object.keys(o).map(k => k + '="' + o[k] + '"').join(' ');
 const S_ = (t, o, inner) => '<' + t + ' ' + attr(o) + (inner === undefined ? '/>' : '>' + inner + '</' + t + '>');
@@ -574,7 +555,8 @@ function render() {
   const d = data;
   charts = [];
   $('#notice').innerHTML = d.errors.length ? '<div class="err">Some sources could not be read: ' + esc(d.errors.join('; ')) + '</div>' : '';
-  $('#cross').innerHTML = renderCross(d.cross);
+  renderCross(d.cross);
+  bdDraw();
   $('#health').innerHTML = renderHealth(d.health);
   $('#system').innerHTML = renderSystem(d.system);
   for (const [k, a] of [['cross', d.cross], ['health', d.health], ['system', d.system]]) $('nav a[href="#' + k + '"] .dot').parentElement.className = (a ? a.status : 'unknown');
@@ -606,13 +588,14 @@ export const dashboardHtml = () => `<!doctype html>
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Admin"><meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%232a78d6'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,600&family=Barlow:wght@400;500;600;700&display=swap">
-<style>${STYLE}${HEALTH_STYLE}</style></head><body>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,600&family=Barlow:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&display=swap">
+<style>${STYLE}${HEALTH_STYLE}${BORDER_STYLE}</style></head><body>
 <header><div class="bar"><a class="home" href="/">‹ Quest log</a><h1>Admin cockpit</h1><div class="meta"><span id="stamp">Loading…</span><button id="reload" type="button">Refresh</button><form method="post" action="/logout" style="margin:0"><button type="submit">Sign out</button></form></div></div>
 <nav><a href="#cross"><span class="unknown"><span class="dot"></span></span><span class="long">Cross Border</span><span class="short">Border</span></a><a href="#health"><span class="unknown"><span class="dot"></span></span>Health</a><a href="#system"><span class="unknown"><span class="dot"></span></span><span class="long">System Health</span><span class="short">System</span></a><a href="#links"><span class="long">Quick Links</span><span class="short">Links</span></a></nav></header>
 <main><div id="notice"></div><section id="cross"><p class="empty">Loading…</p></section><section id="health" hidden></section><section id="system" hidden></section>
 <section id="links" hidden><h2>Quick links</h2><div class="links">${linkCards}</div></section></main>
 <div id="tip" role="tooltip"></div>
+${BORDER_LAYER}
 <script>${SCRIPT}</script></body></html>`;
 
 export const loginHtml = (error = '', next = '/') => `<!doctype html>
