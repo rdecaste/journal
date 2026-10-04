@@ -105,7 +105,7 @@ ${body}
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script id="qdata" type="application/json">${safeJson(data)}</script>
-<script>(${CLIENT.toString()})();</script>
+<script>${CLIENT_PRELUDE}(${CLIENT.toString()})();</script>
 </body></html>`;
 }
 
@@ -395,6 +395,12 @@ export function questsErrorHtml(message) {
 }
 
 // ---- The page script ----
+// The bundler that builds the Worker (esbuild, with keepNames) adds
+// `__name(fn, "name")` calls inside CLIENT, and CLIENT.toString() carries them
+// into the page, where no __name exists: every button died with a
+// ReferenceError (4 Oct 2026). The prelude defines it as a no-op first.
+export const CLIENT_PRELUDE = 'var __name=function(t){return t};';
+
 // Runs in the browser (serialised with toString), so it can use nothing from
 // this module: what it needs comes from the #qdata JSON.
 function CLIENT() {

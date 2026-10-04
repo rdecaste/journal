@@ -6,7 +6,7 @@ import { fakeD1 } from './d1fake.js';
 import {
   loadQuests, loadQuest, loadReview, saveQuest, questAction, saveReview, questAi, weekOf, posterUrl, avatarUrl, questColumns, journeyFrom, AI_PER_DAY
 } from '../src/quests.js';
-import { questsHtml, questHtml, newQuestHtml, reviewHtml, clipUrl, avatarHtml } from '../src/questspage.js';
+import { questsHtml, questHtml, newQuestHtml, reviewHtml, clipUrl, avatarHtml, CLIENT_PRELUDE } from '../src/questspage.js';
 
 const BACKYARD = '46be3c04-eff6-4b3e-9ace-0a625875b258';
 const RUN = '3cd24147-f877-8136-87d6-c4a5a824d54e';
@@ -282,4 +282,14 @@ test('an avatar clip plays as a centred square over the still; chips stay stills
   assert.match(big, /<video src="https:\/\/res\.cloudinary\.com\/x\/video\/upload\/c_fill,g_center,h_88,w_88\/q_auto\/v2\/A\/e-clip\.mp4" poster="[^"]+c_fill,g_auto,w_88,h_88[^"]+" autoplay muted loop playsinline/);
   assert.doesNotMatch(avatarHtml(c, 20), /<video/);
   assert.doesNotMatch(avatarHtml({ ...c, clip: '' }, 44), /<video/);
+});
+
+test('the page script defines __name before the bundled script uses it', async () => {
+  const { env } = await setup();
+  const html = questsHtml(await loadQuests(env, { now: NOW }));
+  const script = html.split('<script>').pop().split('</script>')[0];
+  assert.ok(script.startsWith(CLIENT_PRELUDE));
+  // What esbuild's keepNames puts inside the function must run in a browser.
+  const run = new Function(CLIENT_PRELUDE + 'return (function () { var f = __name(function () {}, "f"); function g() {} __name(g, "g"); return typeof f; })();');
+  assert.equal(run(), 'function');
 });
