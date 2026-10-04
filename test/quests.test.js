@@ -6,7 +6,7 @@ import { fakeD1 } from './d1fake.js';
 import {
   loadQuests, loadQuest, loadReview, saveQuest, questAction, saveReview, questAi, weekOf, posterUrl, avatarUrl, questColumns, journeyFrom, AI_PER_DAY
 } from '../src/quests.js';
-import { questsHtml, questHtml, newQuestHtml, reviewHtml } from '../src/questspage.js';
+import { questsHtml, questHtml, newQuestHtml, reviewHtml, clipUrl, avatarHtml } from '../src/questspage.js';
 
 const BACKYARD = '46be3c04-eff6-4b3e-9ace-0a625875b258';
 const RUN = '3cd24147-f877-8136-87d6-c4a5a824d54e';
@@ -273,4 +273,13 @@ test('Finish review hits the boss with Quest review once; no verdict, no hit', a
   assert.match(reviewHtml(d, { done: true, attack: { state: 'hit', damage: 47 } }), /Quest review hit the boss for <b>47<\/b> damage/);
   assert.match(reviewHtml(d, { done: true, attack: { state: 'done' } }), /already counted this week/);
   assert.match(reviewHtml(d), /Finishing also hits the boss with Quest review/);
+});
+
+test('an avatar clip plays as a centred square over the still; chips stay stills', () => {
+  const c = { name: 'Erza Scarlet', franchise: 'Fairy Tail', avatar: 'https://res.cloudinary.com/x/image/upload/v1/A/e.png', clip: 'https://res.cloudinary.com/x/video/upload/v2/A/e-clip.mp4' };
+  assert.equal(clipUrl(c.clip, 100), 'https://res.cloudinary.com/x/video/upload/c_fill,g_center,h_100,w_100/q_auto/v2/A/e-clip.mp4');
+  const big = avatarHtml(c, 44);
+  assert.match(big, /<video src="https:\/\/res\.cloudinary\.com\/x\/video\/upload\/c_fill,g_center,h_88,w_88\/q_auto\/v2\/A\/e-clip\.mp4" poster="[^"]+c_fill,g_auto,w_88,h_88[^"]+" autoplay muted loop playsinline/);
+  assert.doesNotMatch(avatarHtml(c, 20), /<video/);
+  assert.doesNotMatch(avatarHtml({ ...c, clip: '' }, 44), /<video/);
 });

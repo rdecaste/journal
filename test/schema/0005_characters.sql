@@ -8,3 +8,5 @@ CREATE TABLE characters (
   icon TEXT, cover TEXT, blocks TEXT, page_text TEXT, content_read_at TEXT
 );
 ALTER TABLE characters ADD COLUMN avatar_url TEXT;
+-- avatar_clip_url: a short looping clip of the avatar (Quest Engine migration 0016).
+ALTER TABLE characters ADD COLUMN avatar_clip_url TEXT;

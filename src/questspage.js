@@ -63,11 +63,20 @@ export function countdown(q, today) {
   const n = daysBetween(today, q.target);
   return n >= 0 ? `${n} days to go` : `${-n} days past target`;
 }
+// A clip is portrait (Gemini makes 9:16): a centred square of it, small.
+export function clipUrl(url, size = 320) {
+  if (!/^https:\/\/res\.cloudinary\.com\/[^/]+\/video\/upload\//.test(url || '')) return url || '';
+  return url.replace('/video/upload/', `/video/upload/c_fill,g_center,h_${size},w_${size}/q_auto/`);
+}
 export function avatarHtml(c, size, radius = 12, showFranchise = false) {
   if (!c) return '';
   const h = FR_HUE[c.franchise] ?? 200;
   const dims = size ? `width:${size}px;height:${size}px;font-size:${Math.round(size * 0.36)}px;` : '';
-  const img = c.avatar ? `<img src="${esc(avatarUrl(c.avatar, size ? Math.min(512, size * 2) : 320))}" alt="" loading="lazy">` : esc(initials(c.name));
+  const still = c.avatar ? avatarUrl(c.avatar, size ? Math.min(512, size * 2) : 320) : '';
+  // A clip plays muted and looping over the still (not in tiny chips).
+  const img = c.avatar && c.clip && (!size || size >= 36)
+    ? `<video src="${esc(clipUrl(c.clip, size ? Math.min(512, size * 2) : 320))}" poster="${esc(still)}" autoplay muted loop playsinline preload="metadata" aria-hidden="true"></video>`
+    : c.avatar ? `<img src="${esc(still)}" alt="" loading="lazy">` : esc(initials(c.name));
   return `<span class="avatar" style="${dims}border-radius:${radius}px;background:radial-gradient(circle at 30% 25%,hsl(${h} 55% 42%),hsl(${h} 45% 16%) 75%)" aria-hidden="true">${img}${!c.avatar && showFranchise ? `<span class="fr">${esc(c.franchise)}</span>` : ''}</span>`;
 }
 const charOf = (d, id) => d.characters.find(c => c.id === id) || null;
@@ -404,15 +413,21 @@ function CLIENT() {
   }
   function busy(btn, text) { var label = btn.innerHTML; btn.disabled = true; btn.textContent = text; return function () { btn.disabled = false; btn.innerHTML = label; }; }
   var charById = {}; (D.characters || []).forEach(function (c) { charById[c.id] = c; });
+  var REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Avatar clips drawn on the server: still for people who asked for less motion.
+  if (REDUCED) document.querySelectorAll('.avatar video').forEach(function (v) { v.pause(); v.removeAttribute('autoplay'); });
   var HUE = { 'Arcane': 275, 'Bleach': 205, 'Chainsaw Man': 10, 'Cyberpunk: Edgerunners': 320, 'Dragon Ball': 32, 'Fairy Tail': 350, 'Jujutsu Kaisen': 230, 'One Punch Man': 48, 'Solo Leveling': 250, 'Tokyo Ghoul': 0 };
   function initials(n) { return String(n || '').split(/[\s/]+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase(); }
+  function clipSrc(url, size) { return /\/video\/upload\//.test(url) ? url.replace('/video/upload/', '/video/upload/c_fill,g_center,h_' + size + ',w_' + size + '/q_auto/') : url; }
   function avatarSrc(url, size) { return /\/image\/upload\//.test(url) ? url.replace('/image/upload/', '/image/upload/c_fill,g_auto,w_' + size + ',h_' + size + ',q_auto,f_auto/') : url; }
   function avatar(c, size, radius, showFr) {
     if (!c) return '';
     var h = HUE[c.franchise] == null ? 200 : HUE[c.franchise];
     var dims = size ? 'width:' + size + 'px;height:' + size + 'px;font-size:' + Math.round(size * 0.36) + 'px;' : '';
     return '<span class="avatar" style="' + dims + 'border-radius:' + (radius || 12) + 'px;background:radial-gradient(circle at 30% 25%,hsl(' + h + ' 55% 42%),hsl(' + h + ' 45% 16%) 75%)" aria-hidden="true">' +
-      (c.avatar ? '<img src="' + esc(avatarSrc(c.avatar, size ? Math.min(512, size * 2) : 320)) + '" alt="" loading="lazy">' : esc(initials(c.name))) +
+      (c.avatar && c.clip && (!size || size >= 36) && !REDUCED
+        ? '<video src="' + esc(clipSrc(c.clip, size ? Math.min(512, size * 2) : 320)) + '" poster="' + esc(avatarSrc(c.avatar, size ? Math.min(512, size * 2) : 320)) + '" autoplay muted loop playsinline preload="metadata" aria-hidden="true"></video>'
+        : c.avatar ? '<img src="' + esc(avatarSrc(c.avatar, size ? Math.min(512, size * 2) : 320)) + '" alt="" loading="lazy">' : esc(initials(c.name))) +
       (!c.avatar && showFr ? '<span class="fr">' + esc(c.franchise) + '</span>' : '') + '</span>';
   }
 
@@ -974,7 +989,7 @@ button:disabled{cursor:default;opacity:.55}
 .qa .field label{font-weight:500;color:var(--body);font-size:14px}
 .your-words{font-size:13.5px;color:var(--muted);white-space:pre-line;border-left:2px solid var(--line-2);padding-left:12px}
 .avatar{position:relative;overflow:hidden;display:grid;place-items:center;font-family:var(--f-display);font-weight:800;color:rgba(255,255,255,.92);flex:none}
-.avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.avatar img,.avatar video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .avatar .fr{position:absolute;left:0;right:0;bottom:6px;font-family:var(--f-body);font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;opacity:.7;text-align:center}
 .char-card{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:center}
 .char-card strong{display:block;font-size:15.5px}

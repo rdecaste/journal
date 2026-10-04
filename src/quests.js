@@ -67,7 +67,9 @@ export function characterFrom(r) {
   return {
     id: r.id, name: r.character_name || '', franchise: r.franchise || '', enabled: r.enabled === 1,
     vibe: powers.length > 90 ? powers.slice(0, 88).replace(/[;,]?\s+\S*$/, '') + '…' : powers,
-    avatar: r.avatar_url || ''
+    avatar: r.avatar_url || '',
+    // A short looping clip of the avatar (camera still, the character moves a little).
+    clip: r.avatar_clip_url || ''
   };
 }
 
