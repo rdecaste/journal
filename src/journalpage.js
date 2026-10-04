@@ -20,16 +20,23 @@ const longDay = day => { const d = new Date(day + 'T12:00:00Z'); return `${DAYS[
 // to start with, and one follow-up once there is something to follow up on.
 // No AI here: these are fixed.
 export const PROMPTS = {
-  headspace: { icon: '🧠', name: 'Headspace', more: ['What’s taking up the most room in your head right now?', 'How are you arriving today, honestly?', 'What would make this morning feel lighter?'],
+  headspace: { icon: '🧠', name: 'Headspace', more: ['What are you avoiding thinking about?', 'Which decision are you putting off, and why?', 'What’s quietly draining your energy right now?',
+    'Which worry is loudest, and is it the one that matters?', 'What would you say if someone asked how you really are?', 'What’s on your mind that you haven’t told anyone?',
+    'What are you holding on to that you could drop?', 'What do you need today that you’re not asking for?'],
     starters: ['Honestly, I feel…', 'What bugs me is…'] },
-  winif: { icon: '🎯', name: 'Today is a win if…', more: ['Finish the sentence. One thing, so tonight you can tell whether it happened.', 'What’s the smallest thing that would still make today count?'],
+  winif: { icon: '🎯', name: 'Today is a win if…', more: ['Finish the sentence. One thing, so tonight you can tell whether it happened.', 'What’s the one thing that would make tonight feel good?',
+    'What would you regret not doing by tonight?', 'Which win have you been postponing?', 'What’s the smallest thing that would still make today count?'],
     starters: ['I…', 'I don’t…'] },
-  forward: { icon: '😄', name: 'Looking forward to', more: ['What small moment today would make you smile if it happened?', 'Who would you like to catch up with today?'], starters: ['I’d like to…'] },
-  reflection: { icon: '🌙', name: 'Reflection', more: ['When today did you feel most like yourself?', 'What drained you today, and what gave something back?', 'What surprised you today?'],
+  forward: { icon: '😄', name: 'Looking forward to', more: ['Which moment today would you be sorry to miss?', 'Who do you want to see today, and why them?', 'What’s one thing today that’s just for you?',
+    'What could you enjoy today if you stopped rushing it?', 'What are you curious to find out today?', 'Which part of today has the most upside?'], starters: ['I’d like to…'] },
+  reflection: { icon: '🌙', name: 'Reflection', more: ['What did today teach you that you didn’t expect?', 'Where did you hold back today, and why?', 'What gave you energy today, and what took it?',
+    'If you got today again, what would you do differently?', 'What are you proud of today that nobody noticed?', 'When were you most yourself today?', 'What did you avoid today?'],
     starters: ['What stood out was…', 'I noticed…'] },
-  park: { icon: '🅿️', name: 'Park it', more: ['What’s still spinning? Write it down and leave it here for tonight.', 'Anything you’re carrying to bed that you can put down now?'],
+  park: { icon: '🅿️', name: 'Park it', more: ['What’s still spinning? Write it down and leave it here for tonight.', 'What are you carrying to bed that can wait until tomorrow?',
+    'What’s unresolved that you can let go of tonight?', 'What would keep you awake if you didn’t write it here?'],
     starters: ['Still on my mind:', 'I’ll deal with…'] },
-  tomorrow: { icon: '➡️', name: 'For tomorrow', more: ['What’s one thing you can take off tomorrow’s plate?', 'What would make tomorrow morning easy to start?'],
+  tomorrow: { icon: '➡️', name: 'For tomorrow', more: ['What’s the one thing tomorrow has to get right?', 'What can you drop from tomorrow without anyone noticing?', 'What would make tomorrow morning easy to start?',
+    'Who do you need to talk to tomorrow?', 'What will you do first tomorrow, and why that?'],
     starters: ['Tomorrow I want…'] }
 };
 
@@ -79,7 +86,8 @@ h2{font-family:var(--serif);font-weight:600;font-size:22px;margin:14px 0 -6px;co
 .sheet{background:var(--paper);border-radius:22px;padding:24px 24px 22px;display:flex;flex-direction:column;gap:30px;box-shadow:0 1px 2px rgba(20,26,36,.04)}
 .entry{display:flex;flex-direction:column;gap:8px;position:relative}
 .label{font-family:var(--serif);font-size:18px;font-weight:600;line-height:1.35;color:var(--ink)}
-.q{margin:0;font-family:var(--serif);font-style:italic;font-size:18px;line-height:1.5;color:var(--muted);text-wrap:pretty}
+.q{margin:0;font-family:var(--serif);font-style:italic;font-size:18px;line-height:1.5;color:var(--muted);text-wrap:pretty;transition:opacity .6s ease}
+.q.swap{opacity:0}
 /* Roy's writing: upright serif in full ink in a plain box: a soft fill and a hairline border
    that takes the half's colour while he writes. No ruled lines; two lines tall when empty,
    growing as he types. */
@@ -393,7 +401,8 @@ const SCRIPT = String.raw`
   function body() {
     var b = { page: D.page, sections: {}, extras: {}, quests: {}, focus: {}, todos: todoOps.slice() };
     Object.keys(dirty).forEach(function (k) {
-      if (SECTION[k]) b.sections[k] = { slot: S.sections[k], text: V[k] };
+      // The question goes with the answer, since the page may have shown another than the 03:00 one.
+      if (SECTION[k]) { b.sections[k] = { slot: S.sections[k], text: V[k] }; if (V[k] && $(k + '-q')) b.sections[k].q = $(k + '-q').textContent; }
       else if (EXTRA[k]) b.extras[k] = { slot: S.extras[k], text: V[k] };
       else if (k.indexOf('q:') === 0) b.quests[k.slice(2)] = { slot: S.quests[k.slice(2)], text: V[k] };
       else if (k.indexOf('f:') === 0) b.focus[k.slice(2)] = { slot: S.focus[k.slice(2)], items: F[k.slice(2)] };
@@ -470,15 +479,46 @@ const SCRIPT = String.raw`
     el.addEventListener('blur', function () { if (dirty[key]) flush(); });
     stamp(q.id, q.at ? new Date(q.at) : null);
   });
-  window.addEventListener('resize', growAll);
+  window.addEventListener('resize', function () { growAll(); roomForQuestions(); });
 
   // Questions: today's from the 03:00 run first, then the fixed ones.
   var Q = {};
   Object.keys(P).forEach(function (id) {
     var first = D.sections[id] && D.sections[id].q, list = (first ? [first] : []).concat(P[id].more);
     if (id === 'reflection' && D.evening_q) list.unshift(D.evening_q);
-    Q[id] = list;
-    var q = $(id + '-q'); if (q) q.textContent = list[(UI['n_' + id] || 0) % list.length];
+    Q[id] = list.filter(function (x, i) { return x && list.indexOf(x) === i; });
+    var q = $(id + '-q'); if (q) q.textContent = Q[id][(UI['n_' + id] || 0) % Q[id].length];
+  });
+  // While a box is empty and Roy isn't in it, its question turns over by itself every 20 seconds, with a soft fade;
+  // once he writes, it stays. Each question keeps room for its longest one, so nothing below ever moves.
+  var ROTATE = 20000;
+  function roomForQuestions() {
+    Object.keys(Q).forEach(function (id) {
+      var q = $(id + '-q'); if (!q || !q.offsetParent) return;
+      var shown = q.textContent, h = 0; q.style.minHeight = '';
+      Q[id].forEach(function (t) { q.textContent = t; h = Math.max(h, q.offsetHeight); });
+      q.textContent = shown; q.style.minHeight = h + 'px';
+    });
+  }
+  function turn(id, step) {
+    var q = $(id + '-q'); if (!q) return;
+    UI['n_' + id] = ((UI['n_' + id] || 0) + step + Q[id].length) % Q[id].length; saveUI();
+    var next = Q[id][UI['n_' + id]];
+    if (calm) { q.textContent = next; return; }
+    q.classList.add('swap');
+    setTimeout(function () { q.textContent = next; q.classList.remove('swap'); }, 600);
+  }
+  var calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  Object.keys(Q).forEach(function (id, i) {
+    // Staggered, so the boxes never all change at once.
+    setTimeout(function () {
+      setInterval(function () {
+        var q = $(id + '-q'), box = $(id);
+        if (!q || !box || !q.offsetParent || document.hidden || Q[id].length < 2) return;
+        if ((V[id] || '').trim() || document.activeElement === box) return;
+        turn(id, 1);
+      }, ROTATE);
+    }, i * 3000);
   });
   Array.prototype.forEach.call(document.querySelectorAll('.entry'), function (en) {
     en.addEventListener('focusin', function (e) {
@@ -489,7 +529,7 @@ const SCRIPT = String.raw`
   Array.prototype.forEach.call(document.querySelectorAll('.more'), function (b) {
     var id = b.getAttribute('data-box');
     b.addEventListener('mousedown', function (e) { e.preventDefault(); });
-    b.addEventListener('click', function () { UI['n_' + id] = ((UI['n_' + id] || 0) + 1) % Q[id].length; saveUI(); $(id + '-q').textContent = Q[id][UI['n_' + id]]; });
+    b.addEventListener('click', function () { turn(id, 1); });
   });
 
   // ---- The folded morning ----
@@ -609,7 +649,7 @@ const SCRIPT = String.raw`
     $('m-open').hidden = folded; $('m-recap').hidden = !folded;
     var eOpen = evening || UI.eopen || UI.edone, eClosed = eOpen && UI.edone;
     $('e-open').hidden = !eOpen || eClosed; $('e-later').hidden = eOpen; $('e-recap').hidden = !eClosed;
-    recap(); if (eClosed) eveningRecap(); growAll();
+    recap(); if (eClosed) eveningRecap(); growAll(); roomForQuestions();
     if (eOpen && !eClosed && !D.evening_q && !asked) askEvening();
   }
   $('open-evening').addEventListener('click', function () { UI.eopen = true; saveUI(); layout(); });
@@ -627,6 +667,7 @@ const SCRIPT = String.raw`
         if (D.evening_q && Q.reflection[0] === D.evening_q) Q.reflection.shift();
         D.evening_q = j.q; Q.reflection.unshift(j.q);
         var el = $('reflection-q'); if (el && !(UI.n_reflection > 0)) el.textContent = j.q;
+        roomForQuestions();
       }).catch(function () {});
   }
   // Start my day / End my day: the open half shrinks to its recap while it fades, the recap lines rise in,
