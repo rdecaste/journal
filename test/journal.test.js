@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { journalDay, todoSuggestions, subLines, activeQuests, mergeQuests, JOURNAL, QUEST_FALLBACK } from '../src/journal.js';
-import { journalHtml } from '../src/journalpage.js';
+import { journalHtml, PROMPTS } from '../src/journalpage.js';
 
 const PAGE = '3eb24147-f877-814a-94ba-dc6d77c05990';
 const run = (text, extra = {}) => ({ type: 'text', plain_text: text, text: { content: text }, ...extra });
@@ -147,4 +147,13 @@ test('folded halves: kept per day on the server, the same on every device, until
     extras: {}, quests: [], main_quest: 'Q', last: null, suggestions: [], sub: {} });
   assert.ok(html.includes('"fold":{"m":true,"e":false}') && html.includes('takeFold(D.fold)'));
   for (const k of ['keepFold({ m: true })', 'keepFold({ m: false })', 'keepFold({ e: true })', 'keepFold({ e: false })']) assert.ok(html.includes(k), k);
+});
+
+test('guiding questions turn over by themselves while a box is empty, and the shown one is saved with the answer', () => {
+  const html = journalHtml({ day: '2026-10-04', page: PAGE, title: '4 October 2026', url: null, errors: [], run: 1,
+    sections: { headspace: { q: 'From 03:00?', text: '' }, forward: null, reflection: null, tomorrow: null },
+    focus: { must: { items: [], slot: {} }, can: { items: [], slot: {} }, cool: { items: [], slot: {} } },
+    extras: {}, quests: [], main_quest: 'Q', last: null, suggestions: [], sub: {} });
+  assert.ok(html.includes('var ROTATE = 20000') && html.includes('roomForQuestions()') && html.includes("b.sections[k].q = $(k + '-q').textContent"));
+  for (const p of Object.values(PROMPTS)) for (const q of p.more) assert.ok(q.split(/\s+/).length <= 18 || q.startsWith('Finish the sentence') || q.startsWith('What’s still spinning'), q);
 });

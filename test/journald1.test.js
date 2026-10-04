@@ -134,3 +134,14 @@ test('D1 journal page: the mood row saves each half on its own, 1 to 5, and clea
   row = await db.prepare('SELECT mood_morning, mood_evening FROM journal WHERE id = ?').bind(J).first();
   assert.deepEqual(row, { mood_morning: null, mood_evening: null });
 });
+
+test('D1 journal page: an answer is saved with the question it answers (the page turns its questions over)', async () => {
+  const { db, env } = await setup();
+  const before = await db.prepare('SELECT headspace_q, forward_q FROM journal WHERE id = ?').bind(J).first();
+  await withoutNotion(() => saveJournal(env, { page: J, sections: { headspace: { text: 'The roof.', q: ' What are you avoiding thinking about? ' }, forward: { text: '', q: 'Who do you want to see today?' } } }));
+  const row = await db.prepare('SELECT headspace, headspace_q, forward_q FROM journal WHERE id = ?').bind(J).first();
+  assert.deepEqual(row, { headspace: 'The roof.', headspace_q: 'What are you avoiding thinking about?', forward_q: before.forward_q });
+  // Without a question the 03:00 one stays.
+  await withoutNotion(() => saveJournal(env, { page: J, sections: { headspace: { text: 'The roof, again.' } } }));
+  assert.equal((await db.prepare('SELECT headspace_q FROM journal WHERE id = ?').bind(J).first()).headspace_q, 'What are you avoiding thinking about?');
+});

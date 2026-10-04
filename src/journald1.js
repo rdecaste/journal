@@ -181,7 +181,12 @@ export async function saveJournalD1(env, body) {
 
   // The answers: one write for every box that changed.
   const columns = {};
-  for (const [key, v] of Object.entries(body.sections || {})) if (SECTIONS[key]) { columns[key] = answer(v.text); out.sections[key] = SLOT; }
+  for (const [key, v] of Object.entries(body.sections || {})) {
+    if (!SECTIONS[key]) continue;
+    columns[key] = answer(v.text); out.sections[key] = SLOT;
+    // The question Roy answered, when the page sends it (the questions turn over on the page).
+    if (typeof v.q === 'string' && v.q.trim() && answer(v.text)) columns[key + '_q'] = v.q.trim().slice(0, 300);
+  }
   for (const [key, v] of Object.entries(body.extras || {})) {
     if (!EXTRAS[key]) continue;
     let text = String(v.text ?? '');
