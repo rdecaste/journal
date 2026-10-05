@@ -225,7 +225,7 @@ export function questHtml(d, { edit = false, need = '' } = {}) {
         </dl></div>
         <div class="panel vis-panel"><div class="panel-head"><span class="label">Visual</span><button class="link-btn" type="button" data-act="pick-open">${c ? 'Change character' : 'Choose character'}</button></div>
           ${c ? `<div class="char-card">${avatarHtml(c, 44)}<div><strong>${esc(c.name)}</strong><span>${esc(c.franchise)}</span></div></div>` : '<span class="none">No character yet.</span>'}
-          <span class="hint">A new character is used the next time the visual is made.</span></div>
+          <span class="hint">${q.active ? 'Changing the character asks whether to redraw the visual now.' : 'A new character is used the next time the visual is made.'}</span></div>
         <div class="panel">
           <div class="ctrl"><span class="label">Attention</span><div class="seg" role="group" aria-label="Attention">${ATTENTION.map(a => `<button type="button" data-quick="attention" data-value="${a}" aria-pressed="${q.attention === a}">${a}</button>`).join('')}</div></div>
           <div class="ctrl"><span class="label">Phase</span><div class="seg" role="group" aria-label="Phase">${PHASES.map(p => `<button type="button" data-quick="phase" data-value="${p}" aria-pressed="${q.phase === p}">${p}</button>`).join('')}</div></div>
@@ -238,7 +238,7 @@ export function questHtml(d, { edit = false, need = '' } = {}) {
     </div>
   </div>
   <div class="modal-scrim" id="picker" hidden></div>`;
-  return page(q.name, body, { page: 'quest', id: q.id, ai: d.ai, quest: { id: q.id, name: q.name, icon: q.icon, character: q.character }, characters: d.characters, used: usedBy(d, q.id) });
+  return page(q.name, body, { page: 'quest', id: q.id, ai: d.ai, quest: { id: q.id, name: q.name, icon: q.icon, character: q.character, active: q.active }, characters: d.characters, used: usedBy(d, q.id) });
 }
 
 // Character id → the other quest that already stars it.
@@ -540,9 +540,10 @@ function CLIENT() {
 
   // ---- Quest page: quick changes, next move, evidence filter, picker ----
   if (D.page === 'quest') {
-    var act = function (op, value, label) {
-      return post('/quests/action', { id: D.id, op: op, value: value }).then(function (r) {
-        if (r.ok === 1) { sessionStorage.setItem('qtoast', label || 'Saved'); location.reload(); return r; }
+    var act = function (op, value, label, extra) {
+      var body = { id: D.id, op: op, value: value }; if (extra) for (var k in extra) body[k] = extra[k];
+      return post('/quests/action', body).then(function (r) {
+        if (r.ok === 1) { sessionStorage.setItem('qtoast', (typeof label === 'function' ? label(r) : label) || 'Saved'); location.reload(); return r; }
         if (r.code === 'needs_next') { location.href = '/quests/' + encodeURIComponent(D.id) + '?edit=1&need=next'; return r; }
         toast(r.message || 'That did not work.'); return r;
       });
@@ -581,7 +582,23 @@ function CLIENT() {
       drawPicker(); document.body.style.overflow = 'hidden';
       if (!COARSE) { var s = $('#picker-search'); if (s) s.focus({ preventScroll: true }); }
     }
-    function closePicker() { P = null; picker.hidden = true; picker.innerHTML = ''; document.body.style.overflow = ''; }
+    function closePicker() { P = null; picker.hidden = true; picker.innerHTML = ''; picker.classList.remove('confirming'); document.body.style.overflow = ''; }
+    // A tapped character is confirmed first; an active quest also offers to
+    // redraw its visual now (Roy, 4 Oct 2026).
+    function drawConfirm(id) {
+      var c = charById[id], cur = charById[D.quest.character];
+      P.confirm = id; picker.classList.add('confirming');
+      picker.innerHTML = '<div class="modal confirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title"><div class="modal-head">' +
+        '<div class="row"><div><span class="label">' + esc(D.quest.icon + ' ' + D.quest.name) + '</span><h2 id="confirm-title">Change the character?</h2></div><button class="icon-btn" type="button" data-pclose aria-label="Close">×</button></div></div>' +
+        '<div class="modal-body"><div class="char-card">' + avatar(c, 52, 14) + '<div><strong>' + esc(c ? c.name : 'Character') + '</strong><span>' + esc(c ? c.franchise : '') + (cur ? ' · instead of ' + esc(cur.name) : '') + '</span></div></div>' +
+        (D.quest.active
+          ? '<p class="note">Redraw the visual with ' + esc(c ? c.name : 'them') + ' now? That makes a new image and clip (one OpenAI image, one Gemini clip); the Questboard shows it once the clip is ready, usually within a few minutes.</p>' +
+            '<div class="confirm-actions"><button class="btn gold" type="button" data-pconfirm="redraw">Change and redraw</button><button class="btn" type="button" data-pconfirm="keep">Change, keep the visual</button><button class="btn quiet" type="button" data-pback>Back</button></div>'
+          : '<p class="note">This quest isn’t active, so it has no visual on the Questboard yet. The new character is used when the visual is made.</p>' +
+            '<div class="confirm-actions"><button class="btn gold" type="button" data-pconfirm="keep">Change character</button><button class="btn quiet" type="button" data-pback>Back</button></div>') +
+        '</div></div>';
+      var first = picker.querySelector('[data-pconfirm]'); if (first && !COARSE) first.focus({ preventScroll: true });
+    }
     // The shell (title, search, toggle) is drawn once; typing, the toggle and
     // the suggestions only redraw the list, so the search box keeps focus.
     function drawPicker() {
@@ -618,9 +635,19 @@ function CLIENT() {
       var p = e.target.closest('[data-pick]');
       if (p) {
         if (p.dataset.pick === D.quest.character) { closePicker(); return; }
-        var c = charById[p.dataset.pick];
-        picker.innerHTML = '<div class="modal"><div class="modal-body"><p class="note">Saving…</p></div></div>';
-        act('character', p.dataset.pick, (c ? c.name : 'Character') + ' will star in the next visual');
+        drawConfirm(p.dataset.pick);
+        return;
+      }
+      if (e.target.closest('[data-pback]')) { P.confirm = null; picker.classList.remove('confirming'); drawPicker(); return; }
+      var k = e.target.closest('[data-pconfirm]');
+      if (k && P && P.confirm) {
+        var c = charById[P.confirm], name = c ? c.name : 'Character', redraw = k.dataset.pconfirm === 'redraw';
+        picker.innerHTML = '<div class="modal confirm"><div class="modal-body"><p class="note">' + (redraw ? 'Saving and starting the redraw…' : 'Saving…') + '</p></div></div>';
+        act('character', P.confirm, function (r) {
+          if (!redraw) return name + ' will star in the next visual';
+          return r.redraw && r.redraw.ok === 1 ? name + ' is in. The new visual is being drawn and shows on the Questboard in a few minutes.'
+            : name + ' is in, but the redraw didn’t start: ' + ((r.redraw && r.redraw.message) || 'no answer from the Quest Engine.');
+        }, redraw ? { redraw: true } : null);
         return;
       }
       if (e.target.closest('[data-psuggest]')) {
@@ -1020,6 +1047,9 @@ button:disabled{cursor:default;opacity:.55}
 .modal-head{padding:18px 20px 14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
 .modal-head .row{justify-content:space-between}
 .modal-head h2{font-size:21px}
+.modal.confirm{width:min(480px,100%)}
+.modal.confirm .modal-body{gap:14px}
+.confirm-actions{display:flex;gap:8px;flex-wrap:wrap}
 .modal-tools{display:flex;gap:8px;flex-wrap:wrap}
 .modal-tools .search{flex:1;min-width:180px}
 .icon-btn{border:1px solid var(--line-2);background:var(--surface-2);border-radius:9px;width:36px;height:36px;display:grid;place-items:center;font-size:18px;line-height:1}
@@ -1082,6 +1112,7 @@ button:disabled{cursor:default;opacity:.55}
 @media (max-width:760px){.rv{grid-template-columns:1fr}.rv-thumb{max-height:160px}.rv-fields{grid-template-columns:1fr}}
 @media (max-width:640px){.hero{aspect-ratio:auto;min-height:300px}.hero-in{padding:18px}.two{grid-template-columns:1fr}.search{width:100%}.filters{width:100%}.jsel{flex:1}.lrow-side .phase-wrap{display:none}.cards{grid-template-columns:1fr}.seg button{font-size:11.5px}}
 @media (pointer:coarse){input,select,textarea,.search,.jsel{font-size:16px!important}}
+@media (max-width:640px){.modal-scrim.confirming{padding:16px;align-items:center}.modal-scrim.confirming .modal.confirm{height:auto;border-radius:18px;border:1px solid var(--line-2)}.confirm-actions .btn{flex:1 1 100%}}
 @media (max-width:640px){.modal-scrim{padding:0;align-items:stretch}.modal{width:100%;max-height:none;height:100%;border-radius:0;border:0;padding-top:env(safe-area-inset-top,0px)}.modal-body{padding-bottom:max(20px,env(safe-area-inset-bottom))}.modal-body{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}.char-grid{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}.orb{animation:none}}
 `;

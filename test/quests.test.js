@@ -162,6 +162,30 @@ test('quick changes from a quest page', async () => {
   await assert.rejects(questAction(env, { id: MAIN, op: 'plan' }, { now: NOW }), /main quest/);
 });
 
+test('a character change can ask the Quest Engine to redraw the visual (active quests only)', async () => {
+  const sent = [];
+  let answer = { ok: 1, quest: RUN, started: 'quest-run-redraw' };
+  const { env, db } = await setup({
+    QUEST_ENGINE_URL: 'https://qe.example', QUEST_ENGINE_TOKEN: 'tok',
+    QUEST_ENGINE: { fetch: async req => { sent.push({ url: req.url, token: req.headers.get('X-Admin-Token'), body: await req.text() }); return Response.json(answer); } }
+  });
+  const char = id => db.prepare('SELECT character FROM quests WHERE id = ?').bind(id).first().then(r => r.character);
+  // No redraw asked: only the character changes.
+  assert.equal((await questAction(env, { id: RUN, op: 'character', value: SAITAMA }, { now: NOW })).redraw, undefined);
+  assert.equal(sent.length, 0);
+  const r = await questAction(env, { id: RUN, op: 'character', value: SAITAMA, redraw: true }, { now: NOW });
+  assert.deepEqual(r.redraw, { ok: 1, started: 'quest-run-redraw' });
+  assert.deepEqual(sent[0], { url: 'https://qe.example/questvisual', token: 'tok', body: `quest_id=${RUN}` });
+  // The engine refuses: the character is saved all the same.
+  answer = { ok: 0, code: 'not_active', message: 'Only an active quest has a visual on the Questboard' };
+  assert.equal((await questAction(env, { id: RUN, op: 'character', value: SAITAMA, redraw: true }, { now: NOW })).redraw.code, 'not_active');
+  // A planned quest is not sent at all.
+  const planned = await questAction(env, { id: NET, op: 'character', value: SAITAMA, redraw: true }, { now: NOW });
+  assert.equal(planned.redraw.code, 'not_active');
+  assert.equal(await char(NET), JSON.stringify([SAITAMA]));
+  assert.equal(sent.length, 2);
+});
+
 test('the weekly review: one update per quest per week, saved again in place', async () => {
   const { env, db } = await setup();
   const r0 = await loadReview(env, { now: NOW });

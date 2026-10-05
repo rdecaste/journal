@@ -8,8 +8,9 @@
 // Writes: the `quests` row (through the store, so updated_at is stamped), and
 // one `quest_updates` row per quest per week for the review (source Manual,
 // "Weekly review · Week N · <quest>"). Never the Main Quest (it has its own
-// card), never Refresh visual: a changed character is used the next time the
-// visual is made (visuals and animation come later, Roy 4 Oct). Completing a
+// card). A changed character is used the next time the visual is made, or
+// straight away when Roy asks for a redraw in the picker (`redraw`: the Quest
+// Engine's POST /questvisual, active quests only; Roy, 4 Oct). Completing a
 // quest sets Completed At, which is what the Quest Engine's victory card and
 // its 7-day board rule read.
 import { journalStore } from './healthstore.js';
@@ -283,9 +284,30 @@ export async function questAction(env, body, { now = Date.now() } = {}) {
       if (!isId(value)) throw bad('Not a character');
       const c = await env.DB.prepare('SELECT id FROM characters WHERE replace(lower(id), \'-\', \'\') = ? AND in_trash IS NOT 1').bind(plain(value)).first();
       if (!c) throw bad('Not a character');
-      return set({ character: JSON.stringify([c.id]) });
+      const out = await set({ character: JSON.stringify([c.id]) });
+      if (body.redraw === true) out.redraw = q.active ? await redrawVisual(env, row.id) : { ok: 0, code: 'not_active', message: 'Only an active quest has a visual.' };
+      return out;
     }
     default: throw bad('Unknown change');
+  }
+}
+
+// The quest's art again, now, through the Quest Engine (paid: one OpenAI image
+// and one Gemini clip). The character is already saved when this runs.
+async function redrawVisual(env, id) {
+  if (!env.QUEST_ENGINE_TOKEN) return { ok: 0, code: 'not_set', message: 'QUEST_ENGINE_TOKEN is not set on the dashboard.' };
+  try {
+    const request = new Request(`${env.QUEST_ENGINE_URL}/questvisual`, {
+      method: 'POST',
+      headers: { 'X-Admin-Token': env.QUEST_ENGINE_TOKEN, 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+      body: new URLSearchParams({ quest_id: id }).toString()
+    });
+    const r = await (env.QUEST_ENGINE ? env.QUEST_ENGINE.fetch(request) : fetch(request));
+    const body = await r.json().catch(() => null);
+    if (!body) return { ok: 0, code: 'no_answer', message: `The Quest Engine answered ${r.status}.` };
+    return body.ok ? { ok: 1, started: body.started || '' } : { ok: 0, code: body.code || '', message: body.message || 'The redraw did not start.' };
+  } catch (e) {
+    return { ok: 0, code: 'no_answer', message: String(e.message || e).slice(0, 200) };
   }
 }
 
