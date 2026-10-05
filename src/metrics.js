@@ -179,7 +179,8 @@ export function battleForm(sessions, today) {
 
 // workouts: Workouts pages; metrics: Body Metrics pages; today: 'YYYY-MM-DD';
 // sleep: Sleep & Recovery pages; quests: the Health Journey's active quests.
-export function health(workouts, metrics, today, { sleep = null, quests = null } = {}, cfg = TRAINING, rc = RECOVERY) {
+// `recovery` is the Quest Engine's GET /recovery (Recovery today moved there on 5 Oct 2026).
+export function health(workouts, metrics, today, { recovery = null, quests = null } = {}, cfg = TRAINING) {
   const sessions = workouts
     .map(w => ({ date: dateOf(w, 'start_date_local').slice(0, 10), sport: SPORTS[sel(w, 'sport_type_mapped')] || null, hours: (num(w, 'moving_time') || 0) / 3600, km: (num(w, 'distance') || 0) / 1000, fitness: num(w, 'Fitness'), fatigue: num(w, 'Fatigue'), form: sel(w, 'Form State'), ratio: num(w, 'Form'), effort: num(w, 'Effort Score'), level: sel(w, 'Effort Level'), mult: num(w, 'Effort Multiplier'), special: (prop(w, 'Special Move').rich_text || []).map(t => t.plain_text).join(''), type: sel(w, 'sport_type_mapped'), name: (prop(w, 'name').title || []).map(t => t.plain_text).join(''), url: (prop(w, 'strava_url').url) || w.url || '' }))
     .filter(s => s.date && s.date <= today)
@@ -244,12 +245,11 @@ export function health(workouts, metrics, today, { sleep = null, quests = null }
   const fats = between('fat', addDays(today, -90), today);
   const bodyFat = { latest: latest('fat'), change_30d: change30('fat'), ...weekAvg('fat'), high_90d: fats.length ? round(Math.max(...fats)) : null, target: cfg.bodyFatTarget, series: series('fat') };
   const load = battleForm(sessions, today);
-  const recovery = sleep ? recoveryToday(sleep, today, rc, current.filter(s => s.date === today).pop()) : null;
   const recovering = !!(recovery && recovery.recovering);
 
   const flags = [];
   if (recovery && recovery.stale) flags.push(flag('watch', 'No sleep data for ' + recovery.stale + ' days', `The newest Sleep & Recovery row is from ${recovery.last_date}, so Recovery today is out of date.`, D1_CONSOLE));
-  if (recovery && recovery.broken.length >= 2) flags.push(flag('watch', `${WORDS[recovery.broken.length] || recovery.broken.length} broken nights this week`.replace(/^./, c => c.toUpperCase()), `Awake ${listing(recovery.broken.map(b => durationText(b.awake / 60) + ' ' + b.night))}, against a usual ${Math.round(recovery.awake_usual)} minutes.`));
+  if (recovery && (recovery.broken || []).length >= 2) flags.push(flag('watch', `${WORDS[recovery.broken.length] || recovery.broken.length} broken nights this week`.replace(/^./, c => c.toUpperCase()), `Awake ${listing(recovery.broken.map(b => durationText(b.awake / 60) + ' ' + b.night))}, against a usual ${Math.round(recovery.awake_usual)} minutes.`));
   // Training flags pause while recovering; a missed step is never a flag.
   if (!recovering) {
     const recentSessions = avg(recent, 'sessions'), baseSessions = avg(baseline, 'sessions');
@@ -313,100 +313,8 @@ export const words = n => (n < 20 ? WORDS[n] : n < 100 ? TENS[Math.floor(n / 10)
 const listing = list => (list.length < 2 ? list.join('') : list.slice(0, -1).join(', ') + ' and ' + list[list.length - 1]);
 // 6.37 h → "6 h 22"; under an hour → "35 min".
 export const durationText = h => { const m = Math.round(h * 60); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0'); };
-const nightOf = (date, today) => (date === today ? 'last night' : 'on ' + WEEKDAYS[weekday(addDays(date, -1))] + ' night');
 
-// One row per morning; Apple Health values win over Withings when both exist.
-function sleepNights(rows, today) {
-  const by = new Map();
-  for (const r of rows) {
-    const date = dateOf(r, 'Date').slice(0, 10);
-    if (!date || date > today) continue;
-    const n = { date, sleep: num(r, 'Total Sleep'), awake: num(r, 'Awake'), hrv: num(r, 'HRV'), rhr: num(r, 'Resting HR') };
-    const had = by.get(date), apple = sel(r, 'Source') === 'Apple Health';
-    if (!had) by.set(date, n);
-    else for (const k of ['sleep', 'awake', 'hrv', 'rhr']) if (n[k] !== null && (apple || had[k] === null)) had[k] = n[k];
-  }
-  return [...by.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
-}
-
-// The verdict for the morning `date`, each signal against the 30 nights before.
-function judge(nights, date, rc) {
-  const night = nights.find(n => n.date === date);
-  const before = nights.filter(n => n.date < date && n.date >= addDays(date, -rc.usualNights));
-  const usual = key => { const v = before.map(n => n[key]).filter(x => x !== null); return v.length >= 7 ? v.reduce((a, b) => a + b, 0) / v.length : null; };
-  const signal = (key, isLow) => {
-    const value = night ? night[key] : null, u = usual(key);
-    return { value, usual: u === null ? null : round(u, 2), delta: value !== null && u !== null ? round(value - u, 2) : null, low: value !== null && u !== null && isLow(value, u) };
-  };
-  const signals = {
-    sleep: signal('sleep', (v, u) => v < u - rc.sleepShortMinutes / 60),
-    hrv: signal('hrv', (v, u) => v < u * (1 - rc.hrvDropShare)),
-    rhr: signal('rhr', (v, u) => v > u + rc.rhrRiseBpm)
-  };
-  const judged = Object.values(signals).filter(s => s.delta !== null);
-  const low = judged.filter(s => s.low).length;
-  const verdict = judged.length ? (low === 0 ? 'good' : low === 1 ? 'steady' : 'easy') : null;
-  const rhr7 = nights.filter(n => n.date <= date && n.date > addDays(date, -7) && n.rhr !== null).map(n => n.rhr);
-  const rhrUsual = usual('rhr');
-  const rhrRise = rhr7.length >= 4 && rhrUsual !== null ? rhr7.reduce((a, b) => a + b, 0) / rhr7.length - rhrUsual : null;
-  return { signals, judged: judged.length, low, verdict, rhr_rise: rhrRise === null ? null : round(rhrRise), awake_usual: usual('awake'), trigger: verdict === 'easy' || (rhrRise !== null && rhrRise >= rc.recoveringRhrBpm) };
-}
-
-export function recoveryToday(rows, today, rc = RECOVERY, trainedToday = null) {
-  const nights = sleepNights(rows, today);
-  const last = nights[nights.length - 1];
-  if (!last) return null;
-  const age = daysBetween(last.date, today);
-  if (age > rc.staleDays) return { stale: age, last_date: last.date, broken: [], recovering: false };
-  const j = judge(nights, last.date, rc);
-  // Recovering until the trigger has been clear for recoveringClearDays mornings.
-  const recent = nights.filter(n => n.date > addDays(last.date, -rc.recoveringClearDays));
-  const recovering = recent.some(n => judge(nights, n.date, rc).trigger);
-  const broken = nights.filter(n => n.date > addDays(last.date, -7) && n.awake !== null && n.awake >= rc.brokenAwakeMinutes).reverse()
-    .map(n => ({ date: n.date, awake: n.awake, night: nightOf(n.date, today) }));
-  const out = {
-    date: last.date, night: last.date === today ? 'last night' : WEEKDAYS[weekday(addDays(last.date, -1))] + ' night',
-    sleep: j.signals.sleep, hrv: j.signals.hrv, rhr: j.signals.rhr,
-    awake: last.awake, awake_usual: j.awake_usual === null ? null : round(j.awake_usual, 0),
-    judged: j.judged, low: j.low, verdict: j.verdict, verdict_text: VERDICT[j.verdict] || null, verdict_sub: VERDICT_SUB[j.verdict] || null,
-    rhr_rise: j.rhr_rise, recovering, broken,
-    series: nights.slice(-14).map(n => ({ date: n.date, sleep: n.sleep, hrv: n.hrv, rhr: n.rhr }))
-  };
-  out.note = j.verdict ? gogginsNote(out, trainedToday) : null;
-  return out;
-}
-const VERDICT = { good: 'Good to go', steady: 'Go steady', easy: 'Take it easy' };
-const VERDICT_SUB = { good: 'Train as planned', steady: 'Easy session only · skip anything hard', easy: 'Rest or a gentle walk today' };
-
-// A short note in David Goggins' voice (Roy's Health Journey accountability
-// partner), put together from written lines and this morning's numbers. No AI.
-const hoursWords = h => { const m = Math.round(h * 60), hh = Math.floor(m / 60), mm = m % 60; return words(hh) + (hh === 1 ? ' hour' : ' hours') + (mm ? ' ' + words(mm) : ' flat'); };
-const minutesWords = m => { m = Math.round(m); if (m === 60) return 'a full hour'; if (m <= 100) return words(m) + ' minutes'; const h = Math.floor(m / 60); return words(h) + (h === 1 ? ' hour ' : ' hours ') + words(m % 60); };
-const SPORT_DONE = { swim: 'in the pool', run: 'out for a run', bike: 'on the bike', ebike: 'on the bike', strength: 'under the bar', other: 'your work in' };
-export function gogginsNote(r, trainedToday = null) {
-  const { sleep, hrv, rhr } = r;
-  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
-  const lines = [];
-  if (sleep.low && r.awake >= 60) lines.push(`Roy. ${cap(hoursWords(sleep.value))}, and ${minutesWords(r.awake)} of it staring at the ceiling.`);
-  else if (sleep.low) lines.push(`Roy. ${cap(hoursWords(sleep.value))} of sleep. That's not enough, and you know it.`);
-  else if (hrv.low) lines.push(`Roy. HRV ${Math.round(hrv.value)}, down from your usual ${Math.round(hrv.usual)}. Your body is waving a white flag.`);
-  else if (rhr.low) lines.push(`Roy. Resting heart rate ${Math.round(rhr.value)}, ${words(Math.round(rhr.delta))} over your usual. Your body is telling you something.`);
-  else lines.push(sleep.value !== null ? `Roy. ${cap(hoursWords(sleep.value))} of sleep and every signal in the green. No excuses today.` : 'Roy. Every signal in the green. No excuses today.');
-
-  const mid = [];
-  if (sleep.low) mid.push("That's a bad night.");
-  if (trainedToday) mid.push(`And you still got ${SPORT_DONE[trainedToday.sport] || SPORT_DONE.other} today. That's the guy I want to see.`);
-  if (r.recovering && rhr.delta !== null && hrv.delta !== null) {
-    const d = Math.round(rhr.delta), v = Math.round(hrv.delta);
-    mid.push(`${mid.length ? 'Now listen: resting' : 'Listen: resting'} heart rate ${d >= 0 ? 'up ' + words(d) : 'down ' + words(-d)}, HRV ${v < 0 ? 'down ' + words(-v) : v > 0 ? 'up ' + words(v) : 'flat'}. Your body's still fighting whatever took you out. Training sick doesn't make you hard, it makes you slow to heal.`);
-  }
-  mid.push(r.verdict === 'good' ? 'The numbers say go. Nobody is coming to do the work for you, so go do it.' : r.verdict === 'steady' ? 'Easy session today. No hero miles.' : "Today you rest. Not because you're soft, because you're smart. Walk, stretch, eat right.");
-  lines.push(mid.join(' '));
-  lines.push(r.verdict === 'good' ? 'Get after it. Then come back tomorrow and do it again.'
-    : r.verdict === 'easy' ? "Recover like it's your job. Because today it is."
-      : sleep.low ? 'Lights out by ten. Tomorrow you come back and earn it.' : 'Bank the easy day. Tomorrow you come back and earn it.');
-  return { lines, sign: 'Stay hard.' };
-}
+// Recovery today (judge, recoveryToday, gogginsNote) lives in the Quest Engine since 5 Oct 2026: src/recoverytoday.js there.
 
 // ---- Health quests ----
 // One card per active quest on the Health Journey (never the Main Quest).

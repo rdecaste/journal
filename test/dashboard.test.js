@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { crossBorder, health, recoveryToday, tsbSeries, system, overview, usageSummary, estimateCost, mergeUsage } from '../src/metrics.js';
+import { crossBorder, health, tsbSeries, system, overview, usageSummary, estimateCost, mergeUsage } from '../src/metrics.js';
 import { addUsage } from '../src/usage.js';
 import { sessionCookie, isSignedIn } from '../src/auth.js';
 import { summaryFacts, summaryDue, isSummaryHour } from '../src/summary.js';
@@ -104,64 +104,24 @@ test('health: fewer sessions, no strength and rising body fat are flagged', () =
   assert.equal(h.targets.step, 1); // 0.75 h a week plus 10%, never below 1 h
 });
 
-// Sleep & Recovery rows: 30 usual nights (7.5 h, HRV 55, RHR 52, 30 min awake), then `last` nights.
-const night = (date, h, awake, hrv, rhr) => page('s-' + date, { Date: P.date(date), 'Total Sleep': P.num(h), Awake: P.num(awake), HRV: P.num(hrv), 'Resting HR': P.num(rhr), Source: P.select('Apple Health') });
-function nights(last, today = '2026-09-30') {
-  const rows = [];
-  for (let i = 30 + last.length; i > last.length; i--) rows.push(night(addDays(today, -i + 1), 7.5, 30, 55, 52));
-  last.forEach((n, i) => rows.push(night(addDays(today, -last.length + i + 1), ...n)));
-  return rows;
-}
-
-test('recovery: all signals at usual reads Good to go, with a note and no pause', () => {
-  const r = recoveryToday(nights([[7.6, 20, 56, 51]]), '2026-09-30');
-  assert.equal(r.verdict, 'good');
-  assert.equal(r.verdict_text, 'Good to go');
-  assert.equal(r.low, 0);
-  assert.equal(r.recovering, false);
-  assert.equal(r.night, 'last night');
-  assert.equal(r.sleep.usual, 7.5);
-  assert.equal(r.note.lines.length, 3);
-  assert.equal(r.note.sign, 'Stay hard.');
-});
-
-test('recovery: a short broken night is Go steady, two low signals Take it easy', () => {
-  const steady = recoveryToday(nights([[7.5, 30, 55, 52], [6.37, 100, 54, 53]]), '2026-09-30', undefined, { sport: 'swim' });
-  assert.equal(steady.verdict, 'steady');
-  assert.ok(steady.sleep.low && !steady.hrv.low && !steady.rhr.low);
-  assert.match(steady.note.lines[0], /^Roy\. Six hours twenty-two, and a hundred minutes of it staring at the ceiling\.$/);
-  assert.match(steady.note.lines[1], /still got in the pool today/);
-  const easy = recoveryToday(nights([[6.2, 20, 45, 56]]), '2026-09-30');
-  assert.equal(easy.verdict, 'easy');
-  assert.equal(easy.recovering, true);
-});
-
-test('recovery: a raised 7-night resting heart rate means Recovering until 3 normal days', () => {
-  const up = Array(7).fill([7.5, 30, 55, 55.5]);
-  const r = recoveryToday(nights(up), '2026-09-30');
-  assert.equal(r.verdict, 'good');
-  assert.equal(r.recovering, true);
-  assert.equal(r.rhr.low, false);
-  // Back to normal: the 7-night average has to settle and then stay clear for 3 mornings.
-  assert.equal(recoveryToday(nights(up.concat(Array(3).fill([7.5, 30, 55, 52]))), '2026-09-30').recovering, true);
-  assert.equal(recoveryToday(nights(up.concat(Array(9).fill([7.5, 30, 55, 52]))), '2026-09-30').recovering, false);
-});
+// Recovery today is the Quest Engine's (GET /recovery); here it arrives as its answer.
+const recoveryOf = o => ({ date: '2026-09-30', fresh: true, verdict: 'good', recovering: false, broken: [], awake_usual: 30, stale: 0, ...o });
 
 test('recovery: two broken nights are a watch flag and recovering pauses training flags', () => {
   const ws = [workout('2026-06-20', 'Run', 60)]; // no run, no strength for months
-  const sleep = nights([[7.5, 78, 55, 52], [7.5, 30, 55, 52], [6.2, 100, 45, 56]]);
-  const h = health(ws, [], '2026-09-30', { sleep });
+  const recovery = recoveryOf({ verdict: 'easy', recovering: true, broken: [{ date: '2026-09-30', awake: 100, night: 'last night' }, { date: '2026-09-28', awake: 78, night: 'on Sunday night' }] });
+  const h = health(ws, [], '2026-09-30', { recovery });
   const titles = h.flags.map(f => f.title);
   assert.ok(titles.includes('Two broken nights this week'), titles.join('|'));
   assert.match(h.flags.find(f => f.title === 'Two broken nights this week').why, /1 h 40 last night and 1 h 18 on Sunday night/);
   assert.ok(!titles.includes('No recent strength training'));
   assert.ok(!titles.includes('No run in over two weeks'));
-  const calm = health(ws, [], '2026-09-30', { sleep: nights([[7.5, 30, 55, 52]]) });
+  const calm = health(ws, [], '2026-09-30', { recovery: recoveryOf({}) });
   assert.ok(calm.flags.some(f => f.title === 'No recent strength training'));
 });
 
 test('recovery: old sleep data asks for a look instead of a verdict', () => {
-  const h = health([], [], '2026-09-30', { sleep: nights([[7.5, 30, 55, 52]], '2026-09-25') });
+  const h = health([], [], '2026-09-30', { recovery: { stale: 5, last_date: '2026-09-25', verdict: null, broken: [], recovering: false } });
   assert.equal(h.recovery.stale, 5);
   assert.ok(h.flags.some(f => /No sleep data/.test(f.title)));
 });

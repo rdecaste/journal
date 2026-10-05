@@ -15,6 +15,13 @@ export async function questEngineLedger(env) {
   return (await getJson(`${env.QUEST_ENGINE_URL}/ledger`, { 'X-Admin-Token': env.QUEST_ENGINE_TOKEN }, env.QUEST_ENGINE)).ledger;
 }
 
+// GET /recovery: Recovery today, worked out by the Quest Engine (one place for every dashboard).
+export async function questEngineRecovery(env) {
+  if (!env.QUEST_ENGINE_TOKEN) throw new Error('QUEST_ENGINE_TOKEN is not set');
+  const { ok, ...recovery } = await getJson(`${env.QUEST_ENGINE_URL}/recovery`, { 'X-Admin-Token': env.QUEST_ENGINE_TOKEN }, env.QUEST_ENGINE);
+  return recovery.date || recovery.stale ? recovery : null;
+}
+
 // Read-only API key of the healthchecks.io project.
 export async function healthChecks(env) {
   if (!env.HEALTHCHECKS_API_KEY) throw new Error('HEALTHCHECKS_API_KEY is not set');

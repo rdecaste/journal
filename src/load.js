@@ -5,7 +5,7 @@
 
 import { CROSS_BORDER, HEALTH_JOURNEY } from './config.js';
 import { crossBorder, health, system, overview, amsterdamDay, mergeUsage } from './metrics.js';
-import { questEngineStatus, questEngineLedger, healthChecks } from './sources.js';
+import { questEngineStatus, questEngineLedger, questEngineRecovery, healthChecks } from './sources.js';
 import { store } from './usage.js';
 import { cached, remember } from './cache.js';
 import { healthStore, journalStore } from './healthstore.js';
@@ -29,11 +29,12 @@ export async function loadDashboard(env, { now = Date.now(), fresh = false } = {
   const errors = [];
   const safe = (p, label) => p.catch(e => { errors.push(`${label}: ${e.message || e}`); return null; });
 
-  const [locations, workouts, metrics, sleep, quests, latestWorkout, latestMetric, status, ledger, checks, summary, ownUsage] = await Promise.all([
+  const [locations, workouts, metrics, recovery, quests, latestWorkout, latestMetric, status, ledger, checks, summary, ownUsage] = await Promise.all([
     safe(rows.queryAll('work_location', { filter: { and: [{ property: 'Date', date: { on_or_after: CROSS_BORDER.start } }, { property: 'Date', date: { on_or_before: today.slice(0, 4) + '-12-31' } }] }, sorts: [{ property: 'Date', direction: 'ascending' }] }), 'Work Location Log'),
     safe(rows.queryAll('workouts', { filter: { property: 'start_date_local', date: { on_or_after: since(7 * 13 + 7) } }, sorts: [{ property: 'start_date_local', direction: 'ascending' }] }), 'Workouts'),
     safe(rows.queryAll('body_metrics', { filter: { property: 'Date', date: { on_or_after: since(120) } }, sorts: [{ property: 'Date', direction: 'ascending' }] }), 'Body Metrics'),
-    safe(rows.queryAll('sleep_recovery', { filter: { property: 'Date', date: { on_or_after: since(60) } }, sorts: [{ property: 'Date', direction: 'ascending' }] }), 'Sleep & Recovery'),
+    // Recovery today comes from the Quest Engine since 5 Oct 2026 (src/recoverytoday.js there), not from the rows here.
+    safe(questEngineRecovery(env), 'Quest Engine recovery'),
     safe(journalStore(env).query('quests', { filter: { and: [{ property: 'Journey', relation: { contains: HEALTH_JOURNEY } }, { property: 'Active Quest', checkbox: { equals: true } }, { property: 'Main Quest', checkbox: { equals: false } }] } }), 'Quests'),
     safe(rows.query('workouts', { filter: { property: 'start_date_local', date: { on_or_before: today } }, sorts: [{ property: 'start_date_local', direction: 'descending' }], page_size: 1 }), 'Workouts (newest)'),
     safe(rows.query('body_metrics', { filter: { property: 'Date', date: { on_or_before: today } }, sorts: [{ property: 'Date', direction: 'descending' }], page_size: 1 }), 'Body Metrics (newest)'),
@@ -45,7 +46,7 @@ export async function loadDashboard(env, { now = Date.now(), fresh = false } = {
   ]);
 
   const cross = locations ? crossBorder(locations, today) : null;
-  const h = workouts && metrics ? health(workouts, metrics, today, { sleep, quests }) : null;
+  const h = workouts && metrics ? health(workouts, metrics, today, { recovery, quests }) : null;
   const usage = mergeUsage(ledger && ledger.usage, ownUsage);
   const sys = system({ status, checks, ledger: ledger ? { ...ledger, usage } : null, latest: { workout: newest(latestWorkout, 'start_date_local'), metric: newest(latestMetric, 'Date') } }, now);
   const data = {

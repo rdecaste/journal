@@ -88,6 +88,7 @@ Since 4 Oct 2026 (Roy's request, from the mockup https://claude.ai/artifact/MiRW
 - Belgium target above 50%, and targets for bike, swim and strength.
 
 ## Change log
+- **5 Oct 2026, Recovery today from the Quest Engine** (Roy): the rules moved to quest-engine `src/recoverytoday.js` word for word; the dashboard reads `GET /recovery` (QUEST_ENGINE_TOKEN) in `src/load.js` and passes it to `health()`. The desk screen (rdecaste/RoyOS) reads the same, so every dashboard shows one verdict.
 
 | Date | Change |
 |---|---|
