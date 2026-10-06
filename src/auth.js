@@ -23,10 +23,10 @@ export function sameText(a, b) {
 export async function sessionCookie(secret, now = Date.now()) {
   const expires = Math.floor(now / 1000) + MAX_AGE;
   const value = `${expires}.${await sign(secret, 'admin:' + expires)}`;
-  return `${COOKIE}=${value}; Path=/; Max-Age=${MAX_AGE}; HttpOnly; Secure; SameSite=Strict`;
+  return `${COOKIE}=${value}; Path=/; Max-Age=${MAX_AGE}; HttpOnly; Secure; SameSite=Lax`;
 }
 
-export const clearCookie = () => `${COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict`;
+export const clearCookie = () => `${COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
 
 export async function isSignedIn(request, secret, now = Date.now()) {
   if (!secret) return false;

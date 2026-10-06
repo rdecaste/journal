@@ -88,6 +88,7 @@ Since 4 Oct 2026 (Roy's request, from the mockup https://claude.ai/artifact/MiRW
 - Belgium target above 50%, and targets for bike, swim and strength.
 
 ## Change log
+- **6 Oct 2026, Links from Roy OS** (Roy): Roy OS's menu bar links to `/`, `/journal?desk=1`, `/gym` and `/admin`. The login cookie is `SameSite=Lax` instead of `Strict` (Roy's choice), so a link from another site (Roy OS on its own workers.dev address) arrives signed in; other sites' form posts still carry no cookie. `/journal?desk=1` hides the main quest check-in and leaves its name out of the page, as the main quest never shows on the desk screen; the login keeps `?desk=1` (`src/auth.js`, `src/index.js`, `src/journalpage.js`, a test).
 - **5 Oct 2026, Recovery today from the Quest Engine** (Roy): the rules moved to quest-engine `src/recoverytoday.js` word for word; the dashboard reads `GET /recovery` (QUEST_ENGINE_TOKEN) in `src/load.js` and passes it to `health()`. The desk screen (rdecaste/RoyOS) reads the same, so every dashboard shows one verdict.
 
 | Date | Change |

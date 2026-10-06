@@ -86,7 +86,7 @@ const PAGE_HEADERS = {
 };
 const redirect = (to, cookie) => new Response(null, { status: 303, headers: { Location: to, ...(cookie ? { 'Set-Cookie': cookie } : {}) } });
 // Where the login sends you back to: only the dashboard's own pages.
-const NEXT = new Set(['/', '/questlog', '/admin', '/journal', '/gym', '/quests', '/quests/new', '/quests/review']);
+const NEXT = new Set(['/', '/questlog', '/admin', '/journal', '/journal?desk=1', '/gym', '/quests', '/quests/new', '/quests/review']);
 const nextPath = p => (NEXT.has(p) || /^\/quests\/[0-9a-f-]{32,36}$/i.test(p) ? p : '/');
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 
@@ -166,8 +166,9 @@ export default {
         return new Response(todayHtml(today), { headers: PAGE_HEADERS });
       }
       if (pathname === '/journal') {
-        if (!signedIn) return redirect('/login?next=/journal');
-        return new Response(journalHtml(await loadJournal(env)), { headers: PAGE_HEADERS });
+        const desk = searchParams.get('desk') === '1';
+        if (!signedIn) return redirect('/login?next=' + encodeURIComponent(desk ? '/journal?desk=1' : '/journal'));
+        return new Response(journalHtml(await loadJournal(env), { desk }), { headers: PAGE_HEADERS });
       }
       const mood = pathname.match(/^\/journal\/mood\/([1-5])\.webp$/);
       if (mood) {
