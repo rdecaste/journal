@@ -217,7 +217,8 @@ function bdStats(map) {
   const from = bdAdd(bd.today, -7 * (bd.c.trend_weeks || 8));
   for (const [d, r] of map) for (const h of [r.am, r.pm]) {
     const k = bdKind(h);
-    if (d < bd.today) { if (k === 'be' || k === 'nl') t[k] += 0.5; else if (!k) t.fix += 0.5; if (d >= from && (k === 'be' || k === 'nl')) recent[k] += 0.5; }
+    // Today counts as soon as it is filled in; an empty today is neither missing nor open.
+    if (d <= bd.today) { if (k === 'be' || k === 'nl') t[k] += 0.5; else if (!k && d < bd.today) t.fix += 0.5; if (d < bd.today && d >= from && (k === 'be' || k === 'nl')) recent[k] += 0.5; }
     else if (k === 'be' || k === 'nl') plan[k] += 0.5; else if (!k) t.open += 0.5;
   }
   const w = t.be + t.nl, T = bd.c.minimum / 100, share = w ? t.be / w : null;
