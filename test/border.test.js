@@ -54,3 +54,16 @@ test('border view: every Work Location option has a look; crossBorder hands over
   assert.deepEqual(c.days.map(d => d.date), ['2026-10-01', '2026-10-05']);
   assert.deepEqual(c.days[0], { date: '2026-10-01', am: '🇳🇱 Home', pm: '🇳🇱 Home', commute: 'N/A', ebike: 0 });
 });
+
+test('border view: the browser sums match crossBorder, and a filled-in today counts at once (6 Oct 2026)', async () => {
+  const vm = await import('node:vm');
+  const { BORDER_SCRIPT } = await import('../src/borderpage.js');
+  const day = (d, v) => page('wl-' + d, { Date: P.date(d), AM: P.select(v), PM: P.select(v), Weekend: P.check(false), Commute: P.select('') });
+  const rows = [day('2026-10-01', '🇧🇪 Beerse'), day('2026-10-02', '🇧🇪 Beerse'), day('2026-10-05', '🇳🇱 Home'), day('2026-10-06', '🇳🇱 Home'), day('2026-10-07', '')];
+  const c = crossBorder(rows, '2026-10-06', { start: '2026-10-01', beMinimum: 50, bufferAttention: 3, bufferWatch: 8, trendWeeks: 8 });
+  const el = { addEventListener() {}, innerHTML: '' };
+  const ctx = vm.createContext({ $: () => el, esc: s => s, fmt: x => x, day: x => x, D1_CONSOLE: '', localStorage: { getItem: () => null, setItem() {} }, addEventListener() {}, load() {}, C: c });
+  vm.runInContext(BORDER_SCRIPT + ';bdLoad(C); var R = bdStats(bd.days);', ctx);
+  assert.deepEqual([ctx.R.be, ctx.R.nl, ctx.R.buffer], [c.ytd.be, c.ytd.nl, c.buffer_days]);
+  assert.deepEqual([ctx.R.be, ctx.R.nl, ctx.R.buffer, ctx.R.fix], [2, 2, 0, 0]);
+});
