@@ -81,6 +81,23 @@ test('journal page: renders, keeps the data safe inside the page, and the script
   assert.ok(journalHtml({ day: '2026-09-30', page: null }).includes('isn’t there yet'));
 });
 
+test('journal page from the desk: the main quest stays hidden and its name out of the page', () => {
+  const d = {
+    day: '2026-09-30', page: PAGE, title: '30 September 2026', url: null, errors: [], run: 21,
+    sections: { headspace: { q: 'Q?', text: '', slot: {} }, forward: null, reflection: null, tomorrow: null },
+    focus: { must: { items: [], slot: {} }, can: { items: [], slot: {} }, cool: { items: [], slot: {} } },
+    extras: {}, quests: [], main_quest: 'Break the Cycle', last: null, suggestions: [], sub: { morning: 'm', evening: 'e' }
+  };
+  assert.ok(journalHtml(d).includes('Break the Cycle'));
+  const html = journalHtml(d, { desk: true });
+  assert.ok(!html.includes('Break the Cycle'));
+  assert.ok(html.includes('<h2 hidden>🔥 Main quest</h2>'));
+  assert.ok(html.includes('aria-label="Main quest check-in" hidden'));
+  assert.ok(html.includes('id="win"'));
+  const script = /<script>([\s\S]*?)<\/script>/.exec(html)[1];
+  assert.doesNotThrow(() => new Function(script));
+});
+
 test('evening question: written once from the whole morning, again only when the morning changed', async () => {
   const { writeEveningQuestion, eveningQuestion, morningFacts } = await import('../src/eveningq.js');
   assert.equal(morningFacts({ headspace: ' ' }), null);
