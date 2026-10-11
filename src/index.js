@@ -19,6 +19,10 @@
 //                  Engine's GET /gym)
 //   POST /gym/generate|send|feedback|sync  the gym page's buttons, passed on to the
 //                  Quest Engine (signed in; JSON)
+//   GET|POST /journal/vault  the Vault check-in (the Nightly Watch) on the journal
+//                  page, passed on to the Quest Engine's POST /vault/watch
+//                  (signed in; JSON { status: held|spent|clear, amount, what };
+//                  src/vault.js)
 //   POST /journal/review  Start my day / End my day: registers the Morning or
 //                  Evening review habit in the Quest Engine, once per game day
 //                  (signed in; JSON { which: morning|evening }; src/review.js)
@@ -76,6 +80,7 @@ import { summaryDue, writeSummary, isSummaryHour } from './summary.js';
 import { store } from './usage.js';
 import { runJob } from './rerun.js';
 import { registerReview } from './review.js';
+import { answerVault, readVault } from './vault.js';
 import { readFold, writeFold } from './fold.js';
 import { saveBorder } from './border.js';
 export { Store } from './store.js';
@@ -200,6 +205,22 @@ export default {
         } catch (e) {
           console.error('journal fold', e && e.stack || e);
           return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, 500);
+        }
+      }
+      if (pathname === '/journal/vault') {
+        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+        // GET: the watch as it is now, so an answer given on the Vault card shows here too.
+        if (request.method === 'GET') {
+          try { return json({ ok: 1, vault: await readVault(env) }); }
+          catch (e) { return json({ ok: 0, code: 'server_error', message: String(e.message || e) }, 500); }
+        }
+        if (request.method !== 'POST') return json({ ok: 0, code: 'bad_request' }, 405);
+        const body = await request.json().catch(() => null);
+        try {
+          return json(await answerVault(env, body));
+        } catch (e) {
+          console.error('journal vault', e && e.stack || e);
+          return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, e.code === 'bad_request' ? 400 : 500);
         }
       }
       if (pathname === '/journal/review' && request.method === 'POST') {
