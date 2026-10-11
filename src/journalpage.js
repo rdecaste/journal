@@ -15,6 +15,8 @@ const safeJson = v => JSON.stringify(v).replace(/</g, '\\u003c').replace(/[\u202
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const longDay = day => { const d = new Date(day + 'T12:00:00Z'); return `${DAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`; };
+// The Vault's night weather (the Quest Engine's WEATHER keys) as one small icon.
+const WX = { clear: '🌙', breeze: '🍃', wind: '💨', rain: '🌧️', storm: '🌪️', drywood: '🪵', trader: '🎒', star: '🌠' };
 
 // Other questions for each box (the 03:00 run's question comes first), words
 // to start with, and one follow-up once there is something to follow up on.
@@ -47,6 +49,7 @@ const STYLE = `
   --night:#2b3550; --night-soft:#e9ebf4; --rule:#e6e9ef;
   --ok:#2e8f5c; --ok-soft:#e3f3ea; --warn-soft:#fbe7e5;
   --write:#f4f7fd; --write-night:#f3f4f9; --write-quest:#f7f8fa;
+  --vault:#4b5f8a; --vault-soft:#e9eef8; --vault-ink:#ffffff; --ember:#c2621d;
   --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
   --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --paper:var(--surface); color-scheme:light;
@@ -56,13 +59,15 @@ const STYLE = `
   --gold:#f0b53c; --gold-soft:#2c2414; --ki:#5b93ea; --ki-soft:#1a2638; --warn:#f0645a;
   --night:#aab6e0; --night-soft:#1b2033; --rule:#232b38;
   --ok:#4cbf85; --ok-soft:#142a20; --warn-soft:#321a19;
-  --write:#1b2331; --write-night:#1d2131; --write-quest:#1a1f29; color-scheme:dark}}
+  --write:#1b2331; --write-night:#1d2131; --write-quest:#1a1f29;
+  --vault:#9fb3e0; --vault-soft:#1a2234; --vault-ink:#111827; --ember:#f08a3c; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0e1219; --surface:#171d27; --ink:#e8ecf2; --muted:#95a1b2; --line:#283141; --track:#262f3d;
   --gold:#f0b53c; --gold-soft:#2c2414; --ki:#5b93ea; --ki-soft:#1a2638; --warn:#f0645a;
   --night:#aab6e0; --night-soft:#1b2033; --rule:#232b38;
   --ok:#4cbf85; --ok-soft:#142a20; --warn-soft:#321a19;
-  --write:#1b2331; --write-night:#1d2131; --write-quest:#1a1f29; color-scheme:dark}
+  --write:#1b2331; --write-night:#1d2131; --write-quest:#1a1f29;
+  --vault:#9fb3e0; --vault-soft:#1a2234; --vault-ink:#111827; --ember:#f08a3c; color-scheme:dark}
 /* Type (Roy, 1 Oct: calm and easy on the eyes). Two faces only: Source Serif 4 (close to
    Notion's serif) for everything read or written, the system sans for small controls and
    notes. The page asks in serif italic, Roy writes in upright serif, titles are semibold.
@@ -137,6 +142,29 @@ textarea::placeholder{font-family:var(--serif);font-style:italic;font-weight:400
 .after{display:flex;flex-direction:column;gap:8px;animation:rise-in .35s ease-out}
 @keyframes rise-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .ci-out{margin:0;min-height:1.2em;font-family:var(--serif);font-style:italic;font-size:17px;color:var(--muted)}
+/* The Vault's Nightly Watch (11 Oct 2026, Roy picked A): the main quest's card with a
+   cool night wash instead of gold; the logs in ember. Spent opens € and what it was for. */
+.checkin.vault{background:linear-gradient(180deg,var(--vault-soft),var(--paper) 75%)}
+.vault .ci-row{flex-wrap:nowrap}
+.vault .ci-row>div{flex:1;min-width:0}
+.wx{margin:3px 0 0;font-family:var(--serif);font-style:italic;font-size:15.5px;color:var(--muted)}
+.v-logs{color:var(--ember)}
+.v-after{display:flex;flex-direction:column;gap:8px;animation:rise-in .35s ease-out}
+.v-after[hidden]{display:none}
+.v-fields{display:grid;grid-template-columns:110px 1fr auto;gap:8px}
+@media (max-width:460px){.v-fields{grid-template-columns:96px 1fr}.v-log{grid-column:1/-1}}
+.v-eur{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:12px;padding:0 12px;background:var(--write-quest)}
+.v-eur span{font-family:var(--serif);color:var(--muted);font-size:17px}
+.v-fields input{font-family:var(--serif);font-size:17px;color:var(--ink);outline:none}
+.v-eur input{border:0;background:transparent;width:100%;min-width:0;padding:11px 0}
+.v-what{border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:var(--write-quest);min-width:0}
+.v-eur:focus-within,.v-what:focus{border-color:color-mix(in srgb,var(--vault) 60%,transparent)}
+.v-log{font-family:var(--sans);font-size:14.5px;font-weight:600;border:0;border-radius:12px;padding:0 18px;min-height:46px;cursor:pointer;color:var(--vault-ink);background:var(--vault)}
+.v-log:disabled{opacity:.6;cursor:default}
+.vault.glow{animation:vglow 1.2s ease-out}
+@keyframes vglow{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ember) 55%,transparent)}100%{box-shadow:0 0 0 18px transparent}}
+.v-logs.pop{animation:vpop .5s ease-out}
+@keyframes vpop{40%{transform:scale(1.25)}}
 /* Quests: one card per active quest, a quick update rather than a journal page: the title,
    the question and a small plain box. The main quest's note uses the same box. */
 .quests{display:flex;flex-direction:column;gap:12px}
@@ -311,6 +339,23 @@ export function journalHtml(d, { desk = false } = {}) {
     </div>
     <p class="ci-out" id="ci-out" aria-live="polite"></p>
   </section>
+
+  ${d.vault ? `<h2>🔐 Vault</h2>
+  <section class="checkin vault" id="vault" aria-label="Vault check-in">
+    <div class="ci-row">
+      <div><h3>Nightly Watch</h3>${d.vault.weather && d.vault.weather.line ? `<p class="wx">${esc(WX[d.vault.weather.key] || '🌙')} ${esc(d.vault.weather.line)}</p>` : ''}</div>
+      <span class="lvl v-logs" id="v-logs"></span>
+    </div>
+    <div class="ci-btns">
+      <button type="button" class="ci win" id="v-held" aria-pressed="false"><b>🛡️ Held the line</b><span>No unplanned spending today.</span></button>
+      <button type="button" class="ci lose" id="v-spent" aria-pressed="false"><b>💸 Spent</b><span>Log what and how much.</span></button>
+    </div>
+    <div class="v-after" id="v-after" hidden>
+      <p class="q">What was it, and how much?</p>
+      <div class="v-fields"><label class="v-eur"><span>€</span><input id="v-amt" inputmode="decimal" placeholder="0" aria-label="Amount in euro"></label><input class="v-what" id="v-what" placeholder="What was it for?" aria-label="What was it for?" maxlength="80"><button type="button" class="v-log" id="v-log">Log it</button></div>
+    </div>
+    <p class="ci-out" id="v-out" aria-live="polite"></p>
+  </section>` : ''}
 
   ${d.quests.length ? `<h2>🗺️ Quests</h2>
   <section class="quests" aria-label="Quest updates">
@@ -773,5 +818,56 @@ const SCRIPT = String.raw`
   win.addEventListener('click', function () { var on = checkin !== 'win'; check(on ? 'win' : null, true); if (on) celebrate(); });
   lose.addEventListener('click', function () { check(checkin === 'lose' ? null : 'lose', true); });
   check(checkin, false);
+
+  // ---- Vault check-in: the Nightly Watch, kept by the Quest Engine ----
+  if (D.vault && $('vault')) (function () {
+    var V = D.vault, card = $('vault'), held = $('v-held'), spent = $('v-spent'), after = $('v-after'), vout = $('v-out'), logs = $('v-logs'), btn = $('v-log');
+    var busy = false;
+    function euro(n) { return '€' + (n % 1 ? n.toFixed(2).replace('.', ',') : String(n)); }
+    function draw(open) {
+      held.setAttribute('aria-pressed', V.status === 'held');
+      spent.setAttribute('aria-pressed', V.status === 'spent' || !!open);
+      after.hidden = !open;
+      logs.textContent = '🪵 ' + V.logs + (V.logs === 1 ? ' log' : ' logs');
+    }
+    function pop() {
+      logs.classList.remove('pop'); void logs.offsetWidth; logs.classList.add('pop');
+    }
+    function send(body, done) {
+      if (busy) return;
+      busy = true; btn.disabled = true;
+      fetch('/journal/vault', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (j && j.vault) V = j.vault;
+          if (!j || !j.ok) { vout.textContent = (j && j.message) || 'That did not save. Try again in a moment.'; draw(!after.hidden); return; }
+          draw(false); vout.textContent = j.message || ''; pop();
+          if (done) done(j);
+        })
+        .catch(function () { vout.textContent = 'That did not save. Try again in a moment.'; })
+        .then(function () { busy = false; btn.disabled = false; });
+    }
+    held.addEventListener('click', function () {
+      if (V.status === 'held') { send({ status: 'clear' }); return; }
+      send({ status: 'held' }, function () {
+        card.classList.remove('glow'); void card.offsetWidth; card.classList.add('glow');
+        if (navigator.vibrate) try { navigator.vibrate(20); } catch (e) {}
+      });
+    });
+    spent.addEventListener('click', function () {
+      if (V.status === 'spent') { send({ status: 'clear' }); return; }
+      if (!after.hidden) { draw(false); return; }
+      vout.textContent = ''; draw(true); $('v-amt').focus();
+    });
+    btn.addEventListener('click', function () {
+      var a = $('v-amt').value.trim(), w = $('v-what').value.trim();
+      if (!(parseFloat(a.replace(',', '.')) > 0)) { vout.textContent = 'Enter what you spent.'; $('v-amt').focus(); return; }
+      if (!w) { vout.textContent = 'What was it for?'; $('v-what').focus(); return; }
+      send({ status: 'spent', amount: a, what: w }, function () { $('v-amt').value = ''; $('v-what').value = ''; });
+    });
+    $('v-what').addEventListener('keydown', function (e) { if (e.key === 'Enter') btn.click(); });
+    draw(false);
+    if (V.status === 'spent' && V.spent) vout.textContent = 'Logged: ' + euro(V.spent.amount) + (V.spent.what ? ' on ' + V.spent.what : '') + '.';
+  })();
 })();
 `.replace('__PROMPTS__', () => JSON.stringify(Object.fromEntries(Object.entries(PROMPTS).map(([k, v]) => [k, { more: v.more }]))));
