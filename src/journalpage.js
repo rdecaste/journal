@@ -866,8 +866,18 @@ const SCRIPT = String.raw`
       send({ status: 'spent', amount: a, what: w }, function () { $('v-amt').value = ''; $('v-what').value = ''; });
     });
     $('v-what').addEventListener('keydown', function (e) { if (e.key === 'Enter') btn.click(); });
-    draw(false);
-    if (V.status === 'spent' && V.spent) vout.textContent = 'Logged: ' + euro(V.spent.amount) + (V.spent.what ? ' on ' + V.spent.what : '') + '.';
+    function said() { vout.textContent = V.status === 'spent' && V.spent ? 'Logged: ' + euro(V.spent.amount) + (V.spent.what ? ' on ' + V.spent.what : '') + '.' : ''; }
+    draw(false); said();
+    // Back on the page: the Vault's watch as it is now (kept in step with the Vault card).
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState !== 'visible' || busy || !after.hidden) return;
+      fetch('/journal/vault', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+        if (!j || !j.ok || !j.vault || busy || !after.hidden) return;
+        var was = V.status + ':' + V.logs;
+        V = j.vault; draw(false);
+        if (V.status + ':' + V.logs !== was) said();
+      }).catch(function () {});
+    });
   })();
 })();
 `.replace('__PROMPTS__', () => JSON.stringify(Object.fromEntries(Object.entries(PROMPTS).map(([k, v]) => [k, { more: v.more }]))));
