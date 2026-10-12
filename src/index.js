@@ -173,7 +173,7 @@ export default {
       if (pathname === '/journal') {
         const desk = searchParams.get('desk') === '1';
         if (!signedIn) return redirect('/login?next=' + encodeURIComponent(desk ? '/journal?desk=1' : '/journal'));
-        return new Response(journalHtml(await loadJournal(env), { desk }), { headers: PAGE_HEADERS });
+        return new Response(journalHtml(await loadJournal(env)), { headers: PAGE_HEADERS });
       }
       const mood = pathname.match(/^\/journal\/mood\/([1-5])\.webp$/);
       if (mood) {

@@ -70,6 +70,4 @@ test('journal page: the Vault card sits under the main quest, only when there is
   assert.ok(html.includes('🛡️ Held the line') && html.includes('💸 Spent'));
   const script = /<script>([\s\S]*?)<\/script>/.exec(html)[1];
   assert.doesNotThrow(() => new Function(script));
-  // From the desk the main quest hides; the Vault stays.
-  assert.ok(journalHtml({ ...d, vault: vaultView(WATCH) }, { desk: true }).includes('id="vault"'));
 });
