@@ -270,11 +270,9 @@ const head = title => `<!doctype html>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
 <style>${STYLE}</style></head>`;
 
-// Opened from Roy OS, the desk screen (`?desk=1`, Roy 6 Oct 2026): the main
-// quest never shows there, so its check-in is left hidden and its name out of
-// the page (the script still finds the section's elements).
-export function journalHtml(d, { desk = false } = {}) {
-  if (desk) d = { ...d, main_quest: null };
+// Opened from Roy OS too (`?desk=1`): the same page, main quest included
+// (Roy, 12 Oct 2026: "I want to see the main quest card on my daily journal page").
+export function journalHtml(d) {
   if (!d.page) {
     return `${head('Journal')}
 <body><div class="page">
@@ -323,8 +321,8 @@ export function journalHtml(d, { desk = false } = {}) {
     <div class="end close"><button type="button" class="endbtn" id="e-done">End my day</button></div>
   </div>
 
-  <h2${desk ? ' hidden' : ''}>🔥 Main quest</h2>
-  <section class="checkin" aria-label="Main quest check-in"${desk ? ' hidden' : ''}>
+  <h2>🔥 Main quest</h2>
+  <section class="checkin" aria-label="Main quest check-in">
     <div class="ci-row">
       <div><h3>${esc(d.main_quest || 'Main quest')}</h3></div>
       <span class="lvl"><span class="days" id="streak"></span></span>
