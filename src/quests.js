@@ -79,10 +79,18 @@ export function journeyFrom(r) {
   return { id: r.id, icon: m ? m[1] : '', name: (m ? m[2] : name).replace(/\s+Journey$/i, '') || name, north: r.north_star || '' };
 }
 
-// A still from a quest's Cloudinary clip; a square crop of a character avatar.
+// A still from a quest's Cloudinary clip: its first frame, which is the
+// quest's image (the clip is animated from it; 2 s in drifted from the
+// Questboard's look, 13 Oct 2026); a square crop of a character avatar.
 export function posterUrl(video, width = 960) {
   if (!/^https:\/\/res\.cloudinary\.com\/[^/]+\/video\/upload\//.test(video || '')) return '';
-  return video.replace('/video/upload/', `/video/upload/so_2.0,w_${width},c_limit,q_auto/`).replace(/\.(mp4|mov|webm)$/i, '.jpg');
+  return video.replace('/video/upload/', `/video/upload/so_0,w_${width},c_limit,q_auto/`).replace(/\.(mp4|mov|webm)$/i, '.jpg');
+}
+
+// The quest's clip, as the Questboard plays it (scaled down for the page).
+export function clipUrl(video, width = 1280) {
+  if (!/^https:\/\/res\.cloudinary\.com\/[^/]+\/video\/upload\//.test(video || '')) return '';
+  return video.replace('/video/upload/', `/video/upload/w_${width},c_limit,q_auto/`);
 }
 export function avatarUrl(url, size = 256) {
   if (!/^https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\//.test(url || '')) return url || '';

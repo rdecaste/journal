@@ -65,7 +65,7 @@ test('weeks: Monday to Sunday with the ISO number', () => {
 });
 
 test('Cloudinary: a still from a clip, a square avatar; anything else left alone', () => {
-  assert.equal(posterUrl('https://res.cloudinary.com/x/video/upload/v1/Quest/a.mp4', 640), 'https://res.cloudinary.com/x/video/upload/so_2.0,w_640,c_limit,q_auto/v1/Quest/a.jpg');
+  assert.equal(posterUrl('https://res.cloudinary.com/x/video/upload/v1/Quest/a.mp4', 640), 'https://res.cloudinary.com/x/video/upload/so_0,w_640,c_limit,q_auto/v1/Quest/a.jpg');
   assert.equal(posterUrl('https://example.com/a.mp4'), '');
   assert.equal(avatarUrl('https://res.cloudinary.com/x/image/upload/v1/A/s.jpg', 100), 'https://res.cloudinary.com/x/image/upload/c_fill,g_auto,w_100,h_100,q_auto,f_auto/v1/A/s.jpg');
   assert.deepEqual(journeyFrom({ id: 'j', journey: '👨‍👩‍👧‍👦 Family Journey' }), { id: 'j', icon: '👨‍👩‍👧‍👦', name: 'Family', north: '' });
@@ -90,7 +90,7 @@ test('the list: every quest but the main one, with its last evidence', async () 
   assert.match(html, /Develop the &lt;Backyard&gt;/);
   assert.doesNotMatch(html, /Develop the <Backyard>/);
   assert.doesNotMatch(html, /Break the PMO/);
-  assert.match(html, /so_2\.0,w_960,c_limit,q_auto\/v1789988462\/Quest-Board-Animated\/46be\.jpg/);
+  assert.match(html, /so_0,w_960,c_limit,q_auto\/v1789988462\/Quest-Board-Animated\/46be\.jpg/);
   assert.match(html, /data-pane="planned" >/); // the planned tab opens
   assert.match(html, /7 days quiet/); // the run: nothing since 27 Sep
   assert.match(html, /47 days to go/);
@@ -102,6 +102,8 @@ test('a quest page: evidence newest first, notes and digest; the main quest has 
   assert.deepEqual(d.log.map(l => [l.date, l.kind]), [['2026-10-04', 'note'], ['2026-10-01', 'reflection']]);
   const html = questHtml(d);
   assert.match(html, /Confirm the driveway start date/);
+  // The hero plays the quest's clip, as the Questboard does, over its first frame.
+  assert.match(html, /<section class="hero"><video class="clip" src="https:\/\/res\.cloudinary\.com\/[^"]*\/video\/upload\/w_1280,c_limit,q_auto\/v\d+\/Quest-Board-Animated\/[^"]+\.mp4" poster="[^"]*so_0,/);
   assert.match(html, /Saitama/);
   assert.match(html, /data-quick="attention" data-value="Active" aria-pressed="true"/);
   // The page data can't close its <script>.

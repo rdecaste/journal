@@ -4,7 +4,7 @@
 // and reload, or, on the new-quest and review pages, fill the form with what
 // OpenAI drafted. Visuals are stills from the quests' Cloudinary clips; the
 // clips themselves and new visuals come later (Roy, 4 Oct).
-import { ATTENTION, PHASES, bucket, posterUrl, avatarUrl } from './quests.js';
+import { ATTENTION, PHASES, bucket, posterUrl, clipUrl as questClipUrl, avatarUrl } from './quests.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // Data for the page script: never able to close the <script> it sits in.
@@ -81,9 +81,12 @@ export function avatarHtml(c, size, radius = 12, showFranchise = false) {
 }
 const charOf = (d, id) => d.characters.find(c => c.id === id) || null;
 const journeyOf = (d, id) => d.journeys.find(j => j.id === id) || null;
-const media = (q, cls = 'ph') => {
+const media = (q, cls = 'ph', { play = false } = {}) => {
   const src = posterUrl(q.video, 960);
-  return src ? `<img src="${esc(src)}" alt="" loading="lazy">` : `<span class="${cls}" aria-hidden="true">${esc(q.icon || '◆')}</span>`;
+  if (!src) return `<span class="${cls}" aria-hidden="true">${esc(q.icon || '◆')}</span>`;
+  // The quest's own page plays the clip, as the Questboard does.
+  if (play) return `<video class="clip" src="${esc(questClipUrl(q.video))}" poster="${esc(src)}" autoplay muted loop playsinline preload="metadata" aria-hidden="true"></video>`;
+  return `<img src="${esc(src)}" alt="" loading="lazy">`;
 };
 
 // ---- Page frame ----
@@ -181,7 +184,7 @@ export function questHtml(d, { edit = false, need = '' } = {}) {
   const b = bucket(q);
   const quiet = quietDays(q, d.today);
   const mark = q.review === 'pass' ? '<span class="mark pass">PASSED</span>' : q.review === 'fail' ? '<span class="mark fail">MISSED</span>' : '<span class="mark none">NOT YET</span>';
-  const hero = `<section class="hero">${media(q)}
+  const hero = `<section class="hero">${media(q, 'ph', { play: true })}
       <div class="hero-in"><span class="label">${j ? esc(j.icon + ' ' + j.name) + ' journey' : 'Quest'}</span><h1>${esc(q.icon ? q.icon + ' ' : '')}${esc(q.name)}</h1>
         <div class="hero-tags">${statusPill(q)}${quietPill(q, d.today)}${q.target && !q.completed ? `<span class="pill gold plain mono">${esc(countdown(q, d.today))}</span>` : ''}</div></div>
     </section>`;
@@ -421,7 +424,7 @@ function CLIENT() {
   var charById = {}; (D.characters || []).forEach(function (c) { charById[c.id] = c; });
   var REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   // Avatar clips drawn on the server: still for people who asked for less motion.
-  if (REDUCED) document.querySelectorAll('.avatar video').forEach(function (v) { v.pause(); v.removeAttribute('autoplay'); });
+  if (REDUCED) document.querySelectorAll('.avatar video, .hero video').forEach(function (v) { v.pause(); v.removeAttribute('autoplay'); });
   var HUE = { 'Arcane': 275, 'Bleach': 205, 'Chainsaw Man': 10, 'Cyberpunk: Edgerunners': 320, 'Dragon Ball': 32, 'Fairy Tail': 350, 'Jujutsu Kaisen': 230, 'One Punch Man': 48, 'Solo Leveling': 250, 'Tokyo Ghoul': 0 };
   function initials(n) { return String(n || '').split(/[\s/]+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase(); }
   function clipSrc(url, size) { return /\/video\/upload\//.test(url) ? url.replace('/video/upload/', '/video/upload/c_fill,g_center,h_' + size + ',w_' + size + '/q_auto/') : url; }
@@ -886,7 +889,7 @@ button:disabled{cursor:default;opacity:.55}
 .year-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start}
 .crumb{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .hero{position:relative;border-radius:20px;overflow:hidden;border:1px solid var(--line-2);aspect-ratio:21/8;min-height:260px;max-width:100%;background:var(--surface-2);isolation:isolate}
-.hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2}
+.hero img,.hero video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2}
 .hero .ph{z-index:-2;font-size:110px}
 .hero::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(0deg,rgba(10,15,19,.96) 0%,rgba(10,15,19,.55) 45%,rgba(10,15,19,.1) 100%)}
 .hero-in{position:absolute;left:0;right:0;bottom:0;padding:24px 28px;display:flex;flex-direction:column;gap:12px}
