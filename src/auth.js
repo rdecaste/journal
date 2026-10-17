@@ -36,3 +36,26 @@ export async function isSignedIn(request, secret, now = Date.now()) {
   if (!expires || !mac || Number(expires) * 1000 < now) return false;
   return sameText(mac, await sign(secret, 'admin:' + expires));
 }
+
+// ---- Inside Roy OS's popup (Roy, 17 Oct 2026)
+// Roy OS shows these pages in a big popup (an iframe on another site), where the
+// browser does not send the Lax cookie above. Roy OS, already signed in, hands over
+// a pass: a session value of its own that expires within two minutes, signed with the
+// same password. /desk/enter turns it into a cookie that lives only inside Roy OS's
+// frames (Partitioned, SameSite=None) for 12 hours. The normal login is unchanged.
+const PASS_TTL = 120;
+const FRAMED_MAX_AGE = 12 * 3600;
+
+export async function validPass(pass, secret, now = Date.now()) {
+  if (!secret || !pass) return false;
+  const [expires, mac] = String(pass).split('.');
+  const left = Number(expires) * 1000 - now;
+  if (!expires || !mac || !(left > 0) || left > PASS_TTL * 1000) return false;
+  return sameText(mac, await sign(secret, 'admin:' + expires));
+}
+
+export async function framedCookie(secret, now = Date.now()) {
+  const expires = Math.floor(now / 1000) + FRAMED_MAX_AGE;
+  const value = `${expires}.${await sign(secret, 'admin:' + expires)}`;
+  return `${COOKIE}=${value}; Path=/; Max-Age=${FRAMED_MAX_AGE}; HttpOnly; Secure; SameSite=None; Partitioned`;
+}

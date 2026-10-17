@@ -69,7 +69,7 @@
 // To-Dos ("Win if") and the day's Work Location Log row, all in D1, and the
 // Work Location Log days changed in the Cross Border tab; and what he saves on
 // the quest pages: quests and their weekly review updates.
-import { isSignedIn, sessionCookie, clearCookie, sameText } from './auth.js';
+import { isSignedIn, sessionCookie, clearCookie, sameText, validPass, framedCookie } from './auth.js';
 import { loadDashboard } from './load.js';
 import { dashboardHtml, loginHtml } from './page.js';
 import { loadToday } from './today.js';
@@ -94,8 +94,10 @@ import { saveBorder } from './border.js';
 import { deskArrival, withDeskBack } from './deskback.js';
 export { Store } from './store.js';
 
+// Framed only by Roy OS's popup (17 Oct 2026); no other site may frame these pages.
+export const ROYOS_ORIGIN = 'https://royos.quest-engine.workers.dev';
 const PAGE_HEADERS = {
-  'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY',
+  'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': `frame-ancestors ${ROYOS_ORIGIN}`,
   'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff', 'X-Robots-Tag': 'noindex'
 };
 const redirect = (to, cookie) => new Response(null, { status: 303, headers: { Location: to, ...(cookie ? { 'Set-Cookie': cookie } : {}) } });
@@ -176,6 +178,12 @@ async function handle(request, env, ctx) {
       const next = nextPath(searchParams.get('next') || '/');
       if (await isSignedIn(request, password)) return redirect(next);
       return new Response(loginHtml(password ? '' : 'DASHBOARD_PASSWORD is not set on the Worker.', next), { headers: PAGE_HEADERS });
+    }
+    // Roy OS's popup: its pass becomes a cookie for Roy OS's frames only (src/auth.js).
+    if (pathname === '/desk/enter') {
+      const next = nextPath(searchParams.get('next') || '/');
+      if (!(await validPass(searchParams.get('pass'), password))) return redirect('/login?next=' + encodeURIComponent(next));
+      return redirect(next, await framedCookie(password));
     }
     if (pathname === '/logout' && request.method === 'POST') return redirect('/login', clearCookie());
     const signedIn = await isSignedIn(request, password);
