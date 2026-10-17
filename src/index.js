@@ -91,6 +91,7 @@ import { registerReview } from './review.js';
 import { answerVault, readVault } from './vault.js';
 import { readFold, writeFold } from './fold.js';
 import { saveBorder } from './border.js';
+import { deskArrival, withDeskBack } from './deskback.js';
 export { Store } from './store.js';
 
 const PAGE_HEADERS = {
@@ -104,197 +105,9 @@ const nextPath = p => (NEXT.has(p) || /^\/quests\/[0-9a-f-]{32,36}$/i.test(p) ? 
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 
 export default {
+  // Opened from Roy OS: remember it, and pages get a "Back to Roy OS" button.
   async fetch(request, env, ctx) {
-    const { pathname, searchParams } = new URL(request.url);
-    const password = env.DASHBOARD_PASSWORD;
-    try {
-      if (pathname === '/login') {
-        if (request.method === 'POST') {
-          const form = await request.formData();
-          const next = nextPath(String(form.get('next') || '/'));
-          if (password && sameText(String(form.get('password') || '').trim(), password)) return redirect(next, await sessionCookie(password));
-          await new Promise(r => setTimeout(r, 800));
-          return new Response(loginHtml('That password is not right.', next), { status: 401, headers: PAGE_HEADERS });
-        }
-        const next = nextPath(searchParams.get('next') || '/');
-        if (await isSignedIn(request, password)) return redirect(next);
-        return new Response(loginHtml(password ? '' : 'DASHBOARD_PASSWORD is not set on the Worker.', next), { headers: PAGE_HEADERS });
-      }
-      if (pathname === '/logout' && request.method === 'POST') return redirect('/login', clearCookie());
-      const signedIn = await isSignedIn(request, password);
-      if (pathname === '/data') {
-        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
-        const data = await loadDashboard(env, { fresh: searchParams.get('fresh') === '1' });
-        if (summaryDue(env, data)) ctx.waitUntil(writeSummary(env, data).catch(e => console.error('summary', e && e.stack || e)));
-        return json(data);
-      }
-      if (pathname === '/summary' && request.method === 'POST') {
-        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
-        if (env.ADMIN_AI !== '1' || !env.OPENAI_API_KEY) return json({ ok: 0, code: 'ai_off' }, 400);
-        const summary = await writeSummary(env, await loadDashboard(env, { fresh: true }), { force: true });
-        if (searchParams.get('back') === '1') return redirect('/?fresh=1'); // the form on the Quest log page
-        return json({ ok: 1, summary });
-      }
-      if (pathname === '/border/save' && request.method === 'POST') {
-        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
-        if (!(request.headers.get('Content-Type') || '').includes('application/json')) return json({ ok: 0, code: 'bad_request' }, 400);
-        try {
-          // The page then reloads /data?fresh=1, which rebuilds the cached data.
-          return json(await saveBorder(env, await request.json().catch(() => null)));
-        } catch (e) {
-          console.error('border save', e && e.stack || e);
-          return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, e.code === 'bad_request' ? 400 : 500);
-        }
-      }
-      if (pathname === '/run' && request.method === 'POST') {
-        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
-        if (!(request.headers.get('Content-Type') || '').includes('application/json')) return json({ ok: 0, code: 'bad_request' }, 400);
-        const body = await request.json().catch(() => null);
-        try {
-          const result = await runJob(env, String(body && body.job || ''), { dry: !!(body && body.dry) });
-          return json({ ok: result.ok ? 1 : 0, text: result.text });
-        } catch (e) {
-          console.error('run', e && e.stack || e);
-          return json({ ok: 0, code: e.code || 'server_error', text: String(e.message || e) }, e.code === 'bad_request' ? 400 : 500);
-        }
-      }
-      if (pathname === '/' || pathname === '/questlog') {
-        if (!signedIn) return redirect(pathname === '/' ? '/login' : '/login?next=/questlog');
-        const fresh = searchParams.get('fresh') === '1';
-        // The daily summary and the Quest log line are triggered here too, in
-        // case their timer missed. An open that finds the summary due waits for
-        // it so the bullets show at once. The Quest log page itself is read
-        // while the dashboard data loads.
-        const dashboard = loadDashboard(env, { fresh }).then(async dash => {
-          if (summaryDue(env, dash)) {
-            const summary = await writeSummary(env, dash).catch(e => { console.error('summary', e && e.stack || e); return null; });
-            if (summary) { dash.summary = summary; dash.summary_written = true; }
-          }
-          return dash;
-        });
-        let today = await loadToday(env, { fresh, dashboard });
-        // A page kept from before today's summary was written is built again.
-        const dash = await dashboard.catch(() => null);
-        if (dash && dash.summary_written && today.briefing?.summary?.text !== dash.summary.text) today = await loadToday(env, { fresh: true, dashboard: dash });
-        return new Response(todayHtml(today), { headers: PAGE_HEADERS });
-      }
-      if (pathname === '/journal') {
-        const desk = searchParams.get('desk') === '1';
-        if (!signedIn) return redirect('/login?next=' + encodeURIComponent(desk ? '/journal?desk=1' : '/journal'));
-        return new Response(journalHtml(await loadJournal(env)), { headers: PAGE_HEADERS });
-      }
-      const mood = pathname.match(/^\/journal\/mood\/([1-5])\.webp$/);
-      if (mood) {
-        if (!signedIn) return new Response('Not found', { status: 404 });
-        const bytes = Uint8Array.from(atob(MOOD_ART[mood[1] - 1]), c => c.charCodeAt(0));
-        return new Response(bytes, { headers: { 'Content-Type': 'image/webp', 'Cache-Control': 'private, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff' } });
-      }
-      if (pathname === '/journal/save' && request.method === 'POST') {
-        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
-        if (!(request.headers.get('Content-Type') || '').includes('application/json')) return json({ ok: 0, code: 'bad_request' }, 400);
-        try {
-          return json(await saveJournal(env, await request.json()));
-        } catch (e) {
-          console.error('journal save', e && e.stack || e);
-          const message = String(e.message || e);
-          return json({ ok: 0, code: e.code || 'server_error', message }, e.code === 'bad_request' ? 400 : 500);
-        }
-      }
-      if (pathname === '/journal/fold') {
-        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
-        const day = journalDay();
-        try {
-          if (request.method === 'GET') return json({ ok: 1, day, fold: await readFold(env, day) });
-          if (request.method !== 'POST') return json({ ok: 0, code: 'bad_request' }, 405);
-          const body = await request.json().catch(() => null);
-          // A page left open from yesterday must not fold or open today's halves.
-          if (!body || body.day !== day) return json({ ok: 0, code: 'old_day', day });
-          return json({ ok: 1, day, fold: await writeFold(env, day, body) });
-        } catch (e) {
-          console.error('journal fold', e && e.stack || e);
-          return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, 500);
-        }
-      }
-      if (pathname === '/journal/vault') {
-        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
-        // GET: the watch as it is now, so an answer given on the Vault card shows here too.
-        if (request.method === 'GET') {
-          try { return json({ ok: 1, vault: await readVault(env) }); }
-          catch (e) { return json({ ok: 0, code: 'server_error', message: String(e.message || e) }, 500); }
-        }
-        if (request.method !== 'POST') return json({ ok: 0, code: 'bad_request' }, 405);
-        const body = await request.json().catch(() => null);
-        try {
-          return json(await answerVault(env, body));
-        } catch (e) {
-          console.error('journal vault', e && e.stack || e);
-          return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, e.code === 'bad_request' ? 400 : 500);
-        }
-      }
-      if (pathname === '/journal/review' && request.method === 'POST') {
-        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
-        const body = await request.json().catch(() => null);
-        try {
-          return json(await registerReview(env, String(body && body.which || '')));
-        } catch (e) {
-          console.error('journal review', e && e.stack || e);
-          return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, e.code === 'bad_request' ? 400 : 500);
-        }
-      }
-      if (pathname === '/journal/evening-question' && request.method === 'POST') {
-        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
-        if (!aiOn(env)) return json({ ok: 0, code: 'ai_off' }, 400);
-        const body = await request.json().catch(() => null);
-        if (!body || typeof body !== 'object') return json({ ok: 0, code: 'bad_request' }, 400);
-        try {
-          const q = await writeEveningQuestion(env, journalDay(), body);
-          return json({ ok: 1, q: q ? q.text : null });
-        } catch (e) {
-          console.error('evening question', e && e.stack || e);
-          return json({ ok: 0, code: 'server_error', message: String(e.message || e) }, 500);
-        }
-      }
-      if (pathname === '/gym') {
-        if (!signedIn) return redirect('/login?next=/gym');
-        const gym = await loadGym(env);
-        return new Response(gymHtml({ ...gym, open_plan: searchParams.get('plan') || null }), { headers: PAGE_HEADERS });
-      }
-      const gymButton = pathname.match(/^\/gym\/(generate|send|feedback|sync)$/);
-      if (gymButton && request.method === 'POST') {
-        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
-        if (!(request.headers.get('Content-Type') || '').includes('application/json')) return json({ ok: 0, code: 'bad_request' }, 400);
-        const body = await request.json().catch(() => null);
-        try {
-          return json(await gymAction(env, gymButton[1], body && typeof body === 'object' ? body : {}));
-        } catch (e) {
-          console.error('gym', e && e.stack || e);
-          return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, e.code === 'bad_request' ? 400 : 500);
-        }
-      }
-      if (pathname === '/trends') {
-        if (!signedIn) return redirect('/login?next=/trends');
-        const trends = await loadTrends(env);
-        if (trends.error) return new Response(`Trends: ${trends.error}`, { status: 502, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
-        return new Response(trendsHtml(trends), { headers: PAGE_HEADERS });
-      }
-      if (pathname === '/trends/coach' && request.method === 'POST') {
-        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
-        try { return json(await rewriteCoach(env)); }
-        catch (e) {
-          console.error('trends coach', e && e.stack || e);
-          return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, 500);
-        }
-      }
-      if (pathname === '/quests' || pathname.startsWith('/quests/')) {
-        const quests = await questsRoute(request, env, pathname, searchParams, signedIn);
-        if (quests) return quests;
-      }
-      if (pathname === '/admin') return signedIn ? new Response(dashboardHtml(), { headers: PAGE_HEADERS }) : redirect('/login?next=/admin');
-      return new Response('Not found', { status: 404 });
-    } catch (e) {
-      console.error(pathname, e && e.stack || e);
-      return pathname === '/data' ? json({ ok: 0, code: 'server_error', message: String(e.message || e) }, 500) : new Response('Something went wrong.', { status: 500 });
-    }
+    return deskArrival(request) || withDeskBack(request, await handle(request, env, ctx));
   },
 
   // Cron runs at 03:00-06:00 UTC; whichever is 05:00 in Amsterdam (summer or
@@ -344,5 +157,199 @@ async function questsRoute(request, env, pathname, searchParams, signedIn) {
   } catch (e) {
     console.error(pathname, e && e.stack || e);
     return new Response(questsErrorHtml(`The quests did not load: ${String(e.message || e).slice(0, 200)}`), { status: 500, headers: PAGE_HEADERS });
+  }
+}
+
+// ---- Routes
+async function handle(request, env, ctx) {
+  const { pathname, searchParams } = new URL(request.url);
+  const password = env.DASHBOARD_PASSWORD;
+  try {
+    if (pathname === '/login') {
+      if (request.method === 'POST') {
+        const form = await request.formData();
+        const next = nextPath(String(form.get('next') || '/'));
+        if (password && sameText(String(form.get('password') || '').trim(), password)) return redirect(next, await sessionCookie(password));
+        await new Promise(r => setTimeout(r, 800));
+        return new Response(loginHtml('That password is not right.', next), { status: 401, headers: PAGE_HEADERS });
+      }
+      const next = nextPath(searchParams.get('next') || '/');
+      if (await isSignedIn(request, password)) return redirect(next);
+      return new Response(loginHtml(password ? '' : 'DASHBOARD_PASSWORD is not set on the Worker.', next), { headers: PAGE_HEADERS });
+    }
+    if (pathname === '/logout' && request.method === 'POST') return redirect('/login', clearCookie());
+    const signedIn = await isSignedIn(request, password);
+    if (pathname === '/data') {
+      if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+      const data = await loadDashboard(env, { fresh: searchParams.get('fresh') === '1' });
+      if (summaryDue(env, data)) ctx.waitUntil(writeSummary(env, data).catch(e => console.error('summary', e && e.stack || e)));
+      return json(data);
+    }
+    if (pathname === '/summary' && request.method === 'POST') {
+      if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+      if (env.ADMIN_AI !== '1' || !env.OPENAI_API_KEY) return json({ ok: 0, code: 'ai_off' }, 400);
+      const summary = await writeSummary(env, await loadDashboard(env, { fresh: true }), { force: true });
+      if (searchParams.get('back') === '1') return redirect('/?fresh=1'); // the form on the Quest log page
+      return json({ ok: 1, summary });
+    }
+    if (pathname === '/border/save' && request.method === 'POST') {
+      if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+      if (!(request.headers.get('Content-Type') || '').includes('application/json')) return json({ ok: 0, code: 'bad_request' }, 400);
+      try {
+        // The page then reloads /data?fresh=1, which rebuilds the cached data.
+        return json(await saveBorder(env, await request.json().catch(() => null)));
+      } catch (e) {
+        console.error('border save', e && e.stack || e);
+        return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, e.code === 'bad_request' ? 400 : 500);
+      }
+    }
+    if (pathname === '/run' && request.method === 'POST') {
+      if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+      if (!(request.headers.get('Content-Type') || '').includes('application/json')) return json({ ok: 0, code: 'bad_request' }, 400);
+      const body = await request.json().catch(() => null);
+      try {
+        const result = await runJob(env, String(body && body.job || ''), { dry: !!(body && body.dry) });
+        return json({ ok: result.ok ? 1 : 0, text: result.text });
+      } catch (e) {
+        console.error('run', e && e.stack || e);
+        return json({ ok: 0, code: e.code || 'server_error', text: String(e.message || e) }, e.code === 'bad_request' ? 400 : 500);
+      }
+    }
+    if (pathname === '/' || pathname === '/questlog') {
+      if (!signedIn) return redirect(pathname === '/' ? '/login' : '/login?next=/questlog');
+      const fresh = searchParams.get('fresh') === '1';
+      // The daily summary and the Quest log line are triggered here too, in
+      // case their timer missed. An open that finds the summary due waits for
+      // it so the bullets show at once. The Quest log page itself is read
+      // while the dashboard data loads.
+      const dashboard = loadDashboard(env, { fresh }).then(async dash => {
+        if (summaryDue(env, dash)) {
+          const summary = await writeSummary(env, dash).catch(e => { console.error('summary', e && e.stack || e); return null; });
+          if (summary) { dash.summary = summary; dash.summary_written = true; }
+        }
+        return dash;
+      });
+      let today = await loadToday(env, { fresh, dashboard });
+      // A page kept from before today's summary was written is built again.
+      const dash = await dashboard.catch(() => null);
+      if (dash && dash.summary_written && today.briefing?.summary?.text !== dash.summary.text) today = await loadToday(env, { fresh: true, dashboard: dash });
+      return new Response(todayHtml(today), { headers: PAGE_HEADERS });
+    }
+    if (pathname === '/journal') {
+      const desk = searchParams.get('desk') === '1';
+      if (!signedIn) return redirect('/login?next=' + encodeURIComponent(desk ? '/journal?desk=1' : '/journal'));
+      return new Response(journalHtml(await loadJournal(env)), { headers: PAGE_HEADERS });
+    }
+    const mood = pathname.match(/^\/journal\/mood\/([1-5])\.webp$/);
+    if (mood) {
+      if (!signedIn) return new Response('Not found', { status: 404 });
+      const bytes = Uint8Array.from(atob(MOOD_ART[mood[1] - 1]), c => c.charCodeAt(0));
+      return new Response(bytes, { headers: { 'Content-Type': 'image/webp', 'Cache-Control': 'private, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff' } });
+    }
+    if (pathname === '/journal/save' && request.method === 'POST') {
+      if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+      if (!(request.headers.get('Content-Type') || '').includes('application/json')) return json({ ok: 0, code: 'bad_request' }, 400);
+      try {
+        return json(await saveJournal(env, await request.json()));
+      } catch (e) {
+        console.error('journal save', e && e.stack || e);
+        const message = String(e.message || e);
+        return json({ ok: 0, code: e.code || 'server_error', message }, e.code === 'bad_request' ? 400 : 500);
+      }
+    }
+    if (pathname === '/journal/fold') {
+      if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+      const day = journalDay();
+      try {
+        if (request.method === 'GET') return json({ ok: 1, day, fold: await readFold(env, day) });
+        if (request.method !== 'POST') return json({ ok: 0, code: 'bad_request' }, 405);
+        const body = await request.json().catch(() => null);
+        // A page left open from yesterday must not fold or open today's halves.
+        if (!body || body.day !== day) return json({ ok: 0, code: 'old_day', day });
+        return json({ ok: 1, day, fold: await writeFold(env, day, body) });
+      } catch (e) {
+        console.error('journal fold', e && e.stack || e);
+        return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, 500);
+      }
+    }
+    if (pathname === '/journal/vault') {
+      if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+      // GET: the watch as it is now, so an answer given on the Vault card shows here too.
+      if (request.method === 'GET') {
+        try { return json({ ok: 1, vault: await readVault(env) }); }
+        catch (e) { return json({ ok: 0, code: 'server_error', message: String(e.message || e) }, 500); }
+      }
+      if (request.method !== 'POST') return json({ ok: 0, code: 'bad_request' }, 405);
+      const body = await request.json().catch(() => null);
+      try {
+        return json(await answerVault(env, body));
+      } catch (e) {
+        console.error('journal vault', e && e.stack || e);
+        return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, e.code === 'bad_request' ? 400 : 500);
+      }
+    }
+    if (pathname === '/journal/review' && request.method === 'POST') {
+      if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+      const body = await request.json().catch(() => null);
+      try {
+        return json(await registerReview(env, String(body && body.which || '')));
+      } catch (e) {
+        console.error('journal review', e && e.stack || e);
+        return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, e.code === 'bad_request' ? 400 : 500);
+      }
+    }
+    if (pathname === '/journal/evening-question' && request.method === 'POST') {
+      if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+      if (!aiOn(env)) return json({ ok: 0, code: 'ai_off' }, 400);
+      const body = await request.json().catch(() => null);
+      if (!body || typeof body !== 'object') return json({ ok: 0, code: 'bad_request' }, 400);
+      try {
+        const q = await writeEveningQuestion(env, journalDay(), body);
+        return json({ ok: 1, q: q ? q.text : null });
+      } catch (e) {
+        console.error('evening question', e && e.stack || e);
+        return json({ ok: 0, code: 'server_error', message: String(e.message || e) }, 500);
+      }
+    }
+    if (pathname === '/gym') {
+      if (!signedIn) return redirect('/login?next=/gym');
+      const gym = await loadGym(env);
+      return new Response(gymHtml({ ...gym, open_plan: searchParams.get('plan') || null }), { headers: PAGE_HEADERS });
+    }
+    const gymButton = pathname.match(/^\/gym\/(generate|send|feedback|sync)$/);
+    if (gymButton && request.method === 'POST') {
+      if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+      if (!(request.headers.get('Content-Type') || '').includes('application/json')) return json({ ok: 0, code: 'bad_request' }, 400);
+      const body = await request.json().catch(() => null);
+      try {
+        return json(await gymAction(env, gymButton[1], body && typeof body === 'object' ? body : {}));
+      } catch (e) {
+        console.error('gym', e && e.stack || e);
+        return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, e.code === 'bad_request' ? 400 : 500);
+      }
+    }
+    if (pathname === '/trends') {
+      if (!signedIn) return redirect('/login?next=/trends');
+      const trends = await loadTrends(env);
+      if (trends.error) return new Response(`Trends: ${trends.error}`, { status: 502, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
+      return new Response(trendsHtml(trends), { headers: PAGE_HEADERS });
+    }
+    if (pathname === '/trends/coach' && request.method === 'POST') {
+      if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+      try { return json(await rewriteCoach(env)); }
+      catch (e) {
+        console.error('trends coach', e && e.stack || e);
+        return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, 500);
+      }
+    }
+    if (pathname === '/quests' || pathname.startsWith('/quests/')) {
+      const quests = await questsRoute(request, env, pathname, searchParams, signedIn);
+      if (quests) return quests;
+    }
+    if (pathname === '/admin') return signedIn ? new Response(dashboardHtml(), { headers: PAGE_HEADERS }) : redirect('/login?next=/admin');
+    return new Response('Not found', { status: 404 });
+  } catch (e) {
+    console.error(pathname, e && e.stack || e);
+    return pathname === '/data' ? json({ ok: 0, code: 'server_error', message: String(e.message || e) }, 500) : new Response('Something went wrong.', { status: 500 });
   }
 }
