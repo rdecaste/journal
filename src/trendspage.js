@@ -129,9 +129,10 @@ svg .m{cursor:pointer}
 .ibtn{cursor:pointer}.ibtn:hover{border-color:var(--accent);color:var(--accent)}
 .ibtn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .coach{background:var(--accent-soft);border-color:transparent}
-.coach-body{display:grid;gap:14px 24px;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}
-.coach-body p{margin:0 0 8px;font-size:14.5px;line-height:1.55;max-width:70ch}
-.coach-body .say{font:italic 500 17px/1.4 var(--display);margin:0 0 10px}
+.coach-body{display:grid;gap:14px}
+.coach-body p{margin:0 0 .7em;font-size:15px;line-height:1.55;max-width:70ch}
+.coach-body .say{font:italic 600 19px/1.35 var(--display);margin:0 0 .6em;color:var(--ink)}
+.coach-body .focus{margin:.4em 0 0;padding:10px 14px;border-left:3px solid var(--accent);background:var(--surface);border-radius:0 8px 8px 0;font-weight:600;color:var(--ink)}
 .coach-body ul{margin:0;padding-left:18px;font-size:14px;line-height:1.5}
 .coach-body li{margin-bottom:6px}
 .coach-body .k{font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:6px}
@@ -188,7 +189,7 @@ section[role="tabpanel"]{margin-top:22px}
     <div class="card" style="grid-column:1/-1"><div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap"><h3 id="mvm-title">This month against last</h3><div class="chips" id="mvm-pick" role="group" aria-label="Sport"></div></div><p class="why">Running total by day of the month: this month as a solid line up to today, last month dashed to its end. Both start at zero on the 1st, so the gap between the lines at today's marker is the honest comparison. The chips switch between all sports in hours, running and cycling in km, and strength in hours. Hover a day to read both months.</p><p class="sub" id="mvm-why"></p><div class="chart" id="c-mvm"></div><div class="legend"><span><i class="line" style="background:var(--accent)"></i><span id="lg-this"></span></span><span><i class="dash" style="border-top-color:var(--ink2)"></i><span id="lg-prev"></span></span></div></div>
     <div class="card"><h3 id="hours-title">Hours per sport, by month</h3><p class="why">Moving time per sport. Per month: calendar months, October partial. Per week: Monday weeks since 13 July, with the weekly average in the last 3 months as a dashed line. Hover a bar for the split.</p><div class="chart" id="c-months"></div><div class="legend" id="lg-sports"></div></div>
     <div class="card"><h3 id="share-title">Share per sport, by month</h3><p class="why">Training time split by sport as a share of 100%, per month or per week. Shows where the balance went regardless of how much you trained. For a half marathon build you would expect running to grow toward half the time; strength twice a week is roughly 25 to 30%.</p><div class="chart" id="c-share"></div><div class="legend" id="lg-sports3"></div></div>
-    <div class="card coach" style="grid-column:1/-1"><h3>AI Coach</h3><p class="why">A weekly note from the coach: one OpenAI call in the Quest Engine from the same numbers these charts show (the last 13 weeks per sport, this month against last, pace at Zone 2, the long run's decoupling, watts at Zone 2 and the FTP estimates, the bench press, today's recovery). Written on the first visit in a new week and kept, like the gym feedback; Rewrite asks for it again.</p><div class="coach-body" id="coach"></div></div>
+    <div class="card coach" style="grid-column:1/-1"><h3>AI Coach</h3><p class="why">A weekly note from the coach: one OpenAI call in the Quest Engine from the same numbers these charts show (the last 13 weeks per sport, this month against last, pace at Zone 2, the long run's decoupling, watts at Zone 2 and the FTP estimates, the bench press, today's recovery). A headline, two short paragraphs and the one thing to focus on this week. Written on the first visit in a new week and kept, like the gym feedback; Rewrite asks for it again. The same note, laid out the same way, is in Roy OS's Body window.</p><div class="coach-body" id="coach"></div></div>
   </div>
   <details class="fold"><summary>Per month table</summary><div style="overflow-x:auto" id="sum-table"></div></details>
 </section>
@@ -232,6 +233,7 @@ section[role="tabpanel"]{margin-top:22px}
 <script id="data" type="application/json">__DATA__</script></body></html>
 <script>
 const DATA = JSON.parse(document.getElementById('data').textContent);
+const BENCH_GOAL = (DATA.goals && DATA.goals.bench_e1rm) || 100, isBench = n => /bench press/i.test(n);
 // GET /trends gives rows; the script below wants them per sport (as the mockup it grew from).
 const TODAY = DATA.today, SINCE = DATA.since;
 (function shape() {
@@ -507,7 +509,7 @@ function strengthView() {
     document.getElementById('ex-sessions').textContent = \`\${short(EX)} sessions\`;
     document.getElementById('lg-bench').innerHTML = \`<span><i class="line" style="background:var(--accent)"></i>Estimated 1RM</span><span><i style="background:var(--muted)"></i>Heaviest working set</span>\`;
     tiles.innerHTML = common +
-      itile(\`\${short(EX)}, best\`, bestB.e1rm.toFixed(0), 'kg', \`<b>Estimated 1RM</b>, Epley: weight &times; (1 + reps &divide; 30)<br>\${dayFmt(bestB.day)} &middot; top set \${bestB.top} kg<br>\${bestB.sets.map(s => s.reps + '@' + s.kg).join(' &middot; ')}\`) +
+      itile(\`\${short(EX)}, best\`, bestB.e1rm.toFixed(0), 'kg', \`<b>Estimated 1RM</b>, Epley: weight &times; (1 + reps &divide; 30)<br>\${dayFmt(bestB.day)} &middot; top set \${bestB.top} kg<br>\${bestB.sets.map(s => s.reps + '@' + s.kg).join(' &middot; ')}\${isBench(EX) ? \`<br>Goal: \${BENCH_GOAL} kg, \${Math.round(BENCH_GOAL - bestB.e1rm)} kg to go\` : ''}\`, null, isBench(EX) ? \`goal \${BENCH_GOAL} kg\` : '') +
       itile(\`\${short(EX)}, last\`, lastB.e1rm.toFixed(0), 'kg', \`<b>\${dayFmt(lastB.day)}</b><br>\${lastB.sets.map(s => s.reps + '@' + s.kg).join(' &middot; ')}\` + (bench.length > 1 ? \`<br>\${Math.round((dayNum(lastB.day) - dayNum(bench[bench.length - 2].day)) / 7)} weeks after the session before; \${lastB.e1rm < bestB.e1rm ? Math.round(bestB.e1rm - lastB.e1rm) + ' kg under the best' : 'a new best'}\` : ''));
     document.getElementById('bench-table').innerHTML = \`<table style="width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums">
 <thead><tr style="color:var(--muted);font-size:12px;text-align:left"><th style="padding:6px 0;font-weight:500">Day</th><th style="font-weight:500">Working sets</th><th style="font-weight:500;text-align:right">Volume</th><th style="font-weight:500;text-align:right">e1RM</th></tr></thead>
@@ -638,8 +640,7 @@ const shareRows = months.map(m => { const t = byMonth[m].h.reduce((a, b) => a + 
 (function coach() {
   const el = document.getElementById('coach'), c = DATA.coach;
   if (!c) { el.innerHTML = \`<p class="note" style="grid-column:1/-1">The coach has not written this week's note yet. It is written on the first visit in a new week\${DATA.ai === false ? ', once OpenAI is set up on the Quest Engine' : ''}.</p>\`; return; }
-  el.innerHTML = \`<div><div class="k">This week's read</div>\${c.headline ? \`<p class="say">\${esc(c.headline)}</p>\` : ''}\${(c.read || []).map(p => \`<p>\${esc(p)}</p>\`).join('')}</div>
-<div><div class="k">Do this week</div><ul>\${(c.do || []).map(x => \`<li>\${esc(x)}</li>\`).join('')}</ul></div>
+  el.innerHTML = \`<div>\${c.headline ? \`<p class="say">\${esc(c.headline)}</p>\` : ''}\${(c.read || []).map(p => \`<p>\${esc(p)}</p>\`).join('')}\${c.focus ? \`<p class="focus">\${esc(c.focus)}</p>\` : ''}</div>
 <footer style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span>Written \${dayFmt(c.day)}\${c.stale ? ' &middot; more than a week old' : ''}.</span><button type="button" id="coach-rewrite" style="font:600 12px var(--body);padding:4px 10px;border-radius:999px;border:1px solid var(--axis);background:var(--surface);color:var(--ink2);cursor:pointer">Rewrite</button><span id="coach-status" class="note"></span></footer>\`;
   document.getElementById('coach-rewrite').addEventListener('click', async e => {
     const btn = e.currentTarget, status = document.getElementById('coach-status');
@@ -696,7 +697,7 @@ stacked(document.getElementById('c-runzones'), DATA.zones.Run, WK_FROM, WK_TO, y
     volumeChart(document.getElementById('c-vol'));
     if (EX === 'all') { bestBars(document.getElementById('c-bench')); return; }
     const top = Math.max(...bench.map(x => x.e1rm)), lo = Math.max(0, Math.floor((Math.min(...bench.map(x => x.top)) - 10) / 10) * 10), hi = Math.ceil((top + 10) / 10) * 10;
-    dotLine(document.getElementById('c-bench'), bench.map(x => ({ day: x.day, v: x.e1rm, top: x.top, b: x })), { yfmt: v => Math.round(v) + ' kg', ylo: lo, yhi: hi, lineOnly: true, bars: 'top',
+    dotLine(document.getElementById('c-bench'), bench.map(x => ({ day: x.day, v: x.e1rm, top: x.top, b: x })), { yfmt: v => Math.round(v) + ' kg', ylo: lo, yhi: isBench(EX) ? Math.max(hi, BENCH_GOAL + 10) : hi, lineOnly: true, bars: 'top', ref: isBench(EX) ? BENCH_GOAL : null, refLabel: \`goal \${BENCH_GOAL} kg\`,
       tip: p => \`\${dayFmt(p.day)}<br>e1RM \${p.v.toFixed(1)} kg &middot; top set \${p.top} kg<br>\${p.b.sets.map(s => s.reps + '@' + s.kg).join(' &middot; ')}\` });
   },
 };
