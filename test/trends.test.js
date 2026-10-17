@@ -13,7 +13,7 @@ const trends = {
   ],
   hevy: { workouts: [{ id: 'h1', day: '2026-10-06', title: 'Easy Bench Day', volume_kg: 2496, sets: 11, duration_min: 40 }], sets: [{ workout_id: 'h1', day: '2026-10-06', exercise: 'Bench Press (Barbell)', type: 'normal', kg: 50, reps: 8, e1rm: 63.3 }] },
   facts: { strength: { sessions: 1 } },
-  coach: { day: '2026-10-13', at: '2026-10-13T05:00:00Z', headline: 'Fitter, <less> often.', read: ['Pace at Zone 2 is 9 s faster.'], do: ['One long run at 14 km in Zone 2.'] }
+  coach: { day: '2026-10-13', at: '2026-10-13T05:00:00Z', headline: 'Fitter, <less> often.', read: ['Pace at Zone 2 is 9 s faster.', 'Hours slipped.'], focus: 'This week: one long run at 14 km in Zone 2.' }
 };
 
 test('the page carries the data as escaped JSON, the dashboard skeleton, the four tabs and the coach', () => {
