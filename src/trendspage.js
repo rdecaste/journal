@@ -232,6 +232,7 @@ section[role="tabpanel"]{margin-top:22px}
 <script id="data" type="application/json">__DATA__</script></body></html>
 <script>
 const DATA = JSON.parse(document.getElementById('data').textContent);
+const BENCH_GOAL = (DATA.goals && DATA.goals.bench_e1rm) || 100, isBench = n => /bench press/i.test(n);
 // GET /trends gives rows; the script below wants them per sport (as the mockup it grew from).
 const TODAY = DATA.today, SINCE = DATA.since;
 (function shape() {
@@ -507,7 +508,7 @@ function strengthView() {
     document.getElementById('ex-sessions').textContent = \`\${short(EX)} sessions\`;
     document.getElementById('lg-bench').innerHTML = \`<span><i class="line" style="background:var(--accent)"></i>Estimated 1RM</span><span><i style="background:var(--muted)"></i>Heaviest working set</span>\`;
     tiles.innerHTML = common +
-      itile(\`\${short(EX)}, best\`, bestB.e1rm.toFixed(0), 'kg', \`<b>Estimated 1RM</b>, Epley: weight &times; (1 + reps &divide; 30)<br>\${dayFmt(bestB.day)} &middot; top set \${bestB.top} kg<br>\${bestB.sets.map(s => s.reps + '@' + s.kg).join(' &middot; ')}\`) +
+      itile(\`\${short(EX)}, best\`, bestB.e1rm.toFixed(0), 'kg', \`<b>Estimated 1RM</b>, Epley: weight &times; (1 + reps &divide; 30)<br>\${dayFmt(bestB.day)} &middot; top set \${bestB.top} kg<br>\${bestB.sets.map(s => s.reps + '@' + s.kg).join(' &middot; ')}\${isBench(EX) ? \`<br>Goal: \${BENCH_GOAL} kg, \${Math.round(BENCH_GOAL - bestB.e1rm)} kg to go\` : ''}\`, null, isBench(EX) ? \`goal \${BENCH_GOAL} kg\` : '') +
       itile(\`\${short(EX)}, last\`, lastB.e1rm.toFixed(0), 'kg', \`<b>\${dayFmt(lastB.day)}</b><br>\${lastB.sets.map(s => s.reps + '@' + s.kg).join(' &middot; ')}\` + (bench.length > 1 ? \`<br>\${Math.round((dayNum(lastB.day) - dayNum(bench[bench.length - 2].day)) / 7)} weeks after the session before; \${lastB.e1rm < bestB.e1rm ? Math.round(bestB.e1rm - lastB.e1rm) + ' kg under the best' : 'a new best'}\` : ''));
     document.getElementById('bench-table').innerHTML = \`<table style="width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums">
 <thead><tr style="color:var(--muted);font-size:12px;text-align:left"><th style="padding:6px 0;font-weight:500">Day</th><th style="font-weight:500">Working sets</th><th style="font-weight:500;text-align:right">Volume</th><th style="font-weight:500;text-align:right">e1RM</th></tr></thead>
@@ -696,7 +697,7 @@ stacked(document.getElementById('c-runzones'), DATA.zones.Run, WK_FROM, WK_TO, y
     volumeChart(document.getElementById('c-vol'));
     if (EX === 'all') { bestBars(document.getElementById('c-bench')); return; }
     const top = Math.max(...bench.map(x => x.e1rm)), lo = Math.max(0, Math.floor((Math.min(...bench.map(x => x.top)) - 10) / 10) * 10), hi = Math.ceil((top + 10) / 10) * 10;
-    dotLine(document.getElementById('c-bench'), bench.map(x => ({ day: x.day, v: x.e1rm, top: x.top, b: x })), { yfmt: v => Math.round(v) + ' kg', ylo: lo, yhi: hi, lineOnly: true, bars: 'top',
+    dotLine(document.getElementById('c-bench'), bench.map(x => ({ day: x.day, v: x.e1rm, top: x.top, b: x })), { yfmt: v => Math.round(v) + ' kg', ylo: lo, yhi: isBench(EX) ? Math.max(hi, BENCH_GOAL + 10) : hi, lineOnly: true, bars: 'top', ref: isBench(EX) ? BENCH_GOAL : null, refLabel: \`goal \${BENCH_GOAL} kg\`,
       tip: p => \`\${dayFmt(p.day)}<br>e1RM \${p.v.toFixed(1)} kg &middot; top set \${p.top} kg<br>\${p.b.sets.map(s => s.reps + '@' + s.kg).join(' &middot; ')}\` });
   },
 };
