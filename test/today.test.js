@@ -37,13 +37,14 @@ test('questlog page: hero, quests and cross-border views', () => {
   const qs = questsView([
     { id: 'b', questTitle: 'Backyard', questAttention: 'Active', questPhase: 'Build' },
     { id: 'd', questTitle: 'Old one', questAttention: 'Focus', questPhase: 'Finish', completedAt: '2026-09-25' },
-    { id: 'h', questTitle: 'Half Marathon', questAttention: 'Focus', questPhase: 'Build', targetDate: '2026-11-20', nextMove: 'Long run' }
+    { id: '3ea24147-f877-81b5-b997-e74c5a43ee1c', questTitle: 'Half Marathon', questAttention: 'Focus', questPhase: 'Build', targetDate: '2026-11-20', nextMove: 'Long run' }
   ], '2026-09-29');
   assert.deepEqual(qs.map(q => q.title), ['Half Marathon', 'Backyard', 'Old one']);
   assert.equal(qs[0].days_left, 52);
   assert.equal(qs[0].phase, 1);
   assert.equal(qs[2].done, true);
-  assert.equal(qs[0].url, 'https://questboard.quest-engine.workers.dev/');
+  assert.equal(qs[0].url, '/quests/3ea24147-f877-81b5-b997-e74c5a43ee1c');
+  assert.equal(qs[1].url, 'https://questboard.quest-engine.workers.dev/');
   assert.deepEqual(crossView({ ytd: { be_share: 61.8 }, minimum: 50, buffer_days: 12.5, be_days_needed: 0, missing: [] }), { be_share: 61.8, minimum: 50, buffer_days: 12.5, be_days_needed: 0, missing: 0, today: null });
   assert.equal(crossView(null), null);
 });
