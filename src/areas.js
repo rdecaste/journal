@@ -25,11 +25,14 @@ export const AREAS = {
           effort_level: 'Effort Level', effort_multiplier: 'Effort Multiplier', effort_score: 'Effort Score',
           fitness: 'Fitness', fatigue: 'Fatigue', form: 'Form', form_state: 'Form State',
           special_move: 'Special Move',
-          journal: 'Journal'
+          journal: 'Journal',
+          // D1 only (migration 0021): Strava's detailed sport type and trainer flag.
+          strava_sport_type: { prop: 'Strava Sport Type', d1only: true }, trainer: { prop: 'Trainer', d1only: true }
         },
         types: {
           name: 'title', start_date_local: 'date', id: 'rich_text', sport_type: 'rich_text', sport_type_mapped: 'select',
-          strava_url: 'url', 'Effort Level': 'select', 'Form State': 'select', 'Special Move': 'rich_text', Journal: 'relation'
+          strava_url: 'url', 'Effort Level': 'select', 'Form State': 'select', 'Special Move': 'rich_text', Journal: 'relation',
+          'Strava Sport Type': 'rich_text', Trainer: 'checkbox'
         },
         ignore: ['date_display', 'start_time_display', 'moving_time_hours', 'pace_display', 'distance_km', 'moving_time_display', 'elapsed_time_display']
       },
@@ -260,11 +263,14 @@ AREAS.battle = {
         request_id: 'Request ID', fight: 'Fight', habit_attack: 'Habit Attack',
         damage: 'Damage', heal: 'Heal', hp_before: 'HP Before', hp_after: 'HP After', base_roll: 'Base Roll', critical_hit: 'Critical Hit',
         level_multiplier: 'Level Multiplier', effort_multiplier: 'Effort Multiplier', form_bonus: 'Form Bonus',
-        streak: 'Streak', dragon_ball: 'Dragon Ball', special_move: 'Special Move'
+        streak: 'Streak', dragon_ball: 'Dragon Ball', special_move: 'Special Move',
+        // D1 only (migration 0010, 2 Oct 2026): Goku's power.
+        shield_absorbed: 'Shield Absorbed', goku_move: 'Goku Move'
       },
       types: {
         Event: 'title', 'Occurred At': 'date', 'Event Type': 'select', Actor: 'select', 'Processing Status': 'select',
-        'Request ID': 'rich_text', Fight: 'relation', 'Habit Attack': 'relation', 'Critical Hit': 'checkbox', 'Special Move': 'rich_text'
+        'Request ID': 'rich_text', Fight: 'relation', 'Habit Attack': 'relation', 'Critical Hit': 'checkbox', 'Special Move': 'rich_text',
+        'Goku Move': 'rich_text'
       },
       rollups: {
         'Habit Key': { relation: 'habit_attack', table: 'habits', column: 'shortcut_key', type: 'rich_text' },
@@ -300,9 +306,18 @@ AREAS.battle = {
         ...PAGE,
         hero: 'Hero', current_hp: 'Current HP', max_hp: 'Max HP', last_recovery_date: 'Last Recovery Date',
         last_processed_xp: 'Last Processed XP', last_level: 'Last Level', dragon_balls: 'Dragon Balls',
-        wish: 'Wish', wish_day: 'Wish Day', heal_day: 'Heal Day', healed_today: 'Healed Today'
+        wish: 'Wish', wish_day: 'Wish Day', heal_day: 'Heal Day', healed_today: 'Healed Today',
+        // D1 only (migration 0010, 2 Oct 2026): the ki shield, the Senzu week and the move charge.
+        shield: 'Shield', shield_max: 'Shield Max', shield_day: 'Shield Day', shield_call: 'Shield Call',
+        senzu_week: 'Senzu Week', move_week: 'Move Week',
+        // D1 only (migration 0014, 3 Oct 2026): the boss's rage meter.
+        rage: 'Rage', rage_at: 'Rage At', rage_hours: 'Rage Hours', rage_day: 'Rage Day', rage_strikes: 'Rage Strikes'
       },
-      types: { Hero: 'title', 'Last Recovery Date': 'date', Wish: 'select', 'Wish Day': 'date', 'Heal Day': 'date' },
+      types: {
+        Hero: 'title', 'Last Recovery Date': 'date', Wish: 'select', 'Wish Day': 'date', 'Heal Day': 'date',
+        'Shield Day': 'date', 'Shield Call': 'select', 'Senzu Week': 'date', 'Move Week': 'date',
+        'Rage At': 'date', 'Rage Day': 'date'
+      },
       ignore: []
     },
     {
@@ -522,7 +537,7 @@ AREAS.family = {
       table: 'family_chores',
       dataSource: '2ce448ad-03b7-48fb-aec4-d32481b39cfc',
       content: 'blocks', trash: true,
-      columns: { ...PAGE, taakje: 'Taakje', person: 'Person', level: 'Level', dagen: 'Dagen', actief: 'Actief' },
+      columns: { ...PAGE, taakje: 'Taakje', person: 'Person', level: 'Level', dagen: 'Dagen', actief: 'Actief', punten: 'Punten' },
       types: { Taakje: 'title', Person: 'select', Level: 'select', Dagen: 'multi_select', Actief: 'checkbox' },
       ignore: []
     },

@@ -19,6 +19,12 @@
 //                  Engine's GET /gym)
 //   POST /gym/generate|send|feedback|sync  the gym page's buttons, passed on to the
 //                  Quest Engine (signed in; JSON)
+//   GET  /trends   the trends page (Roy, 17 Oct 2026): the last 13 weeks per
+//                  sport with the Quest Engine's stream metrics, the Hevy
+//                  sessions and the AI coach's weekly note; #desk is the view
+//                  for the Roy OS screen (signed in; src/trends.js,
+//                  src/trendspage.js, data from the Quest Engine's GET /trends)
+//   POST /trends/coach  the coach's note again, now (signed in; JSON)
 //   GET|POST /journal/vault  the Vault check-in (the Nightly Watch) on the journal
 //                  page, passed on to the Quest Engine's POST /vault/watch
 //                  (signed in; JSON { status: held|spent|clear, amount, what };
@@ -74,6 +80,8 @@ import { journalHtml } from './journalpage.js';
 import { MOOD_ART } from './moodart.js';
 import { loadGym, gymAction } from './gym.js';
 import { gymHtml } from './gympage.js';
+import { loadTrends, rewriteCoach } from './trends.js';
+import { trendsHtml } from './trendspage.js';
 import { loadQuests, loadQuest, loadReview, saveQuest, questAction, questAi, saveReview, isId } from './quests.js';
 import { questsHtml, questHtml, newQuestHtml, reviewHtml, questsErrorHtml } from './questspage.js';
 import { summaryDue, writeSummary, isSummaryHour } from './summary.js';
@@ -91,7 +99,7 @@ const PAGE_HEADERS = {
 };
 const redirect = (to, cookie) => new Response(null, { status: 303, headers: { Location: to, ...(cookie ? { 'Set-Cookie': cookie } : {}) } });
 // Where the login sends you back to: only the dashboard's own pages.
-const NEXT = new Set(['/', '/questlog', '/admin', '/journal', '/journal?desk=1', '/gym', '/quests', '/quests/new', '/quests/review']);
+const NEXT = new Set(['/', '/questlog', '/admin', '/journal', '/journal?desk=1', '/gym', '/trends', '/quests', '/quests/new', '/quests/review']);
 const nextPath = p => (NEXT.has(p) || /^\/quests\/[0-9a-f-]{32,36}$/i.test(p) ? p : '/');
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 
@@ -261,6 +269,20 @@ export default {
         } catch (e) {
           console.error('gym', e && e.stack || e);
           return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, e.code === 'bad_request' ? 400 : 500);
+        }
+      }
+      if (pathname === '/trends') {
+        if (!signedIn) return redirect('/login?next=/trends');
+        const trends = await loadTrends(env);
+        if (trends.error) return new Response(`Trends: ${trends.error}`, { status: 502, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
+        return new Response(trendsHtml(trends), { headers: PAGE_HEADERS });
+      }
+      if (pathname === '/trends/coach' && request.method === 'POST') {
+        if (!signedIn) return json({ ok: 0, code: 'signed_out' }, 401);
+        try { return json(await rewriteCoach(env)); }
+        catch (e) {
+          console.error('trends coach', e && e.stack || e);
+          return json({ ok: 0, code: e.code || 'server_error', message: String(e.message || e) }, 500);
         }
       }
       if (pathname === '/quests' || pathname.startsWith('/quests/')) {
