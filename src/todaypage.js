@@ -216,7 +216,7 @@ function questHtml(q) {
   const phase = q.phase >= 0 ? `<div><div class="phase" aria-label="Phase: ${PHASES[q.phase]}">${PHASES.map((_, i) => `<span${i <= q.phase ? ' class="on"' : ''}></span>`).join('')}</div>
       <div class="phase-labels" aria-hidden="true">${PHASES.map((p, i) => (i === q.phase ? `<b>${p}</b>` : `<span>${p}</span>`)).join('')}</div></div>` : '';
   const days = q.days_left !== null ? `<span class="days">${q.days_left >= 0 ? `${q.days_left} days to go` : `${-q.days_left} days past target`}</span>` : '';
-  const tag = q.url ? `a href="${esc(q.url)}" ${ext}` : 'article';
+  const tag = q.url ? `a href="${esc(q.url)}"${q.url.startsWith('/') ? '' : ` ${ext}`}` : 'article';
   return `<${tag} class="quest${['focus', 'spotlight'].includes(cls) ? ' focus' : ''}">
     <img src="${esc(q.image)}" alt="" loading="lazy" onerror="this.remove()">
     <div class="body">

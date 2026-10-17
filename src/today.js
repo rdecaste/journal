@@ -6,6 +6,7 @@
 // today's work location and whether the automations run. Read only.
 
 import { loadDashboard } from './load.js';
+import { isId } from './quests.js';
 import { cached, remember } from './cache.js';
 
 const CACHE_SECONDS = 300;
@@ -70,8 +71,8 @@ export function questsView(cards, today) {
     days_left: c.completedAt ? null : daysTo(c.targetDate),
     done: !!c.completedAt,
     image: `${CLOUD}/image/upload/c_fill,g_auto,w_640,h_360,f_auto,q_auto/Quest-Board/${c.id}`,
-    // The quest opens on the Quest Dashboard card (its Notion page is a frozen copy since 1 Oct 2026).
-    url: QUESTBOARD
+    // A tap opens the quest's own page (/quests/<id>, Roy 17 Oct 2026); the Quest Dashboard card if the id is odd.
+    url: isId(c.id) ? `/quests/${c.id}` : QUESTBOARD
   }));
 }
 
